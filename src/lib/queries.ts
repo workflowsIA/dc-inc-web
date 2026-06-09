@@ -52,6 +52,9 @@ export const productBySlugQuery = groq`
 /** Slugs de todos los productos — para generateStaticParams. */
 export const productSlugsQuery = groq`*[_type == "product" && defined(slug.current)][].slug.current`;
 
+/** Count total de productos activos. */
+export const productCountQuery = groq`count(*[_type == "product"])`;
+
 /** Productos destacados para la home. */
 export const featuredProductsQuery = groq`
   *[_type == "product" && "best" in badges] | order(_createdAt desc)[0...4] {

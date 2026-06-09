@@ -37,12 +37,15 @@ interface CsvRow {
   [key: string]: string;
 }
 
-/** El CSV trae varias URLs concatenadas con `;` — tomamos la primera. */
+/** El CSV trae varias URLs concatenadas con `;` — tomamos la primera.
+ *  Wix exporta solo el nombre de archivo (ej `22f60f_xxx~mv2.jpg`); le prependeamos
+ *  el dominio de Wix Media CDN. Si ya viene con http, se usa tal cual. */
 function firstImageUrl(s: string): string | undefined {
   if (!s) return undefined;
   const first = s.split(/[;|]/)[0].trim();
-  if (!first || !first.startsWith("http")) return undefined;
-  return first;
+  if (!first) return undefined;
+  if (first.startsWith("http")) return first;
+  return `https://static.wixstatic.com/media/${first}`;
 }
 
 function parseCsv(): CsvRow[] {

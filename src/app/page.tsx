@@ -18,6 +18,7 @@ import { isWholesale } from "@/lib/user";
 import {
   getFeaturedProducts,
   getProducts,
+  getProductCount,
   toLegacyProduct,
 } from "@/lib/sanity-data";
 import s from "./page.module.css";
@@ -52,6 +53,7 @@ const diffs = [
 
 export default async function Home() {
   const wholesale = await isWholesale();
+  const totalSkus = await getProductCount();
 
   // Featured: si hay productos con badge "best" en Sanity, usalos.
   // Sino, primeros 4 productos cualquiera. Sino, fallback al mock.
@@ -103,7 +105,7 @@ export default async function Home() {
                 <div className="l">clientes activos</div>
               </div>
               <div>
-                <div className="n">~300</div>
+                <div className="n">{totalSkus > 0 ? `${totalSkus}` : "~300"}</div>
                 <div className="l">SKUs en stock</div>
               </div>
               <div>

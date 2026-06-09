@@ -59,6 +59,14 @@ export async function getAllProductSlugs(): Promise<string[]> {
   return await sanityClient.fetch(productSlugsQuery);
 }
 
+export async function getProductCount(): Promise<number> {
+  try {
+    return await sanityClient.fetch(productCountQuery, {}, { next: { revalidate: 300 } });
+  } catch {
+    return 0;
+  }
+}
+
 export async function getFeaturedProducts(): Promise<SanityProduct[]> {
   return await sanityClient.fetch(featuredProductsQuery, {}, { next: { revalidate: 60 } });
 }
