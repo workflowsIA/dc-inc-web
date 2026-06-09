@@ -1,0 +1,36 @@
+/* Google Fonts — debe ir antes de cualquier otra regla CSS */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+@import "tailwindcss";
+
+/* DC Inc Design System — ported from Claude Design wireframes
+   Industrial B2B · mostaza + charcoal + blanco */
+@import "../styles/ds.css";
+
+/* Bridge: expose DS tokens to Tailwind v4 so we can use them in utility classes too */
+@theme inline {
+  --color-amber: #E8B53D;
+  --color-amber-deep: #D49E22;
+  --color-amber-soft: #FBF1D6;
+  --color-charcoal: #2A2A2C;
+  --color-charcoal-2: #38383B;
+  --color-ink: #1A1A1A;
+  --color-line: #E3E3DF;
+  --color-line-2: #D2D2CC;
+  --color-muted: #6E6E6B;
+  --color-muted-2: #9A9A96;
+  --color-bg-2: #F6F6F4;
+  --color-bg-3: #EDEDEA;
+  --color-wa: #25D366;
+  --color-wa-deep: #1EBE5A;
+  --color-ok: #16A34A;
+  --color-warn: #F59E0B;
+  --color-err: #DC2626;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Manrope', system-ui, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, monospace;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+}

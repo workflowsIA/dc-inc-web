@@ -1,0 +1,44 @@
+{
+  "name": "dc-inc-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "sanity:dev": "sanity dev --port 3333",
+    "sanity:deploy": "sanity deploy",
+    "migrate:wix": "tsx scripts/migrate-wix-to-sanity.ts"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "latest",
+    "@portabletext/react": "latest",
+    "@sanity/client": "latest",
+    "@sanity/image-url": "latest",
+    "@sanity/vision": "latest",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.17.0",
+    "next": "16.2.7",
+    "next-sanity": "latest",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "sanity": "latest",
+    "styled-components": "latest",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "csv-parse": "^5.6.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.7",
+    "tailwindcss": "^4",
+    "tsx": "^4.20.3",
+    "typescript": "^5"
+  }
+}
