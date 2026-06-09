@@ -11,7 +11,8 @@ import {
   Brush,
   CheckCircle2,
 } from "lucide-react";
-import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { UserButton } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 import { waSimpleURL, WA_NUMBER } from "@/lib/whatsapp";
 import CartCount from "./CartCount";
 
@@ -23,7 +24,9 @@ const NAV = [
   { href: "/blog", label: "Blog" },
 ];
 
-export default function Header() {
+export default async function Header() {
+  const { userId } = await auth();
+  const signedIn = !!userId;
   return (
     <header className="hdr">
       <div className="wrap hdr-top">
@@ -62,14 +65,13 @@ export default function Header() {
           >
             WhatsApp
           </a>
-          <SignedOut>
+          {signedIn ? (
+            <UserButton />
+          ) : (
             <Link className="icon-btn" href="/cuenta" aria-label="Ingresar">
               <User />
             </Link>
-          </SignedOut>
-          <SignedIn>
-            <UserButton afterSignOutUrl="/" />
-          </SignedIn>
+          )}
           <Link className="icon-btn" href="/carrito" aria-label="Carrito">
             <ShoppingCart />
             <CartCount />

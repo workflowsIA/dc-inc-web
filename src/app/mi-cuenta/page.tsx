@@ -31,7 +31,7 @@ export default async function MiCuentaPage() {
             {empresa} · <RoleBadge role={role} />
           </p>
         </div>
-        <UserButton afterSignOutUrl="/" />
+        <UserButton />
       </div>
 
       {role === "pending" && (
