@@ -11,6 +11,7 @@ import {
   Brush,
   CheckCircle2,
 } from "lucide-react";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { waSimpleURL, WA_NUMBER } from "@/lib/whatsapp";
 import CartCount from "./CartCount";
 
@@ -61,9 +62,14 @@ export default function Header() {
           >
             WhatsApp
           </a>
-          <Link className="icon-btn" href="/cuenta" aria-label="Mi cuenta">
-            <User />
-          </Link>
+          <SignedOut>
+            <Link className="icon-btn" href="/cuenta" aria-label="Ingresar">
+              <User />
+            </Link>
+          </SignedOut>
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
           <Link className="icon-btn" href="/carrito" aria-label="Carrito">
             <ShoppingCart />
             <CartCount />

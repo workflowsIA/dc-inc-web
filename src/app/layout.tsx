@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Manrope, Space_Mono } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import Header from "@/components/site/Header";
 import Footer from "@/components/site/Footer";
 import "./globals.css";
@@ -36,15 +37,28 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="es"
-      className={`${display.variable} ${body.variable} ${mono.variable}`}
+    <ClerkProvider
+      appearance={{
+        variables: {
+          colorPrimary: "#E8B53D",
+          colorText: "#1A1A1A",
+          colorTextSecondary: "#6E6E6B",
+          colorBackground: "#FFFFFF",
+          fontFamily: "var(--font-body)",
+          borderRadius: "10px",
+        },
+      }}
     >
-      <body>
-        <Header />
-        <main>{children}</main>
-        <Footer />
-      </body>
-    </html>
+      <html
+        lang="es"
+        className={`${display.variable} ${body.variable} ${mono.variable}`}
+      >
+        <body>
+          <Header />
+          <main>{children}</main>
+          <Footer />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

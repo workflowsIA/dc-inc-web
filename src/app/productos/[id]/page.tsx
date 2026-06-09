@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PRODUCTS, getProduct } from "@/data/products";
 import { ars } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
+import { isWholesale } from "@/lib/user";
 
 export function generateStaticParams() {
   return PRODUCTS.map((p) => ({ id: p.id }));
@@ -17,6 +18,8 @@ export default async function ProductPage({ params }: Props) {
   const { id } = await params;
   const product = getProduct(id);
   if (!product) notFound();
+  const wholesale = await isWholesale();
+  const price = wholesale ? product.may : product.pub;
 
   return (
     <div className="wrap" style={{ padding: "32px 24px 80px" }}>
@@ -70,8 +73,22 @@ export default async function ProductPage({ params }: Props) {
                 color: "var(--ink)",
               }}
             >
-              {ars(product.pub)}{" "}
+              {ars(price)}{" "}
               <span style={{ fontSize: "14px", color: "var(--muted)" }}>+ IVA</span>
+              {wholesale && (
+                <span
+                  style={{
+                    marginLeft: "10px",
+                    fontSize: "12px",
+                    background: "var(--amber-soft)",
+                    color: "var(--amber-deep)",
+                    padding: "4px 10px",
+                    borderRadius: "var(--r-sm)",
+                  }}
+                >
+                  Precio mayorista
+                </span>
+              )}
             </div>
             <div style={{ marginTop: "8px", fontSize: "14px", color: "var(--muted)" }}>
               Bulto cerrado: {product.bulto} u · Pallet: {product.pallet} u · Despacho{" "}

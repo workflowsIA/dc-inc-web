@@ -1,11 +1,13 @@
 import Link from "next/link";
 import ProductCard from "@/components/blocks/ProductCard";
 import { PRODUCTS, CATS, GLASS } from "@/data/products";
+import { isWholesale } from "@/lib/user";
 
 /** Catálogo. PLACEHOLDER de filtros funcionales: el wireframe los tiene en JS,
  *  acá los renderizo estáticos. Filtrado real se conecta con server actions
  *  en cuanto Sanity esté online. */
-export default function CatalogPage() {
+export default async function CatalogPage() {
+  const wholesale = await isWholesale();
   return (
     <div className="wrap" style={{ padding: "32px 24px 80px" }}>
       <div className="section-head">
@@ -74,7 +76,7 @@ export default function CatalogPage() {
         {/* GRILLA */}
         <div className="grid grid-3">
           {PRODUCTS.map((p) => (
-            <ProductCard key={p.id} product={p} />
+            <ProductCard key={p.id} product={p} wholesale={wholesale} />
           ))}
         </div>
       </div>

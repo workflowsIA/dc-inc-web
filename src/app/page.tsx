@@ -14,6 +14,7 @@ import ProductCard from "@/components/blocks/ProductCard";
 import { COMBOS, BRANDS, getProduct } from "@/data/products";
 import { ars } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
+import { isWholesale } from "@/lib/user";
 import s from "./page.module.css";
 
 const featuredIds = ["lata-473", "copa-pinta", "bot-am-355", "copa-gin"];
@@ -42,8 +43,9 @@ const diffs = [
   { Icon: Headphones, title: "Vendedor asignado", body: "Una persona que conoce tu cuenta y te responde por WhatsApp." },
 ];
 
-export default function Home() {
+export default async function Home() {
   const featured = featuredIds.map((id) => getProduct(id)).filter(Boolean);
+  const wholesale = await isWholesale();
 
   return (
     <>
@@ -211,7 +213,7 @@ export default function Home() {
           </div>
           <div className="grid grid-4">
             {featured.map((p) => (
-              <ProductCard key={p!.id} product={p!} />
+              <ProductCard key={p!.id} product={p!} wholesale={wholesale} />
             ))}
           </div>
         </div>
