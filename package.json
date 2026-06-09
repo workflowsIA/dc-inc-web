@@ -10,7 +10,8 @@
     "sanity:dev": "sanity dev --port 3333",
     "sanity:deploy": "sanity deploy",
     "migrate:wix": "tsx --env-file=.env.local scripts/migrate-wix-to-sanity.ts",
-    "migrate:images": "tsx --env-file=.env.local scripts/migrate-images-to-sanity.ts"
+    "migrate:images": "tsx --env-file=.env.local scripts/migrate-images-to-sanity.ts",
+    "stats:images": "tsx --env-file=.env.local scripts/image-stats.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "latest",
