@@ -2,12 +2,23 @@ import Link from "next/link";
 import ProductCard from "@/components/blocks/ProductCard";
 import { PRODUCTS, CATS, GLASS } from "@/data/products";
 import { isWholesale } from "@/lib/user";
+import { getProducts, toLegacyProduct } from "@/lib/sanity-data";
 
-/** Catálogo. PLACEHOLDER de filtros funcionales: el wireframe los tiene en JS,
- *  acá los renderizo estáticos. Filtrado real se conecta con server actions
- *  en cuanto Sanity esté online. */
+export const revalidate = 60;
+
+/** Catálogo. Productos de Sanity (323 SKUs migrados del Wix). Si Sanity
+ *  no responde por alguna razón, fallback al mock de 16 productos. */
 export default async function CatalogPage() {
   const wholesale = await isWholesale();
+  let products = PRODUCTS;
+  try {
+    const sanityProducts = await getProducts();
+    if (sanityProducts.length > 0) {
+      products = sanityProducts.map(toLegacyProduct);
+    }
+  } catch (e) {
+    console.error("[catalog] Sanity fetch failed, usando mock:", (e as Error).message);
+  }
   return (
     <div className="wrap" style={{ padding: "32px 24px 80px" }}>
       <div className="section-head">
@@ -75,7 +86,7 @@ export default async function CatalogPage() {
 
         {/* GRILLA */}
         <div className="grid grid-3">
-          {PRODUCTS.map((p) => (
+          {products.map((p) => (
             <ProductCard key={p.id} product={p} wholesale={wholesale} />
           ))}
         </div>

@@ -26,8 +26,10 @@ export interface Product {
   badges: Badge[];
   deco: boolean;
   specs: Record<string, string>;
-  /** key del packshot en /public/img/{img}.png */
+  /** key del packshot en /public/img/{img}.png (legacy mock) */
   img?: string;
+  /** URL absoluta del packshot (Sanity CDN) — usar si está */
+  imageUrl?: string;
 }
 
 const IMG_MAP: Record<string, string> = {

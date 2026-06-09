@@ -9,7 +9,8 @@
     "lint": "eslint",
     "sanity:dev": "sanity dev --port 3333",
     "sanity:deploy": "sanity deploy",
-    "migrate:wix": "tsx scripts/migrate-wix-to-sanity.ts"
+    "migrate:wix": "tsx --env-file=.env.local scripts/migrate-wix-to-sanity.ts",
+    "migrate:images": "tsx --env-file=.env.local scripts/migrate-images-to-sanity.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "latest",

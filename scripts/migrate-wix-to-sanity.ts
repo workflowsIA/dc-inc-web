@@ -1,101 +1,192 @@
 /**
- * Migración del catálogo Wix (feed.tsv + catalog_products.csv) → Sanity.
+ * Migración del catálogo Wix → Sanity.
  *
- * Uso (desde la raíz del repo, con .env.local configurado):
+ * Lee `wix-export/catalog_products.csv` (formato de export nativo de Wix Stores),
+ * filtra solo `fieldType=Product` (descarta variantes y filas vacías), normaliza
+ * precio y stock, y crea documentos `product` en Sanity.
+ *
+ * Uso:
  *   npm run migrate:wix -- --dry-run     # listado sin escribir
  *   npm run migrate:wix                  # escribe en Sanity
  *
- * Asume:
- *  - El feed Wix está en /Users/fede/Documents/Claude/Projects/DC INC/wix-export/feed.tsv
- *  - Las categorías existen ya en Sanity (corré primero el seed de categorías)
+ * PLACEHOLDERS:
+ *   - priceWholesale = pricePublic × 0.82 (regla -18% hasta que Marce confirme)
+ *   - unitsPerBulk = 1 (el CSV de Wix no trae bulto; hay que enriquecer manual)
+ *   - decoAvailable = true (default; algunos productos no aceptan decoración)
  */
 import { parse } from "csv-parse/sync";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { sanityWriteClient } from "../src/lib/sanity";
 
 const DRY_RUN = process.argv.includes("--dry-run");
-const FEED_PATH = process.env.WIX_FEED_PATH ??
-  "/Users/fede/Documents/Claude/Projects/DC INC/wix-export/feed.tsv";
+const CSV_PATH = process.env.WIX_CSV_PATH ??
+  "/Users/fede/Documents/Claude/Projects/DC INC/wix-export/catalog_products.csv";
 
-interface FeedRow {
-  id: string;
-  title: string;
+interface CsvRow {
+  handleId: string;
+  fieldType: string;
+  name: string;
   description: string;
-  link: string;
-  image_link: string;
-  availability: string;
+  productImageUrl: string;
+  collection: string;
+  sku: string;
+  ribbon: string;
   price: string;
-  product_type: string;
-  brand: string;
+  inventory: string;
+  visible: string;
   [key: string]: string;
 }
 
-function parseFeed(): FeedRow[] {
-  const content = readFileSync(FEED_PATH, "utf-8");
+/** El CSV trae varias URLs concatenadas con `;` — tomamos la primera. */
+function firstImageUrl(s: string): string | undefined {
+  if (!s) return undefined;
+  const first = s.split(/[;|]/)[0].trim();
+  if (!first || !first.startsWith("http")) return undefined;
+  return first;
+}
+
+function parseCsv(): CsvRow[] {
+  const content = readFileSync(CSV_PATH, "utf-8");
   return parse(content, {
     columns: true,
-    delimiter: "\t",
+    delimiter: ",",
+    quote: '"',
+    escape: '"',
+    relax_column_count: true,
     relax_quotes: true,
     skip_empty_lines: true,
-  });
+    bom: true,
+  }) as CsvRow[];
 }
 
-function priceToNumber(priceStr: string): number {
-  const m = priceStr.match(/[\d.,]+/);
-  if (!m) return 0;
-  return parseFloat(m[0].replace(/\./g, "").replace(",", "."));
+function priceToNumber(s: string): number {
+  if (!s) return 0;
+  // Wix CSV: formato US "1234.56" o "1,234.56". A veces solo entero.
+  const clean = s.replace(/[^\d.,-]/g, "");
+  // Si hay coma + punto: la coma es separador de miles → quitarla
+  if (clean.includes(",") && clean.includes(".")) {
+    return parseFloat(clean.replace(/,/g, ""));
+  }
+  // Si solo hay coma: probablemente decimal → reemplazar por punto
+  if (clean.includes(",") && !clean.includes(".")) {
+    return parseFloat(clean.replace(",", "."));
+  }
+  return parseFloat(clean) || 0;
 }
 
-function inferCategory(productType: string): string {
-  const lc = productType.toLowerCase();
-  if (lc.includes("botell")) return "botellas";
-  if (lc.includes("lata")) return "latas";
-  if (lc.includes("copa") || lc.includes("vaso") || lc.includes("pinta")) return "copas";
-  if (lc.includes("caja") || lc.includes("estuche")) return "cajas";
-  if (lc.includes("tapa")) return "tapas";
+function inferCategory(name: string, collection: string): string {
+  // Prioridad: el NOMBRE manda (la collection puede tener varios tags y confundir).
+  const n = name.toLowerCase();
+  // Tapas / tapones primero (sino "tapón" matchea como botella por collection).
+  if (n.includes("tapa") || n.includes("tapón") || n.includes("tapon")) return "tapas";
+  if (n.includes("precinto")) return "tapas";
+  if (n.includes("válvula") || n.includes("valvula")) return "valvulas";
+  if (n.includes("botellón") || n.includes("botellon") || n.includes("growler")) return "botellones";
+  if (n.includes("botella")) return "botellas";
+  if (n.includes("lata")) return "latas";
+  if (n.includes("copa") || n.includes("vaso") || n.includes("pinta") || n.includes("chopp")) return "copas";
+  if (n.includes("caja") || n.includes("estuche") || n.includes("valij")) return "cajas";
+  if (n.includes("decoración") || n.includes("impresión") || n.includes("serigraf")) return "decorado";
+  // Fallback a collection si el nombre no dice nada.
+  const c = collection.toLowerCase();
+  if (c.includes("tapa")) return "tapas";
+  if (c.includes("botella")) return "botellas";
+  if (c.includes("lata")) return "latas";
+  if (c.includes("copa") || c.includes("vaso")) return "copas";
   return "otros";
 }
 
+function inventoryToStock(inv: string): "ok" | "low" | "out" {
+  const n = parseInt(inv, 10);
+  if (isNaN(n)) return "ok";
+  if (n <= 0) return "out";
+  if (n < 50) return "low";
+  return "ok";
+}
+
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 96);
+}
+
 async function main() {
+  // Silenciar EPIPE cuando se hace `| head`
+  process.stdout.on("error", (e: NodeJS.ErrnoException) => {
+    if (e.code === "EPIPE") process.exit(0);
+  });
+
   console.log(`[migrate] DRY_RUN=${DRY_RUN}`);
-  console.log(`[migrate] reading feed from ${FEED_PATH}`);
-  const rows = parseFeed();
-  console.log(`[migrate] ${rows.length} filas en el feed`);
+  console.log(`[migrate] leyendo ${CSV_PATH}`);
+  const rows = parseCsv();
+  console.log(`[migrate] ${rows.length} filas totales en el CSV`);
+
+  // Solo productos principales (no variantes, no description-multilínea, no vacíos)
+  const products = rows.filter(
+    (r) => r.fieldType === "Product" && r.name && r.handleId,
+  );
+  console.log(`[migrate] ${products.length} productos principales (fieldType=Product)`);
 
   let created = 0;
-  for (const row of rows) {
+  let skipped = 0;
+
+  for (const row of products) {
     const pricePublic = priceToNumber(row.price);
-    // PLACEHOLDER: regla de precio mayorista hasta que Marce confirme — pongo -18%
+    if (pricePublic <= 0) {
+      skipped++;
+      console.log(`[skip] ${row.handleId} → ${row.name} (precio inválido: "${row.price}")`);
+      continue;
+    }
     const priceWholesale = Math.round(pricePublic * 0.82);
-    const slug = row.id.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const sku = row.sku?.trim() || row.handleId;
+    const slug = slugify(row.name);
+    const category = inferCategory(row.name, row.collection);
+    const stockLevel = inventoryToStock(row.inventory);
 
     const doc = {
       _type: "product",
-      _id: `product-${row.id}`,
-      sku: row.id,
-      name: row.title,
+      _id: `product-${row.handleId}`,
+      sku,
+      name: row.name.trim(),
       slug: { current: slug },
-      description: row.description,
+      description: row.description?.trim() || undefined,
       pricePublic,
       priceWholesale,
-      unitsPerBulk: 1, // PLACEHOLDER — el feed Wix no trae bulto, hay que enriquecer manual
+      unitsPerBulk: 1, // PLACEHOLDER
       deliveryTime: "24-48 hs",
-      stockLevel: row.availability === "in stock" ? "ok" : "low",
+      stockLevel,
       decoAvailable: true,
-      badges: [],
+      badges: [] as string[],
+      legacyImageUrl: firstImageUrl(row.productImageUrl),
+      // category y subtype quedan como strings hasta que se creen los docs de Category
+      _categoryHint: category,
     };
 
     if (DRY_RUN) {
-      console.log(`[DRY] ${doc.sku} → ${doc.name} → ${pricePublic} / ${priceWholesale}`);
+      console.log(
+        `[DRY] ${sku} → ${doc.name.slice(0, 40)} → pub ${pricePublic} / may ${priceWholesale} / stock ${stockLevel} / cat ${category}`,
+      );
     } else {
-      await sanityWriteClient.createOrReplace(doc);
-      created++;
-      if (created % 25 === 0) console.log(`[migrate] ${created}/${rows.length} cargados`);
+      try {
+        const { _categoryHint, ...sanityDoc } = doc;
+        await sanityWriteClient.createOrReplace(sanityDoc);
+        created++;
+        if (created % 25 === 0) {
+          console.log(`[migrate] ${created}/${products.length} subidos`);
+        }
+      } catch (e) {
+        console.error(`[error] ${sku}:`, (e as Error).message);
+      }
     }
   }
 
-  console.log(`[migrate] terminado. ${DRY_RUN ? rows.length + " filas (dry-run)" : created + " docs creados/actualizados"}`);
+  console.log(
+    `[migrate] terminado. ${DRY_RUN ? products.length + " filas (dry-run)" : created + " docs creados"}, ${skipped} salteados.`,
+  );
 }
 
 main().catch((e) => {

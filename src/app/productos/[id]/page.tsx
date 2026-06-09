@@ -1,13 +1,25 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PRODUCTS, getProduct } from "@/data/products";
+import { getProduct as getMockProduct } from "@/data/products";
+import {
+  getAllProductSlugs,
+  getProductBySlug,
+  toLegacyProduct,
+} from "@/lib/sanity-data";
 import { ars } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
 import { isWholesale } from "@/lib/user";
 
-export function generateStaticParams() {
-  return PRODUCTS.map((p) => ({ id: p.id }));
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  try {
+    const slugs = await getAllProductSlugs();
+    return slugs.map((slug) => ({ id: slug }));
+  } catch {
+    return [];
+  }
 }
 
 interface Props {
@@ -16,8 +28,18 @@ interface Props {
 
 export default async function ProductPage({ params }: Props) {
   const { id } = await params;
-  const product = getProduct(id);
+  // 1. Intentar Sanity por slug
+  let product = null;
+  try {
+    const sanity = await getProductBySlug(id);
+    if (sanity) product = toLegacyProduct(sanity);
+  } catch (e) {
+    console.error("[product page] Sanity fetch failed:", (e as Error).message);
+  }
+  // 2. Fallback al mock (para los 16 SKUs del wireframe original)
+  if (!product) product = getMockProduct(id) ?? null;
   if (!product) notFound();
+
   const wholesale = await isWholesale();
   const price = wholesale ? product.may : product.pub;
 
@@ -25,7 +47,22 @@ export default async function ProductPage({ params }: Props) {
     <div className="wrap" style={{ padding: "32px 24px 80px" }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
         <div>
-          {product.img ? (
+          {product.imageUrl ? (
+            <Image
+              src={product.imageUrl}
+              alt={product.name}
+              width={600}
+              height={600}
+              unoptimized
+              style={{
+                borderRadius: "var(--r-lg)",
+                border: "1px solid var(--line)",
+                background: "#fff",
+                width: "100%",
+                height: "auto",
+              }}
+            />
+          ) : product.img ? (
             <Image
               src={`/img/${product.img}.png`}
               alt={product.name}

@@ -15,7 +15,14 @@ import { COMBOS, BRANDS, getProduct } from "@/data/products";
 import { ars } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
 import { isWholesale } from "@/lib/user";
+import {
+  getFeaturedProducts,
+  getProducts,
+  toLegacyProduct,
+} from "@/lib/sanity-data";
 import s from "./page.module.css";
+
+export const revalidate = 60;
 
 const featuredIds = ["lata-473", "copa-pinta", "bot-am-355", "copa-gin"];
 
@@ -44,8 +51,27 @@ const diffs = [
 ];
 
 export default async function Home() {
-  const featured = featuredIds.map((id) => getProduct(id)).filter(Boolean);
   const wholesale = await isWholesale();
+
+  // Featured: si hay productos con badge "best" en Sanity, usalos.
+  // Sino, primeros 4 productos cualquiera. Sino, fallback al mock.
+  let featured: import("@/data/products").Product[] = [];
+  try {
+    const best = await getFeaturedProducts();
+    if (best.length > 0) {
+      featured = best.map(toLegacyProduct);
+    } else {
+      const all = await getProducts();
+      featured = all.slice(0, 4).map(toLegacyProduct);
+    }
+  } catch (e) {
+    console.error("[home] Sanity fetch failed, usando mock featured:", (e as Error).message);
+  }
+  if (featured.length === 0) {
+    featured = featuredIds
+      .map((id) => getProduct(id))
+      .filter((p): p is import("@/data/products").Product => !!p);
+  }
 
   return (
     <>

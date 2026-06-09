@@ -45,9 +45,16 @@ export default defineType({
     }),
     defineField({
       name: "images",
-      title: "Imágenes",
+      title: "Imágenes (Sanity assets)",
       type: "array",
       of: [{ type: "image", options: { hotspot: true } }],
+    }),
+    defineField({
+      name: "legacyImageUrl",
+      title: "URL legacy de imagen (Wix CDN)",
+      type: "url",
+      description:
+        "URL de Wix CDN usada temporalmente hasta migrar las imágenes al CDN de Sanity. Se reemplaza por `images` al correr el script `migrate-images-to-sanity`.",
     }),
     defineField({
       name: "pricePublic",

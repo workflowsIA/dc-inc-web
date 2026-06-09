@@ -34,7 +34,17 @@ export default function ProductCard({ product, wholesale = false }: Props) {
   return (
     <article className="pcard">
       <Link className="pcard-media" href={`/productos/${product.id}`}>
-        {product.img ? (
+        {product.imageUrl ? (
+          <Image
+            className="pcard-img"
+            src={product.imageUrl}
+            alt={product.name}
+            width={400}
+            height={400}
+            loading="lazy"
+            unoptimized
+          />
+        ) : product.img ? (
           <Image
             className="pcard-img"
             src={`/img/${product.img}.png`}
