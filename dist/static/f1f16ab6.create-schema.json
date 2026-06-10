@@ -1,0 +1,880 @@
+[
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "sku",
+        "type": "string",
+        "title": "SKU"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "name",
+        "type": "string",
+        "title": "Nombre"
+      },
+      {
+        "options": {
+          "source": "name",
+          "maxLength": 96
+        },
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "custom"
+              },
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "slug",
+        "type": "slug"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "to": [
+          {
+            "type": "category"
+          }
+        ],
+        "name": "category",
+        "type": "reference",
+        "title": "Categoría"
+      },
+      {
+        "to": [
+          {
+            "type": "subtype"
+          }
+        ],
+        "name": "subtype",
+        "type": "reference",
+        "title": "Subtipo"
+      },
+      {
+        "rows": 4,
+        "name": "description",
+        "type": "text",
+        "title": "Descripción"
+      },
+      {
+        "of": [
+          {
+            "options": {
+              "hotspot": true
+            },
+            "type": "image"
+          }
+        ],
+        "name": "images",
+        "type": "array",
+        "title": "Imágenes (Sanity assets)"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "uri",
+                "constraint": {
+                  "options": {
+                    "scheme": [
+                      "/^http$/",
+                      "/^https$/"
+                    ],
+                    "allowRelative": false,
+                    "relativeOnly": false,
+                    "allowCredentials": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "description": "URL de Wix CDN usada temporalmente hasta migrar las imágenes al CDN de Sanity. Se reemplaza por `images` al correr el script `migrate-images-to-sanity`.",
+        "name": "legacyImageUrl",
+        "type": "url",
+        "title": "URL legacy de imagen (Wix CDN)"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              },
+              {
+                "flag": "min",
+                "constraint": 0
+              }
+            ]
+          }
+        ],
+        "name": "pricePublic",
+        "type": "number",
+        "title": "Precio público (visitante)"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              },
+              {
+                "flag": "min",
+                "constraint": 0
+              }
+            ]
+          }
+        ],
+        "name": "priceWholesale",
+        "type": "number",
+        "title": "Precio mayorista"
+      },
+      {
+        "name": "pricePublicOld",
+        "type": "number",
+        "title": "Precio público anterior (mostrar tachado si está en promo)"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              },
+              {
+                "flag": "min",
+                "constraint": 0
+              }
+            ]
+          }
+        ],
+        "name": "unitsPerBulk",
+        "type": "number",
+        "title": "Unidades por bulto"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "min",
+                "constraint": 0
+              }
+            ]
+          }
+        ],
+        "name": "unitsPerPallet",
+        "type": "number",
+        "title": "Unidades por pallet"
+      },
+      {
+        "initialValue": "24-48 hs",
+        "name": "deliveryTime",
+        "type": "string",
+        "title": "Plazo de entrega"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "Disponible",
+              "value": "ok"
+            },
+            {
+              "title": "Stock limitado",
+              "value": "low"
+            },
+            {
+              "title": "Sin stock",
+              "value": "out"
+            }
+          ]
+        },
+        "initialValue": "ok",
+        "name": "stockLevel",
+        "type": "string",
+        "title": "Stock"
+      },
+      {
+        "description": "ID del item correspondiente en Monday — para sincronizar stock real. Se completa cuando llega el acceso a Monday.",
+        "name": "mondayItemId",
+        "type": "string",
+        "title": "Monday item ID (sync stock)"
+      },
+      {
+        "of": [
+          {
+            "options": {
+              "list": [
+                {
+                  "title": "Más vendido",
+                  "value": "best"
+                },
+                {
+                  "title": "Nuevo",
+                  "value": "new"
+                },
+                {
+                  "title": "Promo del mes",
+                  "value": "promo"
+                },
+                {
+                  "title": "Decorado bonificado",
+                  "value": "deco"
+                }
+              ]
+            },
+            "type": "string"
+          }
+        ],
+        "name": "badges",
+        "type": "array"
+      },
+      {
+        "initialValue": true,
+        "name": "decoAvailable",
+        "type": "boolean",
+        "title": "Decorado disponible"
+      },
+      {
+        "of": [
+          {
+            "fields": [
+              {
+                "name": "key",
+                "type": "string",
+                "title": "Atributo"
+              },
+              {
+                "name": "value",
+                "type": "string",
+                "title": "Valor"
+              }
+            ],
+            "type": "object"
+          }
+        ],
+        "name": "specs",
+        "type": "array",
+        "title": "Especificaciones técnicas"
+      }
+    ],
+    "name": "product",
+    "type": "document",
+    "title": "Producto"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "name",
+        "type": "string",
+        "title": "Nombre"
+      },
+      {
+        "options": {
+          "source": "name",
+          "maxLength": 96
+        },
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "custom"
+              },
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "slug",
+        "type": "slug"
+      },
+      {
+        "name": "order",
+        "type": "number",
+        "title": "Orden"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "name": "image",
+        "type": "image",
+        "title": "Imagen"
+      }
+    ],
+    "name": "category",
+    "type": "document",
+    "title": "Categoría"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "name",
+        "type": "string",
+        "title": "Nombre"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "Cristalería",
+              "value": "glass"
+            },
+            {
+              "title": "Envase",
+              "value": "container"
+            }
+          ]
+        },
+        "name": "scope",
+        "type": "string",
+        "title": "Aplicable a"
+      }
+    ],
+    "name": "subtype",
+    "type": "document",
+    "title": "Subtipo (tipo de cristalería / envase)"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "name",
+        "type": "string",
+        "title": "Nombre"
+      },
+      {
+        "options": {
+          "source": "name",
+          "maxLength": 96
+        },
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "custom"
+              },
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "slug",
+        "type": "slug"
+      },
+      {
+        "rows": 3,
+        "name": "description",
+        "type": "text",
+        "title": "Descripción"
+      },
+      {
+        "of": [
+          {
+            "to": [
+              {
+                "type": "product"
+              }
+            ],
+            "type": "reference",
+            "title": "Reference to producto"
+          }
+        ],
+        "name": "items",
+        "type": "array",
+        "title": "SKUs incluidos"
+      },
+      {
+        "name": "pricePublicFrom",
+        "type": "number",
+        "title": "Desde (público)"
+      },
+      {
+        "name": "pricePublicOld",
+        "type": "number",
+        "title": "Antes (mostrar tachado)"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "Más vendido",
+              "value": "Más vendido"
+            },
+            {
+              "title": "Promo del mes",
+              "value": "Promo del mes"
+            },
+            {
+              "title": "Decorado bonificado",
+              "value": "Decorado bonificado"
+            },
+            {
+              "title": "Nuevo",
+              "value": "Nuevo"
+            }
+          ]
+        },
+        "name": "badge",
+        "type": "string"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "name": "image",
+        "type": "image",
+        "title": "Imagen"
+      },
+      {
+        "initialValue": true,
+        "name": "active",
+        "type": "boolean",
+        "title": "Activo"
+      }
+    ],
+    "name": "combo",
+    "type": "document"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "name",
+        "type": "string",
+        "title": "Nombre"
+      },
+      {
+        "name": "logo",
+        "type": "image"
+      },
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "uri",
+                "constraint": {
+                  "options": {
+                    "scheme": [
+                      "/^http$/",
+                      "/^https$/"
+                    ],
+                    "allowRelative": false,
+                    "relativeOnly": false,
+                    "allowCredentials": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "name": "url",
+        "type": "url",
+        "title": "Link (opcional)"
+      },
+      {
+        "rows": 3,
+        "name": "testimonial",
+        "type": "text",
+        "title": "Testimonio (opcional)"
+      },
+      {
+        "name": "order",
+        "type": "number",
+        "title": "Orden"
+      },
+      {
+        "initialValue": true,
+        "name": "active",
+        "type": "boolean",
+        "title": "Activo"
+      }
+    ],
+    "name": "brand",
+    "type": "document",
+    "title": "Marca / Cliente vidriera"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "title",
+        "type": "string",
+        "title": "Título"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "Home",
+              "value": "home"
+            },
+            {
+              "title": "Banner promo en home",
+              "value": "home-promo"
+            },
+            {
+              "title": "Intra-catálogo (entre productos)",
+              "value": "catalog-inline"
+            }
+          ]
+        },
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "valid",
+                "constraint": [
+                  "home",
+                  "home-promo",
+                  "catalog-inline"
+                ]
+              },
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "placement",
+        "type": "string",
+        "title": "Dónde se muestra"
+      },
+      {
+        "rows": 2,
+        "name": "subtitle",
+        "type": "text",
+        "title": "Subtítulo"
+      },
+      {
+        "name": "ctaLabel",
+        "type": "string",
+        "title": "CTA label"
+      },
+      {
+        "name": "ctaHref",
+        "type": "string",
+        "title": "CTA link"
+      },
+      {
+        "name": "image",
+        "type": "image",
+        "title": "Imagen"
+      },
+      {
+        "initialValue": true,
+        "name": "active",
+        "type": "boolean",
+        "title": "Activo"
+      },
+      {
+        "name": "order",
+        "type": "number",
+        "title": "Orden"
+      }
+    ],
+    "name": "hero",
+    "type": "document",
+    "title": "Hero / Banner"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "title",
+        "type": "string",
+        "title": "Título"
+      },
+      {
+        "options": {
+          "source": "title",
+          "maxLength": 96
+        },
+        "validation": [
+          {
+            "level": "error",
+            "rules": [
+              {
+                "flag": "custom"
+              },
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ]
+          }
+        ],
+        "name": "slug",
+        "type": "slug"
+      },
+      {
+        "rows": 3,
+        "name": "excerpt",
+        "type": "text",
+        "title": "Resumen"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "name": "cover",
+        "type": "image",
+        "title": "Imagen"
+      },
+      {
+        "of": [
+          {
+            "lists": [
+              {
+                "value": "bullet",
+                "title": "Bulleted list"
+              },
+              {
+                "value": "number",
+                "title": "Numbered list"
+              }
+            ],
+            "marks": {
+              "annotations": [
+                {
+                  "i18nTitleKey": "inputs.portable-text.annotation.link",
+                  "options": {
+                    "modal": {
+                      "type": "popover"
+                    }
+                  },
+                  "fields": [
+                    {
+                      "validation": [
+                        {
+                          "level": "error",
+                          "rules": [
+                            {
+                              "flag": "uri",
+                              "constraint": {
+                                "options": {
+                                  "scheme": [
+                                    "/^http$/",
+                                    "/^https$/",
+                                    "/^tel$/",
+                                    "/^mailto$/"
+                                  ],
+                                  "allowRelative": true,
+                                  "relativeOnly": false,
+                                  "allowCredentials": false
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ],
+                      "description": "A valid web, email, phone, or relative link.",
+                      "name": "href",
+                      "type": "url",
+                      "title": "Link"
+                    }
+                  ],
+                  "name": "link",
+                  "type": "object"
+                }
+              ],
+              "decorators": [
+                {
+                  "value": "strong",
+                  "title": "Strong"
+                },
+                {
+                  "value": "em",
+                  "title": "Italic"
+                },
+                {
+                  "value": "code",
+                  "title": "Code"
+                },
+                {
+                  "value": "underline",
+                  "title": "Underline"
+                },
+                {
+                  "value": "strike-through",
+                  "title": "Strike"
+                }
+              ]
+            },
+            "of": [],
+            "styles": [
+              {
+                "value": "normal",
+                "title": "Normal"
+              },
+              {
+                "value": "h1",
+                "title": "Heading 1"
+              },
+              {
+                "value": "h2",
+                "title": "Heading 2"
+              },
+              {
+                "value": "h3",
+                "title": "Heading 3"
+              },
+              {
+                "value": "h4",
+                "title": "Heading 4"
+              },
+              {
+                "value": "h5",
+                "title": "Heading 5"
+              },
+              {
+                "value": "h6",
+                "title": "Heading 6"
+              },
+              {
+                "value": "blockquote",
+                "title": "Quote"
+              }
+            ],
+            "type": "block"
+          }
+        ],
+        "name": "body",
+        "type": "array",
+        "title": "Cuerpo"
+      },
+      {
+        "name": "publishedAt",
+        "type": "datetime",
+        "title": "Publicado"
+      },
+      {
+        "name": "category",
+        "type": "string",
+        "title": "Categoría"
+      }
+    ],
+    "name": "blogPost",
+    "type": "document",
+    "title": "Artículo blog"
+  }
+]
