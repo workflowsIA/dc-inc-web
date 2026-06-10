@@ -6,7 +6,10 @@
  */
 import SanityStudio from "@/components/SanityStudio";
 
-export const dynamic = "force-static";
+// force-dynamic (no force-static): el layout raíz renderiza <Header/>, que llama
+// auth() de Clerk. auth() requiere render dinámico con contexto de clerkMiddleware;
+// en static prerender (build) explota con "Clerk can't detect usage of clerkMiddleware()".
+export const dynamic = "force-dynamic";
 export { metadata, viewport } from "next-sanity/studio";
 
 export default function StudioPage() {
