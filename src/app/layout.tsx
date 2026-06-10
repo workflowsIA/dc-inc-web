@@ -3,6 +3,7 @@ import { Space_Grotesk, Manrope, Space_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import Header from "@/components/site/Header";
 import Footer from "@/components/site/Footer";
+import ChromeWrapper from "@/components/site/ChromeWrapper";
 import "./globals.css";
 
 const display = Space_Grotesk({
@@ -55,9 +56,9 @@ export default function RootLayout({
         className={`${display.variable} ${body.variable} ${mono.variable}`}
       >
         <body>
-          <Header />
-          <main>{children}</main>
-          <Footer />
+          <ChromeWrapper header={<Header />} footer={<Footer />}>
+            {children}
+          </ChromeWrapper>
         </body>
       </html>
     </ClerkProvider>

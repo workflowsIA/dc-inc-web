@@ -8,6 +8,7 @@ import {
   productsQuery,
   productBySlugQuery,
   productSlugsQuery,
+  productCountQuery,
   featuredProductsQuery,
   categoriesQuery,
   combosQuery,
