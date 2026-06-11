@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import Header from "@/components/site/Header";
 import Footer from "@/components/site/Footer";
 import ChromeWrapper from "@/components/site/ChromeWrapper";
+import MobileCartBar from "@/components/site/MobileCartBar";
 import "./globals.css";
 
 const display = Space_Grotesk({
@@ -27,11 +28,30 @@ const mono = Space_Mono({
   display: "swap",
 });
 
+const SITE_DESC =
+  "Botellas, latas, cajas y cristalería para cervecerías, destilerías, bares y bodegas. Stock real, envíos a todo el país y decorado propio.";
+
 export const metadata: Metadata = {
-  title: "DC Inc — Packaging y cristalería mayorista",
-  description:
-    "Botellas, latas, cajas y cristalería para cervecerías, destilerías, bares y bodegas. Stock real, envíos a todo el país y decorado propio.",
-  metadataBase: new URL("https://dcinc.com.ar"),
+  title: {
+    default: "DC Inc — Packaging y cristalería mayorista",
+    template: "%s · DC Inc",
+  },
+  description: SITE_DESC,
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://dcinc.com.ar",
+  ),
+  openGraph: {
+    type: "website",
+    locale: "es_AR",
+    siteName: "DC Inc",
+    title: "DC Inc — Packaging y cristalería mayorista",
+    description: SITE_DESC,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DC Inc — Packaging y cristalería mayorista",
+    description: SITE_DESC,
+  },
 };
 
 export default function RootLayout({
@@ -59,6 +79,7 @@ export default function RootLayout({
           <ChromeWrapper header={<Header />} footer={<Footer />}>
             {children}
           </ChromeWrapper>
+          <MobileCartBar />
         </body>
       </html>
     </ClerkProvider>

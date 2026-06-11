@@ -74,7 +74,7 @@ export default function ProductCard({ product, wholesale = false }: Props) {
           <Link href={`/productos/${product.id}`}>{product.name}</Link>
         </h3>
         <div className="pcard-specs">
-          <span>Bulto: {product.bulto} u</span>
+          {product.bulto > 1 && <span>Bulto: {product.bulto} u</span>}
           <span>{product.deli}</span>
           <span className={`stock ${stockClass}`}>{stockLabel}</span>
         </div>

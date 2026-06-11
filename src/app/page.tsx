@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import ProductCard from "@/components/blocks/ProductCard";
 import { COMBOS, BRANDS, getProduct } from "@/data/products";
+import type { Product } from "@/data/products";
 import { ars } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
 import { isWholesale } from "@/lib/user";
@@ -27,13 +28,23 @@ export const revalidate = 60;
 
 const featuredIds = ["lata-473", "copa-pinta", "bot-am-355", "copa-gin"];
 
-const categoryData: { name: string; count: string; img?: string }[] = [
-  { name: "Botellas", count: "142", img: "bottle-beer" },
-  { name: "Latas", count: "38", img: "can" },
-  { name: "Copas", count: "64", img: "pint" },
-  { name: "Cajas", count: "26", img: "box" },
-  { name: "Tapas", count: "22" },
-  { name: "Botellones", count: "8", img: "growler" },
+/** Packshot local por nombre de categoría real (de Sanity). Fallback: placeholder. */
+const CAT_IMG: Record<string, string> = {
+  Botellas: "bottle-beer",
+  Latas: "can",
+  "Copas y vasos": "pint",
+  "Cajas y estuches": "box",
+  Botellones: "growler",
+};
+
+// Fallback si Sanity no responde.
+const categoryDataFallback: { name: string; count: string; img?: string }[] = [
+  { name: "Botellas", count: "~140", img: "bottle-beer" },
+  { name: "Latas", count: "~38", img: "can" },
+  { name: "Copas y vasos", count: "~170", img: "pint" },
+  { name: "Cajas y estuches", count: "~26", img: "box" },
+  { name: "Tapas y precintos", count: "~36" },
+  { name: "Botellones", count: "~7", img: "growler" },
 ];
 
 const steps = [
@@ -55,25 +66,39 @@ export default async function Home() {
   const wholesale = await isWholesale();
   const totalSkus = await getProductCount();
 
-  // Featured: si hay productos con badge "best" en Sanity, usalos.
-  // Sino, primeros 4 productos cualquiera. Sino, fallback al mock.
-  let featured: import("@/data/products").Product[] = [];
+  // Una sola lectura del catálogo, reusada para featured + conteos de categoría.
+  let allLegacy: Product[] = [];
+  try {
+    const all = await getProducts();
+    allLegacy = all.map(toLegacyProduct);
+  } catch (e) {
+    console.error("[home] Sanity fetch failed:", (e as Error).message);
+  }
+
+  // Featured: badge "best" si hay, sino primeros 4, sino mock.
+  let featured: Product[] = [];
   try {
     const best = await getFeaturedProducts();
-    if (best.length > 0) {
-      featured = best.map(toLegacyProduct);
-    } else {
-      const all = await getProducts();
-      featured = all.slice(0, 4).map(toLegacyProduct);
-    }
+    if (best.length > 0) featured = best.map(toLegacyProduct);
   } catch (e) {
-    console.error("[home] Sanity fetch failed, usando mock featured:", (e as Error).message);
+    console.error("[home] featured fetch failed:", (e as Error).message);
   }
+  if (featured.length === 0) featured = allLegacy.slice(0, 4);
   if (featured.length === 0) {
     featured = featuredIds
       .map((id) => getProduct(id))
-      .filter((p): p is import("@/data/products").Product => !!p);
+      .filter((p): p is Product => !!p);
   }
+
+  // Tiles de categoría: nombres y conteos reales del catálogo (top 6, sin "Otros").
+  const catCounts: Record<string, number> = {};
+  for (const p of allLegacy) if (p.cat) catCounts[p.cat] = (catCounts[p.cat] ?? 0) + 1;
+  let cats: { name: string; count: string; img?: string }[] = Object.entries(catCounts)
+    .filter(([name]) => name && name !== "Otros")
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([name, count]) => ({ name, count: String(count), img: CAT_IMG[name] }));
+  if (cats.length === 0) cats = categoryDataFallback;
 
   return (
     <>
@@ -166,7 +191,7 @@ export default async function Home() {
             </Link>
           </div>
           <div className={s.cats}>
-            {categoryData.map((c) => (
+            {cats.map((c) => (
               <Link
                 key={c.name}
                 className={s.catTile}

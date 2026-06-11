@@ -2,7 +2,7 @@ import Link from "next/link";
 import { waSimpleURL } from "@/lib/whatsapp";
 
 export const metadata = {
-  title: "Nosotros · DC Inc",
+  title: "Nosotros",
   description:
     "DC Inc es distribuidor B2B de packaging y cristalería para bebidas en Argentina desde 2018. Botellas, latas, cajas, copas, vasos y decorado propio.",
 };

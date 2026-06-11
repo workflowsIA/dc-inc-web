@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { X } from "lucide-react";
 import ProductCard from "@/components/blocks/ProductCard";
 import { PRODUCTS } from "@/data/products";
 import type { Product } from "@/data/products";
@@ -56,6 +57,16 @@ export default async function CatalogPage({
   });
 
   const hasFilter = !!(q || cat || sub);
+
+  // URL con un filtro removido (preserva los otros)
+  const urlWithout = (drop: "q" | "cat" | "sub") => {
+    const p = new URLSearchParams();
+    if (q && drop !== "q") p.set("q", q);
+    if (cat && drop !== "cat") p.set("cat", cat);
+    if (sub && drop !== "sub") p.set("sub", sub);
+    const qs = p.toString();
+    return qs ? `/productos?${qs}` : "/productos";
+  };
 
   return (
     <div className="wrap" style={{ padding: "32px 24px 80px" }}>
@@ -141,32 +152,56 @@ export default async function CatalogPage({
           </div>
         </aside>
 
-        {/* GRILLA */}
-        {filtered.length > 0 ? (
-          <div className="grid grid-3">
-            {filtered.map((p) => (
-              <ProductCard key={p.id} product={p} wholesale={wholesale} />
-            ))}
-          </div>
-        ) : (
-          <div
-            style={{
-              padding: "48px 24px",
-              textAlign: "center",
-              color: "var(--muted)",
-              border: "1px dashed var(--line-2)",
-              borderRadius: "var(--r-lg)",
-              alignSelf: "start",
-            }}
-          >
-            <p style={{ fontWeight: 600, marginBottom: "8px" }}>
-              No encontramos productos con ese filtro.
-            </p>
-            <Link href="/productos" className="btn btn-ghost btn-sm" style={{ marginTop: "8px" }}>
-              Ver todo el catálogo
-            </Link>
-          </div>
-        )}
+        {/* CONTENIDO: chips de filtros activos + grilla */}
+        <div>
+          {hasFilter && (
+            <div className="chips" style={{ marginBottom: "20px" }}>
+              {q && (
+                <Link className="chip on" href={urlWithout("q")}>
+                  “{q}” <span className="chip-x"><X /></span>
+                </Link>
+              )}
+              {cat && (
+                <Link className="chip on" href={urlWithout("cat")}>
+                  {cat} <span className="chip-x"><X /></span>
+                </Link>
+              )}
+              {sub && (
+                <Link className="chip on" href={urlWithout("sub")}>
+                  {sub} <span className="chip-x"><X /></span>
+                </Link>
+              )}
+              <Link className="chip" href="/productos">
+                Limpiar todo
+              </Link>
+            </div>
+          )}
+
+          {filtered.length > 0 ? (
+            <div className="grid grid-3">
+              {filtered.map((p) => (
+                <ProductCard key={p.id} product={p} wholesale={wholesale} />
+              ))}
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: "48px 24px",
+                textAlign: "center",
+                color: "var(--muted)",
+                border: "1px dashed var(--line-2)",
+                borderRadius: "var(--r-lg)",
+              }}
+            >
+              <p style={{ fontWeight: 600, marginBottom: "8px" }}>
+                No encontramos productos con ese filtro.
+              </p>
+              <Link href="/productos" className="btn btn-ghost btn-sm" style={{ marginTop: "8px" }}>
+                Ver todo el catálogo
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -5,8 +6,10 @@ import { getProduct as getMockProduct } from "@/data/products";
 import {
   getAllProductSlugs,
   getProductBySlug,
+  getProducts,
   toLegacyProduct,
 } from "@/lib/sanity-data";
+import ProductCard from "@/components/blocks/ProductCard";
 import { ars } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
 import { isWholesale } from "@/lib/user";
@@ -27,6 +30,26 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  let product = null;
+  try {
+    const sanity = await getProductBySlug(id);
+    if (sanity) product = toLegacyProduct(sanity);
+  } catch {
+    // ignore
+  }
+  if (!product) product = getMockProduct(id) ?? null;
+  if (!product) return { title: "Producto no encontrado" };
+
+  const cat = product.sub ? `${product.cat} · ${product.sub}` : product.cat;
+  return {
+    title: product.name,
+    description: `${product.name} (${product.sku}) — ${cat}. Comprá al por mayor en DC Inc: stock real, factura A/B/E y envíos a todo el país.`,
+    alternates: { canonical: `/productos/${id}` },
+  };
+}
+
 export default async function ProductPage({ params }: Props) {
   const { id } = await params;
   // 1. Intentar Sanity por slug
@@ -43,6 +66,18 @@ export default async function ProductPage({ params }: Props) {
 
   const wholesale = await isWholesale();
   const price = wholesale ? product.may : product.pub;
+
+  // Productos relacionados: misma categoría, excluyendo el actual (máx 4).
+  // getProducts() es una sola query cacheada → sin costo extra en el build.
+  let related: typeof product[] = [];
+  try {
+    const all = (await getProducts()).map(toLegacyProduct);
+    related = all
+      .filter((p) => p.id !== product!.id && p.cat === product!.cat && p.cat !== "Otros")
+      .slice(0, 4);
+  } catch {
+    // sin relacionados
+  }
 
   return (
     <div className="wrap" style={{ padding: "32px 24px 80px" }}>
@@ -129,8 +164,9 @@ export default async function ProductPage({ params }: Props) {
               )}
             </div>
             <div style={{ marginTop: "8px", fontSize: "14px", color: "var(--muted)" }}>
-              Bulto cerrado: {product.bulto} u · Pallet: {product.pallet} u · Despacho{" "}
-              {product.deli}
+              {product.bulto > 1 && <>Bulto cerrado: {product.bulto} u · </>}
+              {product.pallet > 0 && <>Pallet: {product.pallet} u · </>}
+              Despacho {product.deli}
             </div>
           </div>
 
@@ -199,6 +235,19 @@ export default async function ProductPage({ params }: Props) {
           )}
         </div>
       </div>
+
+      {related.length > 0 && (
+        <section style={{ marginTop: "64px" }}>
+          <h2 className="h-md" style={{ fontSize: "22px", marginBottom: "20px" }}>
+            Productos relacionados
+          </h2>
+          <div className="grid grid-4">
+            {related.map((p) => (
+              <ProductCard key={p.id} product={p} wholesale={wholesale} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

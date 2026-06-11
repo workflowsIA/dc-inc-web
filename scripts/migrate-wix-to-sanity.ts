@@ -87,7 +87,27 @@ function inferCategory(name: string, collection: string): string {
   if (n.includes("botellón") || n.includes("botellon") || n.includes("growler")) return "botellones";
   if (n.includes("botella")) return "botellas";
   if (n.includes("lata")) return "latas";
-  if (n.includes("copa") || n.includes("vaso") || n.includes("pinta") || n.includes("chopp")) return "copas";
+  // Cristalería: cubre copa/copón, vaso, pinta, chop(p), jarra, decantador,
+  // chupito, balón, tulipa, cylinder y pilsner — la mayoría del catálogo.
+  if (
+    n.includes("copa") ||
+    n.includes("copon") ||
+    n.includes("copón") ||
+    n.includes("vaso") ||
+    n.includes("pinta") ||
+    n.includes("chop") ||
+    n.includes("jarra") ||
+    n.includes("decantador") ||
+    n.includes("chupito") ||
+    n.includes("balon") ||
+    n.includes("balón") ||
+    n.includes("tulipa") ||
+    n.includes("cylinder") ||
+    n.includes("cilindro") ||
+    n.includes("pilsner") ||
+    n.includes("pilsener")
+  )
+    return "copas";
   if (n.includes("caja") || n.includes("estuche") || n.includes("valij")) return "cajas";
   if (n.includes("decoración") || n.includes("impresión") || n.includes("serigraf")) return "decorado";
   // Fallback a collection si el nombre no dice nada.

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { waSimpleURL } from "@/lib/whatsapp";
 
 export const metadata = {
-  title: "Personalizá tu producto · Decorado y serigrafía · DC Inc",
+  title: "Personalizá tu producto · Decorado y serigrafía",
   description:
     "Decorado propio: serigrafía 1 color, 2 colores o full color, calcos y grabado. Poné tu marca en botellas, latas, copas y vasos. Cotizá por WhatsApp.",
 };

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Blog · Guías de packaging y cristalería · DC Inc",
+  title: "Blog · Guías de packaging y cristalería",
   description:
     "Guías técnicas sobre packaging para bebidas, tipos de vidrio, decorado y envío de cristalería. Próximamente.",
 };

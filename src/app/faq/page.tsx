@@ -2,7 +2,7 @@ import Link from "next/link";
 import { waSimpleURL } from "@/lib/whatsapp";
 
 export const metadata = {
-  title: "Preguntas frecuentes · DC Inc",
+  title: "Preguntas frecuentes",
   description:
     "Mínimo de compra, bulto cerrado, factura A/B/E, decorado, plazos, formas de pago y envíos. Todo lo que un mayorista necesita saber para comprar en DC Inc.",
 };

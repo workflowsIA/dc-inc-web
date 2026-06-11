@@ -2,7 +2,7 @@ import Link from "next/link";
 import { waSimpleURL } from "@/lib/whatsapp";
 
 export const metadata = {
-  title: "Cómo trabajamos · Logística y condiciones · DC Inc",
+  title: "Cómo trabajamos · Logística y condiciones",
   description:
     "Envíos a todo el país con transportes con convenio que se hacen cargo del vidrio. Mínimo $150.000 + IVA, factura A/B/E, stock real y plazos 24-48 hs.",
 };

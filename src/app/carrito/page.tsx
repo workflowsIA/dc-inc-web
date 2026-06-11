@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useCart } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
@@ -11,6 +12,8 @@ export default function CarritoPage() {
   const remove = useCart((s) => s.remove);
   const { user } = useUser();
   const wholesale = (user?.publicMetadata?.role as string | undefined) === "wholesale";
+  const [cp, setCp] = useState("");
+  const [shipMsg, setShipMsg] = useState(false);
 
   const t = totalsFor(items, wholesale);
 
@@ -115,6 +118,45 @@ export default function CarritoPage() {
               Incluye decorado — coordinamos arte por WhatsApp.
             </p>
           )}
+
+          {/* Envío — cálculo real llega en mes 2-3; por ahora deriva a WhatsApp */}
+          <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid var(--line)" }}>
+            <label style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
+              Calcular envío
+            </label>
+            <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+              <input
+                inputMode="numeric"
+                placeholder="Tu código postal"
+                value={cp}
+                onChange={(e) => {
+                  setCp(e.target.value);
+                  setShipMsg(false);
+                }}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: "10px 12px",
+                  border: "1px solid var(--line-2)",
+                  borderRadius: "var(--r-sm)",
+                  fontSize: "14px",
+                }}
+              />
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setShipMsg(cp.trim().length > 0)}
+              >
+                Calcular
+              </button>
+            </div>
+            {shipMsg && (
+              <p style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
+                Coordinamos el costo de envío por WhatsApp al confirmar el pedido,
+                según destino y volumen.
+              </p>
+            )}
+          </div>
+
           <a
             className="btn btn-wa btn-lg btn-block"
             style={{ marginTop: "20px" }}
