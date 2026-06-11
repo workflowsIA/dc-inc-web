@@ -10,10 +10,10 @@ import {
   toLegacyProduct,
 } from "@/lib/sanity-data";
 import ProductCard from "@/components/blocks/ProductCard";
-import { ars, plainText } from "@/lib/format";
+import { plainText } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
 import { isWholesale } from "@/lib/user";
-import { AddToCartBox } from "@/components/blocks/AddToCart";
+import ProductBuyBox from "@/components/blocks/ProductBuyBox";
 
 export const revalidate = 60;
 
@@ -132,63 +132,12 @@ export default async function ProductPage({ params }: Props) {
             </p>
           )}
 
-          <div
-            style={{
-              marginTop: "24px",
-              padding: "20px",
-              background: "var(--bg-2)",
-              borderRadius: "var(--r-lg)",
-            }}
-          >
-            <div style={{ fontSize: "12px", color: "var(--muted)" }}>Desde</div>
-            <div
-              style={{
-                fontFamily: "var(--display)",
-                fontSize: "32px",
-                fontWeight: 700,
-                color: "var(--ink)",
-              }}
-            >
-              {ars(price)}{" "}
-              <span style={{ fontSize: "14px", color: "var(--muted)" }}>+ IVA</span>
-              {wholesale && (
-                <span
-                  style={{
-                    marginLeft: "10px",
-                    fontSize: "12px",
-                    background: "var(--amber-soft)",
-                    color: "var(--amber-deep)",
-                    padding: "4px 10px",
-                    borderRadius: "var(--r-sm)",
-                  }}
-                >
-                  Precio mayorista
-                </span>
-              )}
-            </div>
-            <div style={{ marginTop: "8px", fontSize: "14px", color: "var(--muted)" }}>
-              Despacho {product.deli}
-            </div>
-          </div>
-
-          {/* PRESENTACIÓN — opciones reales del catálogo (Wix) */}
-          {(product.presentations?.length ?? 0) > 0 && (
-            <div style={{ marginTop: "20px" }}>
-              <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>
-                Presentación
-              </span>
-              <div className="chips" style={{ marginTop: "8px" }}>
-                {product.presentations!.map((p) => (
-                  <span key={p} className="chip">
-                    {p}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div style={{ marginTop: "20px" }}>
-            <AddToCartBox
+          <div style={{ marginTop: "24px" }}>
+            <ProductBuyBox
+              unitPrice={price}
+              wholesale={wholesale}
+              deli={product.deli}
+              presentations={product.presentations}
               product={{
                 id: product.id,
                 name: product.name,
