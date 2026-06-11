@@ -179,6 +179,8 @@ export default async function ProductPage({ params }: Props) {
                 pub: product.pub,
                 may: product.may,
                 bulto: product.bulto,
+                pallet: product.pallet,
+                imageUrl: product.imageUrl,
               }}
             />
           </div>

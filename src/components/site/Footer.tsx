@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { MessageCircle } from "lucide-react";
 import { waSimpleURL } from "@/lib/whatsapp";
 
 export default function Footer() {
@@ -12,7 +13,7 @@ export default function Footer() {
               <span className="logo">
                 <Image
                   className="logo-img"
-                  src="/img/logo-light.png"
+                  src="/img/logo-dark.png"
                   alt="DC Inc"
                   width={120}
                   height={36}
@@ -32,31 +33,32 @@ export default function Footer() {
             </p>
             <a
               className="btn btn-wa btn-sm"
-              style={{ marginTop: "18px" }}
+              style={{ marginTop: "18px", display: "inline-flex", alignItems: "center", gap: "8px" }}
               href={waSimpleURL()}
               target="_blank"
               rel="noopener"
             >
-              +54 9 11 6107 2310
+              <MessageCircle style={{ width: 16, height: 16 }} />
+              WhatsApp · 11 6107 2310
             </a>
           </div>
           <div>
             <h5>Productos</h5>
             <ul>
               <li>
-                <Link href="/productos?cat=Botellas">Botellas</Link>
+                <Link href="/categoria/botellas">Botellas</Link>
               </li>
               <li>
-                <Link href="/productos?cat=Latas">Latas</Link>
+                <Link href="/categoria/latas">Latas</Link>
               </li>
               <li>
-                <Link href="/productos?cat=Copas">Cristalería</Link>
+                <Link href="/categoria/copas-y-vasos">Cristalería</Link>
               </li>
               <li>
-                <Link href="/productos?cat=Cajas">Cajas y estuches</Link>
+                <Link href="/categoria/cajas-y-estuches">Cajas y estuches</Link>
               </li>
               <li>
-                <Link href="/productos?cat=Tapas">Tapas y accesorios</Link>
+                <Link href="/categoria/tapas-y-precintos">Tapas y accesorios</Link>
               </li>
             </ul>
           </div>

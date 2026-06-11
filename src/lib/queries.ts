@@ -43,7 +43,7 @@ export const productBySlugQuery = groq`
     badges,
     decoAvailable,
     specs,
-    "images": coalesce(images[].asset->url, [legacyImageUrl][!null]),
+    "image": coalesce(images[0].asset->url, legacyImageUrl),
     "category": category->name,
     "subtype": subtype->name
   }

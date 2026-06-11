@@ -75,6 +75,7 @@ export default function ProductCard({ product, wholesale = false }: Props) {
         </h3>
         <div className="pcard-specs">
           {product.bulto > 1 && <span>Bulto: {product.bulto} u</span>}
+          {product.pallet > 0 && <span>Pallet: {product.pallet} u</span>}
           <span>{product.deli}</span>
           <span className={`stock ${stockClass}`}>{stockLabel}</span>
         </div>
@@ -94,6 +95,8 @@ export default function ProductCard({ product, wholesale = false }: Props) {
               pub: product.pub,
               may: product.may,
               bulto: product.bulto,
+              pallet: product.pallet,
+              imageUrl: product.imageUrl,
             }}
           />
         </div>

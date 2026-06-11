@@ -11,5 +11,6 @@ export default function CartCount() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
   const count = mounted ? items.reduce((s, i) => s + i.qty, 0) : 0;
+  if (count <= 0) return null;
   return <span className="cart-count">{count}</span>;
 }

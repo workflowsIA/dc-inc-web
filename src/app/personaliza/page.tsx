@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { waSimpleURL } from "@/lib/whatsapp";
+import DecoradoForm from "@/components/blocks/DecoradoForm";
 
 export const metadata = {
   title: "Personalizá tu producto · Decorado y serigrafía",
@@ -56,14 +56,7 @@ export default function PersonalizaPage() {
         de producir.
       </p>
       <div style={{ marginTop: "24px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
-        <a
-          className="btn btn-wa btn-lg"
-          href={waSimpleURL(
-            "Hola DC Inc! Quiero cotizar un decorado. Producto base: ___ · Cantidad estimada: ___ · Tipo de decoración: ___"
-          )}
-          target="_blank"
-          rel="noopener"
-        >
+        <a className="btn btn-primary btn-lg" href="#cotizar">
           Cotizar mi decorado
         </a>
         <Link className="btn btn-ghost btn-lg" href="/productos">
@@ -132,35 +125,13 @@ export default function PersonalizaPage() {
         </p>
       </div>
 
-      {/* CTA FINAL */}
-      <div
-        className="card"
-        style={{
-          marginTop: "64px",
-          padding: "40px",
-          textAlign: "center",
-          display: "grid",
-          gap: "16px",
-          justifyItems: "center",
-        }}
-      >
-        <h2 className="h-md" style={{ fontSize: "24px", maxWidth: "22ch" }}>
-          Mandanos tu logo y lo cotizamos
+      {/* FORM DE COTIZACIÓN */}
+      <div style={{ marginTop: "64px" }} id="cotizar">
+        <span className="eyebrow">Pedí tu presupuesto</span>
+        <h2 className="h-md" style={{ marginTop: "12px", fontSize: "24px", marginBottom: "20px" }}>
+          Armá tu cotización de decorado
         </h2>
-        <p style={{ color: "var(--muted)", maxWidth: "48ch" }}>
-          Escribinos por WhatsApp con el producto base, la cantidad estimada y el
-          tipo de decoración. Te pasamos precio y coordinamos el arte.
-        </p>
-        <a
-          className="btn btn-wa btn-lg"
-          href={waSimpleURL(
-            "Hola DC Inc! Quiero cotizar un decorado. Producto base: ___ · Cantidad estimada: ___ · Tipo de decoración: ___"
-          )}
-          target="_blank"
-          rel="noopener"
-        >
-          Cotizar por WhatsApp
-        </a>
+        <DecoradoForm />
       </div>
     </div>
   );

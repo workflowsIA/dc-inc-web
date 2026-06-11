@@ -48,11 +48,42 @@ export default function CarritoPage() {
                 background: "#fff",
               }}
             >
-              <div>
-                <div style={{ fontWeight: 700 }}>{i.name}</div>
-                <div className="mono" style={{ fontSize: "12px", color: "var(--muted)" }}>
-                  {i.sku} · bulto {i.bulto} u
-                  {i.deco ? " · con decorado" : ""}
+              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                {i.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={i.imageUrl}
+                    alt={i.name}
+                    width={56}
+                    height={56}
+                    style={{
+                      width: "56px",
+                      height: "56px",
+                      objectFit: "contain",
+                      background: "#fff",
+                      border: "1px solid var(--line)",
+                      borderRadius: "var(--r-sm)",
+                      flex: "none",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: "56px",
+                      height: "56px",
+                      background: "var(--bg-2)",
+                      borderRadius: "var(--r-sm)",
+                      flex: "none",
+                    }}
+                  />
+                )}
+                <div>
+                  <div style={{ fontWeight: 700 }}>{i.name}</div>
+                  <div className="mono" style={{ fontSize: "12px", color: "var(--muted)" }}>
+                    {i.sku}
+                    {i.bulto > 1 ? ` · presentación ${i.bulto} u` : ""}
+                    {i.deco ? " · con decorado" : ""}
+                  </div>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>

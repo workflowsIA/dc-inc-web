@@ -12,6 +12,8 @@ export interface CartItem {
   pub: number; // precio público unitario
   may: number; // precio mayorista unitario
   bulto: number;
+  pallet?: number;
+  imageUrl?: string;
   qty: number;
   deco?: boolean;
 }
