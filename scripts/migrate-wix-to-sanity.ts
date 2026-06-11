@@ -165,8 +165,9 @@ async function main() {
       decoAvailable: true,
       badges: [] as string[],
       legacyImageUrl: firstImageUrl(row.productImageUrl),
-      // category y subtype quedan como strings hasta que se creen los docs de Category
-      _categoryHint: category,
+      // referencia a la categoría. Los docs de categoría los crea `categories:fix`
+      // (correr ese script al menos una vez para que `category->name` resuelva).
+      category: { _type: "reference", _ref: `category-${category}` },
     };
 
     if (DRY_RUN) {
@@ -175,8 +176,7 @@ async function main() {
       );
     } else {
       try {
-        const { _categoryHint, ...sanityDoc } = doc;
-        await sanityWriteClient.createOrReplace(sanityDoc);
+        await sanityWriteClient.createOrReplace(doc);
         created++;
         if (created % 25 === 0) {
           console.log(`[migrate] ${created}/${products.length} subidos`);

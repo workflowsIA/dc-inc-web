@@ -1,26 +1,20 @@
 "use client";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 import { useCart } from "@/lib/cart-store";
-import { getProduct } from "@/data/products";
 import { ars } from "@/lib/format";
-import { totalsFor, waOrderURL, type CartLine } from "@/lib/whatsapp";
+import { totalsFor, unitPrice, waOrderURL } from "@/lib/whatsapp";
 
 export default function CarritoPage() {
   const items = useCart((s) => s.items);
   const setQty = useCart((s) => s.setQty);
   const remove = useCart((s) => s.remove);
+  const { user } = useUser();
+  const wholesale = (user?.publicMetadata?.role as string | undefined) === "wholesale";
 
-  const lines: CartLine[] = items.flatMap((i) => {
-    const product = getProduct(i.id);
-    if (!product) return [];
-    const line: CartLine = { product, qty: i.qty };
-    if (i.deco) line.deco = true;
-    return [line];
-  });
+  const t = totalsFor(items, wholesale);
 
-  const t = totalsFor(lines);
-
-  if (lines.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="wrap" style={{ padding: "80px 24px", textAlign: "center" }}>
         <h1 className="h-lg">Tu carrito está vacío</h1>
@@ -40,9 +34,9 @@ export default function CarritoPage() {
 
       <div className="cart-layout">
         <div style={{ display: "grid", gap: "12px" }}>
-          {lines.map((l) => (
+          {items.map((i) => (
             <div
-              key={l.product.id}
+              key={i.id}
               className="cart-line"
               style={{
                 padding: "16px",
@@ -52,22 +46,20 @@ export default function CarritoPage() {
               }}
             >
               <div>
-                <div style={{ fontWeight: 700 }}>{l.product.name}</div>
+                <div style={{ fontWeight: 700 }}>{i.name}</div>
                 <div className="mono" style={{ fontSize: "12px", color: "var(--muted)" }}>
-                  {l.product.sku} · bulto {l.product.bulto} u
+                  {i.sku} · bulto {i.bulto} u
+                  {i.deco ? " · con decorado" : ""}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setQty(l.product.id, l.qty - 1)}
-                >
+                <button className="btn btn-ghost btn-sm" onClick={() => setQty(i.id, i.qty - 1)}>
                   −
                 </button>
                 <input
                   type="number"
-                  value={l.qty}
-                  onChange={(e) => setQty(l.product.id, parseInt(e.target.value || "1"))}
+                  value={i.qty}
+                  onChange={(e) => setQty(i.id, parseInt(e.target.value || "1"))}
                   style={{
                     width: "60px",
                     textAlign: "center",
@@ -76,16 +68,13 @@ export default function CarritoPage() {
                     borderRadius: "var(--r-sm)",
                   }}
                 />
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setQty(l.product.id, l.qty + 1)}
-                >
+                <button className="btn btn-ghost btn-sm" onClick={() => setQty(i.id, i.qty + 1)}>
                   +
                 </button>
               </div>
               <div className="cart-line-price" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <strong>{ars(l.product.pub * l.qty)}</strong>
-                <button className="btn btn-ghost btn-sm" onClick={() => remove(l.product.id)}>
+                <strong>{ars(unitPrice(i, wholesale) * i.qty)}</strong>
+                <button className="btn btn-ghost btn-sm" onClick={() => remove(i.id)}>
                   ✕
                 </button>
               </div>
@@ -108,14 +97,15 @@ export default function CarritoPage() {
           <h3 className="h-md" style={{ fontSize: "18px" }}>
             Resumen
           </h3>
+          {wholesale && (
+            <p style={{ marginTop: "6px", fontSize: "12px", color: "var(--amber-deep)", fontWeight: 700 }}>
+              Precios mayoristas aplicados
+            </p>
+          )}
           <dl style={{ marginTop: "16px", display: "grid", gap: "8px", fontSize: "14px" }}>
             <Row label="Subtotal" value={ars(t.sub)} />
             {t.rate > 0 && (
-              <Row
-                label={`Descuento volumen (${t.rate * 100}%)`}
-                value={`-${ars(t.disc)}`}
-                muted
-              />
+              <Row label={`Descuento volumen (${t.rate * 100}%)`} value={`-${ars(t.disc)}`} muted />
             )}
             <Row label="IVA 21%" value={ars(t.iva)} muted />
             <Row label="Total estimado" value={ars(t.total)} strong />
@@ -128,7 +118,7 @@ export default function CarritoPage() {
           <a
             className="btn btn-wa btn-lg btn-block"
             style={{ marginTop: "20px" }}
-            href={waOrderURL(lines)}
+            href={waOrderURL(items, wholesale)}
             target="_blank"
             rel="noopener"
           >

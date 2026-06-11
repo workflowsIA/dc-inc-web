@@ -10,6 +10,7 @@ import {
 import { ars } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
 import { isWholesale } from "@/lib/user";
+import { AddToCartBox } from "@/components/blocks/AddToCart";
 
 export const revalidate = 60;
 
@@ -133,7 +134,20 @@ export default async function ProductPage({ params }: Props) {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "12px", marginTop: "20px" }}>
+          <div style={{ marginTop: "20px" }}>
+            <AddToCartBox
+              product={{
+                id: product.id,
+                name: product.name,
+                sku: product.sku,
+                pub: product.pub,
+                may: product.may,
+                bulto: product.bulto,
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: "12px", marginTop: "16px", flexWrap: "wrap" }}>
             <a
               className="btn btn-wa btn-lg"
               href={waSimpleURL(`Hola DC Inc! Quiero cotizar ${product.name} (${product.sku}).`)}
@@ -147,38 +161,42 @@ export default async function ProductPage({ params }: Props) {
             </Link>
           </div>
 
-          <h3 className="h-md" style={{ fontSize: "18px", marginTop: "32px" }}>
-            Especificaciones técnicas
-          </h3>
-          <table style={{ width: "100%", marginTop: "12px", borderCollapse: "collapse" }}>
-            <tbody>
-              {Object.entries(product.specs).map(([k, v]) => (
-                <tr key={k}>
-                  <td
-                    style={{
-                      padding: "10px 0",
-                      borderBottom: "1px solid var(--line)",
-                      color: "var(--muted)",
-                      fontSize: "14px",
-                      width: "40%",
-                    }}
-                  >
-                    {k}
-                  </td>
-                  <td
-                    style={{
-                      padding: "10px 0",
-                      borderBottom: "1px solid var(--line)",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {v}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {Object.keys(product.specs).length > 0 && (
+            <>
+              <h3 className="h-md" style={{ fontSize: "18px", marginTop: "32px" }}>
+                Especificaciones técnicas
+              </h3>
+              <table style={{ width: "100%", marginTop: "12px", borderCollapse: "collapse" }}>
+                <tbody>
+                  {Object.entries(product.specs).map(([k, v]) => (
+                    <tr key={k}>
+                      <td
+                        style={{
+                          padding: "10px 0",
+                          borderBottom: "1px solid var(--line)",
+                          color: "var(--muted)",
+                          fontSize: "14px",
+                          width: "40%",
+                        }}
+                      >
+                        {k}
+                      </td>
+                      <td
+                        style={{
+                          padding: "10px 0",
+                          borderBottom: "1px solid var(--line)",
+                          fontSize: "14px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {v}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
         </div>
       </div>
     </div>

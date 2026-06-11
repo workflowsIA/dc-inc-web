@@ -4,7 +4,6 @@ import {
   Search,
   ShoppingCart,
   User,
-  Menu,
   Shield,
   Truck,
   Receipt,
@@ -15,6 +14,7 @@ import { UserButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
 import { waSimpleURL, WA_NUMBER } from "@/lib/whatsapp";
 import CartCount from "./CartCount";
+import MobileMenu from "./MobileMenu";
 
 const NAV = [
   { href: "/productos", label: "Productos" },
@@ -30,9 +30,7 @@ export default async function Header() {
   return (
     <header className="hdr">
       <div className="wrap hdr-top">
-        <button className="icon-btn hdr-burger" aria-label="Menú">
-          <Menu />
-        </button>
+        <MobileMenu />
         <Link href="/" aria-label="DC Inc — Inicio">
           <span className="logo">
             <Image
@@ -53,10 +51,10 @@ export default async function Header() {
           ))}
         </nav>
         <div className="hdr-actions">
-          <label className="search desktop-only">
+          <form className="search desktop-only" action="/productos">
             <Search />
-            <input placeholder="Buscar productos, categorías…" />
-          </label>
+            <input name="q" placeholder="Buscar productos, categorías…" />
+          </form>
           <a
             className="btn btn-wa btn-sm desktop-only"
             href={waSimpleURL()}

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Product, Badge } from "@/data/products";
 import { ars } from "@/lib/format";
+import { AddToCartIcon } from "./AddToCart";
 
 const BADGE_LABELS: Record<Badge, { cls: string; label: string }> = {
   best: { cls: "badge-best", label: "Más vendido" },
@@ -65,22 +66,36 @@ export default function ProductCard({ product, wholesale = false }: Props) {
         </div>
       </Link>
       <div className="pcard-body">
-        <span className="pcard-sub mono">{product.cat} · {product.sub}</span>
+        <span className="pcard-cat">
+          {product.cat}
+          {product.sub ? ` · ${product.sub}` : ""}
+        </span>
         <h3 className="pcard-title">
           <Link href={`/productos/${product.id}`}>{product.name}</Link>
         </h3>
-        <div className="pcard-meta">
+        <div className="pcard-specs">
           <span>Bulto: {product.bulto} u</span>
           <span>{product.deli}</span>
+          <span className={`stock ${stockClass}`}>{stockLabel}</span>
         </div>
         <div className="pcard-foot">
           <div className="pcard-price">
+            <span className="price-from">Desde</span>
             {product.oldPub && !wholesale && (
               <span className="price-old">{ars(product.oldPub)}</span>
             )}
-            <span className="price">Desde {ars(price)}</span>
+            <span className="price">{ars(price)}</span>
           </div>
-          <span className={`stock ${stockClass}`}>{stockLabel}</span>
+          <AddToCartIcon
+            product={{
+              id: product.id,
+              name: product.name,
+              sku: product.sku,
+              pub: product.pub,
+              may: product.may,
+              bulto: product.bulto,
+            }}
+          />
         </div>
       </div>
     </article>
