@@ -2,6 +2,8 @@ import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
 import { visionTool } from "@sanity/vision";
 import { schemaTypes } from "./sanity/schemas";
+import { structure } from "./sanity/structure";
+import { Dashboard } from "./sanity/Dashboard";
 
 // Nota: el studio standalone (sanity deploy → dc-inc.sanity.studio) se buildea
 // con Vite, que solo inyecta vars con prefijo SANITY_STUDIO_. Las NEXT_PUBLIC_
@@ -22,6 +24,10 @@ export default defineConfig({
   projectId,
   dataset,
   basePath: "/studio",
-  plugins: [structureTool(), visionTool()],
+  plugins: [structureTool({ structure }), visionTool()],
   schema: { types: schemaTypes },
+  tools: (prev) => [
+    { name: "dashboard", title: "Dashboard", component: Dashboard },
+    ...prev,
+  ],
 });

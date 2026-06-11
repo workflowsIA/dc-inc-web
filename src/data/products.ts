@@ -26,6 +26,8 @@ export interface Product {
   badges: Badge[];
   deco: boolean;
   specs: Record<string, string>;
+  /** opciones de presentación (ej: "24un en Cajas", "2025un en Pallet") */
+  presentations?: string[];
   /** descripción (texto limpio, puede traer saltos de línea) */
   description?: string;
   /** key del packshot en /public/img/{img}.png (legacy mock) */

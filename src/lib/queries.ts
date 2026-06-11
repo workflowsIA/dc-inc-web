@@ -13,6 +13,7 @@ export const productsQuery = groq`
     pricePublic,
     priceWholesale,
     pricePublicOld,
+    presentations,
     unitsPerBulk,
     unitsPerPallet,
     deliveryTime,
@@ -36,6 +37,7 @@ export const productBySlugQuery = groq`
     pricePublic,
     priceWholesale,
     pricePublicOld,
+    presentations,
     unitsPerBulk,
     unitsPerPallet,
     deliveryTime,
@@ -105,6 +107,7 @@ export interface SanityProduct {
   pricePublic: number;
   priceWholesale: number;
   pricePublicOld?: number;
+  presentations?: string[];
   unitsPerBulk: number;
   unitsPerPallet?: number;
   deliveryTime: string;

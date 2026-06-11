@@ -268,31 +268,42 @@
 }
 .diff {
   background: #fff;
-  padding: 26px;
+  padding: 30px 26px;
+  transition: background 0.18s ease;
+}
+.diff:hover {
+  background: var(--bg-2);
 }
 .diff .ico {
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
   background: var(--amber-soft);
   color: var(--amber-deep);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+.diff:hover .ico {
+  background: var(--amber);
+  color: var(--charcoal);
+  transform: translateY(-2px);
 }
 .diff .ico svg {
-  width: 23px;
-  height: 23px;
+  width: 24px;
+  height: 24px;
 }
 .diff h4 {
   font-size: 17px;
-  margin-bottom: 6px;
+  margin-bottom: 7px;
+  letter-spacing: -0.01em;
 }
 .diff p {
   font-size: 14px;
   color: var(--muted);
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 /* brands */

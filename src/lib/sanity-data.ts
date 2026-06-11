@@ -45,6 +45,7 @@ export function toLegacyProduct(p: SanityProduct): Product {
       {},
     ),
     description: p.description,
+    presentations: p.presentations,
     imageUrl: p.image,
   };
 }

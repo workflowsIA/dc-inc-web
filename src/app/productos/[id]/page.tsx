@@ -120,14 +120,17 @@ export default async function ProductPage({ params }: Props) {
         </div>
         <div>
           <span className="eyebrow">
-            {product.cat} · {product.sub}
+            {product.cat}
+            {product.sub ? ` · ${product.sub}` : ""}
           </span>
           <h1 className="h-lg" style={{ marginTop: "12px" }}>
             {product.name}
           </h1>
-          <p className="mono" style={{ color: "var(--muted)", marginTop: "8px" }}>
-            SKU: {product.sku}
-          </p>
+          {product.sku && !/^product[-_]/i.test(product.sku) && (
+            <p className="mono" style={{ color: "var(--muted)", marginTop: "8px" }}>
+              SKU: {product.sku}
+            </p>
+          )}
 
           <div
             style={{
@@ -164,11 +167,25 @@ export default async function ProductPage({ params }: Props) {
               )}
             </div>
             <div style={{ marginTop: "8px", fontSize: "14px", color: "var(--muted)" }}>
-              {product.bulto > 1 && <>Bulto cerrado: {product.bulto} u · </>}
-              {product.pallet > 0 && <>Pallet: {product.pallet} u · </>}
               Despacho {product.deli}
             </div>
           </div>
+
+          {/* PRESENTACIÓN — opciones reales del catálogo (Wix) */}
+          {(product.presentations?.length ?? 0) > 0 && (
+            <div style={{ marginTop: "20px" }}>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>
+                Presentación
+              </span>
+              <div className="chips" style={{ marginTop: "8px" }}>
+                {product.presentations!.map((p) => (
+                  <span key={p} className="chip">
+                    {p}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div style={{ marginTop: "20px" }}>
             <AddToCartBox

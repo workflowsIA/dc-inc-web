@@ -74,8 +74,14 @@ export default function ProductCard({ product, wholesale = false }: Props) {
           <Link href={`/productos/${product.id}`}>{product.name}</Link>
         </h3>
         <div className="pcard-specs">
-          {product.bulto > 1 && <span>Bulto: {product.bulto} u</span>}
-          {product.pallet > 0 && <span>Pallet: {product.pallet} u</span>}
+          {product.presentations?.length ? (
+            product.presentations.slice(0, 2).map((pr) => <span key={pr}>{pr}</span>)
+          ) : (
+            <>
+              {product.bulto > 1 && <span>Bulto: {product.bulto} u</span>}
+              {product.pallet > 0 && <span>Pallet: {product.pallet} u</span>}
+            </>
+          )}
           <span>{product.deli}</span>
           <span className={`stock ${stockClass}`}>{stockLabel}</span>
         </div>

@@ -74,6 +74,13 @@ export default defineType({
       type: "number",
     }),
     defineField({
+      name: "presentations",
+      title: "Presentaciones (ej: 24un en Cajas, 2025un en Pallet)",
+      type: "array",
+      of: [{ type: "string" }],
+      description: "Opciones de presentación que ve el cliente. Vienen del export de Wix.",
+    }),
+    defineField({
       name: "unitsPerBulk",
       title: "Unidades por bulto",
       type: "number",

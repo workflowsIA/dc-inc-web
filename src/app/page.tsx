@@ -369,7 +369,7 @@ export default async function Home() {
           <div className={s.diffs}>
             {diffs.map(({ Icon, title, body }) => (
               <div key={title} className={s.diff}>
-                <div className="ico">
+                <div className={s.ico}>
                   <Icon />
                 </div>
                 <h4>{title}</h4>

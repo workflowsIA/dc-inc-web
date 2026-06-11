@@ -32,8 +32,19 @@ interface CsvRow {
   description: string;
   collection: string;
   ribbon: string;
+  productOptionName1: string;
   productOptionDescription1: string;
   [key: string]: string;
+}
+
+/** Opciones de presentación, ej "24un en Cajas;2025un en Pallet" → array. */
+function parsePresentations(name1: string, desc1: string): string[] {
+  if (!desc1 || !/present/i.test(name1 || "")) return [];
+  return desc1
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 6);
 }
 
 // ---- categoría (para gatear el subtipo a cristalería) ----
@@ -166,6 +177,9 @@ async function main() {
         cov.sub++;
       }
     }
+
+    const presentations = parsePresentations(row.productOptionName1, row.productOptionDescription1);
+    if (presentations.length) set.presentations = presentations;
 
     const { bulto, pallet } = parseUnits(row.productOptionDescription1, row.description);
     if (bulto > 1) {
