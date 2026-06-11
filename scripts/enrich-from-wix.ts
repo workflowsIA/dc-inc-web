@@ -178,10 +178,19 @@ async function main() {
       }
     }
 
-    const presentations = parsePresentations(row.productOptionName1, row.productOptionDescription1);
+    const { bulto, pallet } = parseUnits(row.productOptionDescription1, row.description);
+
+    // Presentaciones: primero el campo estructurado de Wix; si está vacío,
+    // las derivamos del bulto/pallet parseado de la descripción.
+    let presentations = parsePresentations(row.productOptionName1, row.productOptionDescription1);
+    if (presentations.length === 0) {
+      const derived: string[] = [];
+      if (bulto > 1) derived.push(`Caja de ${bulto} u`);
+      if (pallet > 0) derived.push(`Pallet de ${pallet} u`);
+      presentations = derived;
+    }
     if (presentations.length) set.presentations = presentations;
 
-    const { bulto, pallet } = parseUnits(row.productOptionDescription1, row.description);
     if (bulto > 1) {
       set.unitsPerBulk = bulto;
       cov.bulto++;
