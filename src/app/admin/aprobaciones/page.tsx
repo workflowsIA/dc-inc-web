@@ -65,9 +65,10 @@ export default async function AprobacionesPage() {
         <div style={{ marginTop: "32px", display: "grid", gap: "12px" }}>
           {pending.map((u) => {
             const email = u.emailAddresses[0]?.emailAddress ?? "—";
+            // empresa/CUIT los carga el usuario en Mi cuenta → unsafeMetadata
             const empresa =
-              (u.publicMetadata?.empresa as string | undefined) ?? "—";
-            const cuit = (u.publicMetadata?.cuit as string | undefined) ?? "—";
+              (u.unsafeMetadata?.empresa as string | undefined) ?? "—";
+            const cuit = (u.unsafeMetadata?.cuit as string | undefined) ?? "—";
             return (
               <div
                 key={u.id}

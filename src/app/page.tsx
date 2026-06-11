@@ -16,6 +16,7 @@ import type { Product } from "@/data/products";
 import { ars } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
 import { isWholesale } from "@/lib/user";
+import { catSlug } from "@/lib/slug";
 import {
   getFeaturedProducts,
   getProducts,
@@ -195,7 +196,7 @@ export default async function Home() {
               <Link
                 key={c.name}
                 className={s.catTile}
-                href={`/productos?cat=${encodeURIComponent(c.name)}`}
+                href={`/categoria/${catSlug(c.name)}`}
               >
                 {c.img ? (
                   <Image

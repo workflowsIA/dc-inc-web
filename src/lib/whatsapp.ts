@@ -43,9 +43,9 @@ export function waSimpleURL(message?: string): string {
   return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(txt)}`;
 }
 
-export function waOrderURL(items: CartItem[], wholesale = false): string {
+function orderBody(items: CartItem[], wholesale: boolean): string {
   const t = totalsFor(items, wholesale);
-  let msg = "Hola DC Inc! Quiero cotizar este pedido:\n\n";
+  let msg = "";
   for (const i of items) {
     const sub = unitPrice(i, wholesale) * i.qty;
     msg += `• ${i.qty}× ${i.name}${i.deco ? " (+ decorado)" : ""} — ${ars(sub)}\n`;
@@ -54,6 +54,40 @@ export function waOrderURL(items: CartItem[], wholesale = false): string {
   if (t.rate > 0) msg += `\nDescuento volumen (${t.rate * 100}%): -${ars(t.disc)}`;
   msg += `\nIVA 21%: ${ars(t.iva)}\nTotal estimado: ${ars(t.total)}`;
   if (t.hasDeco) msg += "\n\nIncluye decorado — coordinar arte.";
-  msg += "\n\n(Enviado desde el carrito web)";
+  return msg;
+}
+
+export function waOrderURL(items: CartItem[], wholesale = false): string {
+  const msg =
+    "Hola DC Inc! Quiero cotizar este pedido:\n\n" +
+    orderBody(items, wholesale) +
+    "\n\n(Enviado desde el carrito web)";
+  return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
+}
+
+export interface CheckoutInfo {
+  nombre?: string;
+  empresa?: string;
+  email?: string;
+  telefono?: string;
+  cp?: string;
+  notas?: string;
+}
+
+export function waCheckoutURL(
+  items: CartItem[],
+  wholesale: boolean,
+  info: CheckoutInfo,
+): string {
+  let msg = "Hola DC Inc! Quiero confirmar este pedido:\n\n" + orderBody(items, wholesale);
+  const datos: string[] = [];
+  if (info.nombre) datos.push(`Nombre: ${info.nombre}`);
+  if (info.empresa) datos.push(`Empresa: ${info.empresa}`);
+  if (info.email) datos.push(`Email: ${info.email}`);
+  if (info.telefono) datos.push(`Tel: ${info.telefono}`);
+  if (info.cp) datos.push(`CP envío: ${info.cp}`);
+  if (datos.length) msg += "\n\nMis datos:\n" + datos.join("\n");
+  if (info.notas) msg += `\n\nNotas: ${info.notas}`;
+  msg += "\n\n(Enviado desde el checkout web)";
   return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
 }

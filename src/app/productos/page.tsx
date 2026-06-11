@@ -12,7 +12,10 @@ interface SearchParams {
   q?: string;
   cat?: string;
   sub?: string;
+  page?: string;
 }
+
+const PER_PAGE = 24;
 
 const norm = (s: string) =>
   s
@@ -27,7 +30,7 @@ export default async function CatalogPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { q, cat, sub } = await searchParams;
+  const { q, cat, sub, page: pageParam } = await searchParams;
   const wholesale = await isWholesale();
 
   let products: Product[] = PRODUCTS;
@@ -58,12 +61,28 @@ export default async function CatalogPage({
 
   const hasFilter = !!(q || cat || sub);
 
+  // Paginación
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const page = Math.min(Math.max(1, parseInt(pageParam || "1", 10) || 1), totalPages);
+  const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
   // URL con un filtro removido (preserva los otros)
   const urlWithout = (drop: "q" | "cat" | "sub") => {
     const p = new URLSearchParams();
     if (q && drop !== "q") p.set("q", q);
     if (cat && drop !== "cat") p.set("cat", cat);
     if (sub && drop !== "sub") p.set("sub", sub);
+    const qs = p.toString();
+    return qs ? `/productos?${qs}` : "/productos";
+  };
+
+  // URL a una página (preserva filtros)
+  const urlForPage = (n: number) => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (cat) p.set("cat", cat);
+    if (sub) p.set("sub", sub);
+    if (n > 1) p.set("page", String(n));
     const qs = p.toString();
     return qs ? `/productos?${qs}` : "/productos";
   };
@@ -178,11 +197,40 @@ export default async function CatalogPage({
           )}
 
           {filtered.length > 0 ? (
-            <div className="grid grid-3">
-              {filtered.map((p) => (
-                <ProductCard key={p.id} product={p} wholesale={wholesale} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-3">
+                {paged.map((p) => (
+                  <ProductCard key={p.id} product={p} wholesale={wholesale} />
+                ))}
+              </div>
+
+              {totalPages > 1 && (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexWrap: "wrap",
+                    marginTop: "40px",
+                  }}
+                >
+                  {page > 1 && (
+                    <Link className="btn btn-ghost btn-sm" href={urlForPage(page - 1)}>
+                      ← Anterior
+                    </Link>
+                  )}
+                  <span className="mono" style={{ fontSize: "13px", color: "var(--muted)" }}>
+                    Página {page} de {totalPages}
+                  </span>
+                  {page < totalPages && (
+                    <Link className="btn btn-ghost btn-sm" href={urlForPage(page + 1)}>
+                      Siguiente →
+                    </Link>
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <div
               style={{

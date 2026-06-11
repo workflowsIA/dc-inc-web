@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Search,
   ShoppingCart,
   User,
   Shield,
@@ -13,8 +12,10 @@ import {
 import { UserButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
 import { waSimpleURL, WA_NUMBER } from "@/lib/whatsapp";
+import { getProducts } from "@/lib/sanity-data";
 import CartCount from "./CartCount";
 import MobileMenu from "./MobileMenu";
+import SearchBox, { type SearchItem } from "./SearchBox";
 
 const NAV = [
   { href: "/productos", label: "Productos" },
@@ -27,6 +28,18 @@ const NAV = [
 export default async function Header() {
   const { userId } = await auth();
   const signedIn = !!userId;
+
+  // Índice liviano para el autocomplete (query cacheada, compartida con catálogo/home).
+  let searchItems: SearchItem[] = [];
+  try {
+    searchItems = (await getProducts()).map((p) => ({
+      name: p.name,
+      slug: p.slug || p._id,
+      cat: p.category ?? "",
+    }));
+  } catch {
+    // sin índice, el buscador igual envía a /productos?q=
+  }
   return (
     <header className="hdr">
       <div className="wrap hdr-top">
@@ -51,10 +64,7 @@ export default async function Header() {
           ))}
         </nav>
         <div className="hdr-actions">
-          <form className="search desktop-only" action="/productos">
-            <Search />
-            <input name="q" placeholder="Buscar productos, categorías…" />
-          </form>
+          <SearchBox items={searchItems} className="desktop-only" />
           <a
             className="btn btn-wa btn-sm desktop-only"
             href={waSimpleURL()}

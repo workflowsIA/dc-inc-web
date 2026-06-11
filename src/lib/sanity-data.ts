@@ -44,6 +44,7 @@ export function toLegacyProduct(p: SanityProduct): Product {
       (acc, s) => ({ ...acc, [s.key]: s.value }),
       {},
     ),
+    description: p.description,
     imageUrl: p.image,
   };
 }

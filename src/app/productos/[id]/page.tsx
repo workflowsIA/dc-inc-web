@@ -10,7 +10,7 @@ import {
   toLegacyProduct,
 } from "@/lib/sanity-data";
 import ProductCard from "@/components/blocks/ProductCard";
-import { ars } from "@/lib/format";
+import { ars, plainText } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
 import { isWholesale } from "@/lib/user";
 import { AddToCartBox } from "@/components/blocks/AddToCart";
@@ -196,6 +196,24 @@ export default async function ProductPage({ params }: Props) {
               ← Volver al catálogo
             </Link>
           </div>
+
+          {product.description && plainText(product.description) && (
+            <div style={{ marginTop: "32px" }}>
+              <h3 className="h-md" style={{ fontSize: "18px", marginBottom: "10px" }}>
+                Descripción
+              </h3>
+              <p
+                style={{
+                  whiteSpace: "pre-line",
+                  color: "var(--muted)",
+                  fontSize: "14px",
+                  lineHeight: 1.7,
+                }}
+              >
+                {plainText(product.description)}
+              </p>
+            </div>
+          )}
 
           {Object.keys(product.specs).length > 0 && (
             <>

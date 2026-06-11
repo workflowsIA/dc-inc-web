@@ -26,6 +26,8 @@ export interface Product {
   badges: Badge[];
   deco: boolean;
   specs: Record<string, string>;
+  /** descripción (texto limpio, puede traer saltos de línea) */
+  description?: string;
   /** key del packshot en /public/img/{img}.png (legacy mock) */
   img?: string;
   /** URL absoluta del packshot (Sanity CDN) — usar si está */

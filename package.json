@@ -13,6 +13,7 @@
     "migrate:images": "tsx --env-file=.env.local scripts/migrate-images-to-sanity.ts",
     "stats:images": "tsx --env-file=.env.local scripts/image-stats.ts",
     "categories:fix": "tsx --env-file=.env.local scripts/fix-categories.ts",
+    "enrich:wix": "tsx --env-file=.env.local scripts/enrich-from-wix.ts",
     "export:meta": "tsx --env-file=.env.local scripts/export-meta-catalog.ts"
   },
   "dependencies": {

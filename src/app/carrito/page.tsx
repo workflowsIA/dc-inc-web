@@ -157,14 +157,21 @@ export default function CarritoPage() {
             )}
           </div>
 
-          <a
-            className="btn btn-wa btn-lg btn-block"
+          <Link
+            className="btn btn-primary btn-lg btn-block"
             style={{ marginTop: "20px" }}
+            href="/checkout"
+          >
+            Continuar →
+          </Link>
+          <a
+            className="btn btn-wa btn-block"
+            style={{ marginTop: "10px" }}
             href={waOrderURL(items, wholesale)}
             target="_blank"
             rel="noopener"
           >
-            Cotizar por WhatsApp
+            O cotizá directo por WhatsApp
           </a>
         </aside>
       </div>
