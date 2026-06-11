@@ -71,11 +71,8 @@ export default async function AprobacionesPage() {
             return (
               <div
                 key={u.id}
+                className="approval-row"
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto",
-                  gap: "16px",
-                  alignItems: "center",
                   padding: "16px 20px",
                   background: "#fff",
                   border: "1px solid var(--line)",
@@ -91,7 +88,7 @@ export default async function AprobacionesPage() {
                     {new Date(u.createdAt).toLocaleDateString("es-AR")}
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: "8px" }}>
+                <div className="approval-actions" style={{ display: "flex", gap: "8px" }}>
                   <form action={approveWholesale}>
                     <input type="hidden" name="userId" value={u.id} />
                     <button className="btn btn-primary btn-sm" type="submit">

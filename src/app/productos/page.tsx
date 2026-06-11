@@ -33,16 +33,9 @@ export default async function CatalogPage() {
         </Link>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "240px 1fr",
-          gap: "32px",
-          alignItems: "start",
-        }}
-      >
+      <div className="catalog-layout">
         {/* SIDEBAR FILTROS — estáticos por ahora */}
-        <aside style={{ position: "sticky", top: "80px" }}>
+        <aside className="catalog-aside">
           <div
             style={{
               border: "1px solid var(--line)",

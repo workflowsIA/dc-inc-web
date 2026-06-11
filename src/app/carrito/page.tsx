@@ -38,16 +38,13 @@ export default function CarritoPage() {
     <div className="wrap" style={{ padding: "32px 24px 80px" }}>
       <h1 className="h-lg">Tu pedido</h1>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: "32px", marginTop: "32px" }}>
+      <div className="cart-layout">
         <div style={{ display: "grid", gap: "12px" }}>
           {lines.map((l) => (
             <div
               key={l.product.id}
+              className="cart-line"
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr auto auto",
-                gap: "16px",
-                alignItems: "center",
                 padding: "16px",
                 border: "1px solid var(--line)",
                 borderRadius: "var(--r)",
@@ -86,7 +83,7 @@ export default function CarritoPage() {
                   +
                 </button>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div className="cart-line-price" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <strong>{ars(l.product.pub * l.qty)}</strong>
                 <button className="btn btn-ghost btn-sm" onClick={() => remove(l.product.id)}>
                   ✕

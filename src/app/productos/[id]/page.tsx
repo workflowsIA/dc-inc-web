@@ -45,7 +45,7 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <div className="wrap" style={{ padding: "32px 24px 80px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
+      <div className="product-layout">
         <div>
           {product.imageUrl ? (
             <Image

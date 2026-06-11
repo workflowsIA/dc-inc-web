@@ -19,6 +19,8 @@ export default async function MiCuentaPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          gap: "16px",
+          flexWrap: "wrap",
           marginBottom: "32px",
         }}
       >
@@ -50,13 +52,7 @@ export default async function MiCuentaPage() {
         </div>
       )}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "16px",
-        }}
-      >
+      <div className="tiles-3">
         <Tile href="/productos" title="Ver catálogo" body="Explorá los 300 SKUs disponibles." />
         <Tile href="/carrito" title="Mi pedido en curso" body="Retomá donde lo dejaste." />
         <Tile href="/personaliza" title="Cotizar decorado" body="Serigrafía, calcos, grabado." />

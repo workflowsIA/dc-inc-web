@@ -413,3 +413,31 @@ textarea.input{ resize:vertical; min-height:96px; line-height:1.5; }
   .pcard-title{ font-size:15px; }
   .price{ font-size:19px; }
 }
+
+/* ============================================================
+   Page layouts — responsive (MVP mobile-first fix, 2026-06-11)
+   Reemplazan los grid-template-columns inline de las páginas
+   catálogo / ficha / carrito / mi-cuenta / admin.
+   ============================================================ */
+.catalog-layout{ display:grid; grid-template-columns:240px 1fr; gap:32px; align-items:start; }
+.catalog-aside{ position:sticky; top:80px; }
+.product-layout{ display:grid; grid-template-columns:1fr 1fr; gap:48px; }
+.cart-layout{ display:grid; grid-template-columns:1fr 360px; gap:32px; margin-top:32px; }
+.cart-line{ display:grid; grid-template-columns:1fr auto auto; gap:16px; align-items:center; }
+.tiles-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.approval-row{ display:grid; grid-template-columns:1fr auto; gap:16px; align-items:center; }
+
+@media(max-width:860px){
+  .catalog-layout{ grid-template-columns:1fr; }
+  .catalog-aside{ position:static; }
+  .product-layout{ grid-template-columns:1fr; gap:28px; }
+  .cart-layout{ grid-template-columns:1fr; }
+  .tiles-3{ grid-template-columns:repeat(2,1fr); }
+}
+@media(max-width:560px){
+  .cart-line{ grid-template-columns:1fr auto; row-gap:12px; }
+  .cart-line .cart-line-price{ grid-column:1 / -1; justify-content:space-between; }
+  .tiles-3{ grid-template-columns:1fr; }
+  .approval-row{ grid-template-columns:1fr; }
+  .approval-row .approval-actions{ justify-content:flex-start; }
+}

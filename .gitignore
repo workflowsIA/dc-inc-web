@@ -20,6 +20,9 @@
 # production
 /build
 
+# sanity standalone studio build output (se regenera con `sanity deploy`)
+/dist
+
 # misc
 .DS_Store
 *.pem
