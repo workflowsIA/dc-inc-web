@@ -132,6 +132,7 @@ function ribbonToBadges(ribbon: string): string[] {
 async function main() {
   console.log(`[enrich:wix] DRY_RUN=${DRY_RUN}`);
   const rows: CsvRow[] = parse(readFileSync(CSV_PATH), {
+    bom: true, // el CSV de Wix trae BOM → sin esto la 1ª columna (handleId) queda inaccesible
     columns: true,
     skip_empty_lines: true,
     relax_quotes: true,
