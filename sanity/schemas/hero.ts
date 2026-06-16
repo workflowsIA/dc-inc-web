@@ -1,10 +1,12 @@
 import { defineField, defineType } from "sanity";
+import { HomeIcon } from "@sanity/icons";
 
 /** Hero/banner editable desde Sanity (home + intra-catálogo). */
 export default defineType({
   name: "hero",
   title: "Hero / Banner",
   type: "document",
+  icon: HomeIcon,
   fields: [
     defineField({ name: "title", title: "Título", type: "string", validation: (r) => r.required() }),
     defineField({

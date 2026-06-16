@@ -34,6 +34,14 @@ export default function ProductCard({ product, wholesale = false }: Props) {
 
   return (
     <article className="pcard">
+      {/* overlay: toda la card lleva a la ficha */}
+      <Link
+        className="pcard-link"
+        href={`/productos/${product.id}`}
+        aria-label={product.name}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
       <Link className="pcard-media" href={`/productos/${product.id}`}>
         {product.imageUrl ? (
           <Image

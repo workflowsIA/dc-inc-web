@@ -15,8 +15,10 @@ export default function DefensaPage() {
 
       <div style={{ marginTop: "28px", display: "grid", gap: "22px", lineHeight: 1.7 }}>
         <p style={{ color: "var(--muted)", fontSize: "15px" }}>
-          En DC Inc SRL operamos en cumplimiento de la Ley 24.240 de Defensa del
-          Consumidor y normas complementarias. Si tenés un reclamo, escribinos a{" "}
+          En DC INC S.R.L. (CUIT 33-71690327-9, Responsable Inscripto, domicilio
+          fiscal Av. Álvarez Thomas 1171, Piso 1, Dpto B, CP 1427, CABA) operamos
+          en cumplimiento de la Ley 24.240 de Defensa del Consumidor y normas
+          complementarias. Si tenés un reclamo, escribinos a{" "}
           <a href="mailto:info@dcinc.com.ar" style={{ color: "var(--amber-deep)", fontWeight: 600 }}>
             info@dcinc.com.ar
           </a>{" "}

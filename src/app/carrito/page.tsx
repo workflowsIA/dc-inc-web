@@ -81,33 +81,54 @@ export default function CarritoPage() {
                   <div style={{ fontWeight: 700 }}>{i.name}</div>
                   <div className="mono" style={{ fontSize: "12px", color: "var(--muted)" }}>
                     {i.sku}
-                    {i.bulto > 1 ? ` · presentación ${i.bulto} u` : ""}
+                    {i.bulto > 1 ? ` · bulto ${i.bulto} u` : ""}
                     {i.deco ? " · con decorado" : ""}
                   </div>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => setQty(i.id, i.qty - 1)}>
-                  −
-                </button>
-                <input
-                  type="number"
-                  value={i.qty}
-                  onChange={(e) => setQty(i.id, parseInt(e.target.value || "1"))}
-                  style={{
-                    width: "60px",
-                    textAlign: "center",
-                    padding: "8px",
-                    border: "1px solid var(--line-2)",
-                    borderRadius: "var(--r-sm)",
-                  }}
-                />
-                <button className="btn btn-ghost btn-sm" onClick={() => setQty(i.id, i.qty + 1)}>
-                  +
-                </button>
-              </div>
+              {/* Venta por bulto cerrado: los ± y el input se mueven de a 1 bulto
+                  (= i.bulto unidades). La cantidad mostrada son BULTOS. */}
+              {(() => {
+                const step = i.bulto > 0 ? i.bulto : 1;
+                const bultos = Math.max(1, Math.round(i.qty / step));
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setQty(i.id, i.qty - step)}>
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      value={bultos}
+                      onChange={(e) => setQty(i.id, (parseInt(e.target.value || "1") || 1) * step)}
+                      aria-label={step > 1 ? "Cantidad de bultos" : "Cantidad"}
+                      style={{
+                        width: "60px",
+                        textAlign: "center",
+                        padding: "8px",
+                        border: "1px solid var(--line-2)",
+                        borderRadius: "var(--r-sm)",
+                      }}
+                    />
+                    <button className="btn btn-ghost btn-sm" onClick={() => setQty(i.id, i.qty + step)}>
+                      +
+                    </button>
+                  </div>
+                );
+              })()}
               <div className="cart-line-price" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <strong>{ars(unitPrice(i, wholesale) * i.qty)}</strong>
+                <div style={{ textAlign: "right" }}>
+                  <strong>{ars(unitPrice(i, wholesale) * i.qty)}</strong>
+                  {(() => {
+                    const step = i.bulto > 0 ? i.bulto : 1;
+                    const bultos = Math.max(1, Math.round(i.qty / step));
+                    return (
+                      <div style={{ fontSize: "12px", color: "var(--muted)" }}>
+                        {step > 1 ? `${bultos} ${bultos === 1 ? "bulto" : "bultos"} · ${i.qty} u` : `${i.qty} u`}
+                      </div>
+                    );
+                  })()}
+                </div>
                 <button className="btn btn-ghost btn-sm" onClick={() => remove(i.id)}>
                   ✕
                 </button>

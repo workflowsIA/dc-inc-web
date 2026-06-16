@@ -27,7 +27,7 @@ export default function NosotrosPage() {
       <div style={{ maxWidth: "62ch", display: "grid", gap: "18px" }}>
         <p className="lead">
           Desde 2018 abastecemos a quienes producen y venden bebidas en
-          Argentina: cervecerías artesanales, destilerías, bodegas, bares y
+          Argentina: cervecerías independientes, destilerías, bodegas, bares y
           fábricas. Botellas, latas, cajas, copas, vasos, botellones, tapas,
           accesorios y servicio de decorado propio.
         </p>

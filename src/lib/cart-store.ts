@@ -46,9 +46,17 @@ export const useCart = create<CartState>()(
           }
           return { items: [...s.items, { ...snapshot, qty, deco }] };
         }),
+      // Venta por bulto cerrado: la cantidad siempre es múltiplo del bulto.
+      // Snappeamos al múltiplo más cercano (mínimo 1 bulto) para que nunca
+      // queden unidades sueltas, sin importar de dónde venga el setQty.
       setQty: (id, qty) =>
         set((s) => ({
-          items: s.items.map((i) => (i.id === id ? { ...i, qty: Math.max(1, qty) } : i)),
+          items: s.items.map((i) => {
+            if (i.id !== id) return i;
+            const step = i.bulto > 0 ? i.bulto : 1;
+            const bultos = Math.max(1, Math.round(qty / step));
+            return { ...i, qty: bultos * step };
+          }),
         })),
       remove: (id) => set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
       clear: () => set({ items: [] }),

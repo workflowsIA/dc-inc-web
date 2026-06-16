@@ -1,6 +1,5 @@
 import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
-import { visionTool } from "@sanity/vision";
 import { schemaTypes } from "./sanity/schemas";
 import { structure } from "./sanity/structure";
 import { Dashboard } from "./sanity/Dashboard";
@@ -24,8 +23,11 @@ export default defineConfig({
   projectId,
   dataset,
   basePath: "/studio",
-  plugins: [structureTool({ structure }), visionTool()],
+  plugins: [structureTool({ structure })],
   schema: { types: schemaTypes },
+  // Deshabilitamos la feature de "Releases" (programación de publicaciones en
+  // lote) — no la usamos y solo agrega ruido para Marce.
+  releases: { enabled: false },
   tools: (prev) => [
     { name: "dashboard", title: "Dashboard", component: Dashboard },
     ...prev,

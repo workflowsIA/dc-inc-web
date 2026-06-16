@@ -1,9 +1,11 @@
 import { defineField, defineType } from "sanity";
+import { TrolleyIcon } from "@sanity/icons";
 
 export default defineType({
   name: "combo",
   title: "Combo",
   type: "document",
+  icon: TrolleyIcon,
   fields: [
     defineField({ name: "name", title: "Nombre", type: "string", validation: (r) => r.required() }),
     defineField({
@@ -38,5 +40,18 @@ export default defineType({
     defineField({ name: "image", title: "Imagen", type: "image", options: { hotspot: true } }),
     defineField({ name: "active", title: "Activo", type: "boolean", initialValue: true }),
   ],
-  preview: { select: { title: "name", subtitle: "badge", media: "image" } },
+  preview: {
+    select: { title: "name", badge: "badge", price: "pricePublicFrom", media: "image" },
+    prepare({ title, badge, price, media }) {
+      const parts = [
+        badge || null,
+        typeof price === "number" ? `desde $${price.toLocaleString("es-AR")}` : null,
+      ].filter(Boolean);
+      return {
+        title: title || "(Sin nombre)",
+        subtitle: parts.join(" · ") || undefined,
+        media: media || TrolleyIcon,
+      };
+    },
+  },
 });

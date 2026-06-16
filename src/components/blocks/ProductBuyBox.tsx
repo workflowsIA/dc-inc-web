@@ -32,7 +32,9 @@ export default function ProductBuyBox({ product, unitPrice, wholesale, deli, pre
   const [added, setAdded] = useState(false);
 
   const sel = hasPres ? presList[idx] : null;
-  const unitsPerSel = sel ? sel.units : 1;
+  // Venta por bulto cerrado: si no hay presentaciones explícitas, caemos al
+  // bulto real del producto (product.bulto) para no permitir unidades sueltas.
+  const unitsPerSel = sel ? sel.units : product.bulto > 0 ? product.bulto : 1;
   const unitsTotal = unitsPerSel * qty;
   const bultoPrice = unitPrice * unitsPerSel;
   const total = unitPrice * unitsTotal;
@@ -86,10 +88,10 @@ export default function ProductBuyBox({ product, unitPrice, wholesale, deli, pre
 
       {/* PRECIO PROMINENTE */}
       <div style={{ padding: "20px", background: "var(--bg-2)", borderRadius: "var(--r-lg)" }}>
-        {hasPres && unitsPerSel > 1 ? (
+        {unitsPerSel > 1 ? (
           <>
             <div style={{ fontSize: "12px", color: "var(--muted)" }}>
-              {sel!.label} ({unitsPerSel} u)
+              {sel ? `${sel.label} (${unitsPerSel} u)` : `Bulto cerrado (${unitsPerSel} u)`}
             </div>
             <div style={{ fontFamily: "var(--display)", fontSize: "32px", fontWeight: 700, color: "var(--ink)" }}>
               {ars(bultoPrice)} <span style={{ fontSize: "14px", color: "var(--muted)" }}>+ IVA</span>
@@ -115,7 +117,7 @@ export default function ProductBuyBox({ product, unitPrice, wholesale, deli, pre
       <div style={{ marginTop: "18px", display: "flex", gap: "12px", alignItems: "flex-end", flexWrap: "wrap" }}>
         <div>
           <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "6px" }}>
-            {hasPres && unitsPerSel > 1 ? "Cantidad de bultos" : "Cantidad"}
+            {unitsPerSel > 1 ? "Cantidad de bultos" : "Cantidad"}
           </span>
           <span className="qty">
             <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Menos">
@@ -145,7 +147,7 @@ export default function ProductBuyBox({ product, unitPrice, wholesale, deli, pre
         {added ? "✓ Agregado al carrito" : "Agregar al carrito"}
       </button>
 
-      {hasPres && unitsPerSel > 1 && (
+      {unitsPerSel > 1 && (
         <p style={{ marginTop: "10px", fontSize: "12px", color: "var(--muted)", textAlign: "center" }}>
           Venta mayorista por bulto cerrado.
         </p>

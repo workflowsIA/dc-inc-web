@@ -22,11 +22,11 @@ const DIFERENCIALES = [
   },
   {
     title: "Envíos a todo el país",
-    body: "Trabajamos con transportes con convenio que se hacen cargo del vidrio —algo que la mayoría no acepta— para que tu cristalería llegue entera.",
+    body: "Trabajamos con transportes con convenio que se hacen cargo del vidrio, para que tu mercadería llegue entera.",
   },
   {
     title: "Decorado propio",
-    body: "Serigrafía y decorado in-house: ponés tu marca en el producto sin intermediarios. Coordinamos arte y muestra por WhatsApp.",
+    body: "Decorado in-house: ponés tu marca en el producto sin intermediarios. Coordinamos arte y muestra por WhatsApp.",
   },
   {
     title: "Atención directa",
@@ -46,7 +46,7 @@ export default function LogisticaPage() {
         <div>
           <span className="eyebrow">Cómo trabajamos</span>
           <h1 className="h-lg" style={{ marginTop: "12px", maxWidth: "20ch" }}>
-            Logística pensada para el vidrio
+            Logística pensada para mercadería frágil
           </h1>
         </div>
         <Link className="btn btn-ghost" href="/productos">
@@ -55,8 +55,8 @@ export default function LogisticaPage() {
       </div>
 
       <p className="lead" style={{ maxWidth: "60ch" }}>
-        Mover cristalería no es como mover cualquier cosa. Por eso armamos una
-        operación que prioriza que el producto llegue entero y a tiempo, con
+        Mover mercadería frágil no es como mover cualquier cosa. Por eso armamos
+        una operación que prioriza que el producto llegue entero y a tiempo, con
         condiciones claras desde el primer pedido.
       </p>
 

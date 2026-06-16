@@ -3,15 +3,27 @@ import Link from "next/link";
 import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useCart } from "@/lib/cart-store";
+
+type ClerkUser = NonNullable<ReturnType<typeof useUser>["user"]>;
 import { ars } from "@/lib/format";
 import { totalsFor, unitPrice, waCheckoutURL, type CheckoutInfo } from "@/lib/whatsapp";
 
 export default function CheckoutPage() {
+  // Esperamos a que Clerk cargue al usuario antes de montar el formulario, así
+  // el prefill (Nombre/Email) se calcula con los datos del user ya disponibles.
+  const { user, isLoaded } = useUser();
+  if (!isLoaded) {
+    return <div className="wrap" style={{ padding: "80px 24px", textAlign: "center" }} />;
+  }
+  return <CheckoutForm user={user ?? null} />;
+}
+
+function CheckoutForm({ user }: { user: ClerkUser | null }) {
   const items = useCart((s) => s.items);
-  const { user } = useUser();
   const wholesale = (user?.publicMetadata?.role as string | undefined) === "wholesale";
   const md = (user?.unsafeMetadata ?? {}) as Record<string, string>;
 
+  // Logueado → prefilleamos Nombre y Email con los datos del user (editables).
   const [info, setInfo] = useState<CheckoutInfo>({
     nombre: user?.firstName ?? md.contacto ?? "",
     empresa: md.empresa ?? "",

@@ -13,9 +13,11 @@ export default function TerminosPage() {
 
       <div style={{ marginTop: "28px", display: "grid", gap: "22px", lineHeight: 1.7, color: "var(--ink)" }}>
         <Section title="1. Quiénes somos">
-          DC Inc SRL es un distribuidor mayorista de packaging y cristalería para
-          bebidas. Estos términos regulan el uso del sitio y la compra de
-          productos a través del mismo.
+          DC INC S.R.L. (CUIT 33-71690327-9, Responsable Inscripto, con domicilio
+          fiscal en Av. Álvarez Thomas 1171, Piso 1, Dpto B, CP 1427, CABA) es un
+          distribuidor mayorista de packaging y cristalería para bebidas. Estos
+          términos regulan el uso del sitio y la compra de productos a través del
+          mismo.
         </Section>
         <Section title="2. Operación mayorista">
           Las ventas son mayoristas, por bulto cerrado, con un pedido mínimo de

@@ -100,8 +100,8 @@ export default function Footer() {
         </div>
         <div className="ftr-bottom">
           <span>
-            © 2026 DC Inc SRL · CUIT XX-XXXXXXXX-X · Todos los derechos
-            reservados {/* PLACEHOLDER: CUIT real pendiente de Marce */}
+            © 2026 DC INC S.R.L. · CUIT 33-71690327-9 · Todos los derechos
+            reservados
           </span>
           <span className="tag-row">
             <Link href="/legales/terminos">Términos</Link> ·{" "}

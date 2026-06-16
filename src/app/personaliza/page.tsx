@@ -31,8 +31,8 @@ const TIPOS = [
 ];
 
 const PROCESO = [
-  { n: 1, title: "Cotización", body: "Nos contás qué producto, cantidad y tipo de decoración querés." },
-  { n: 2, title: "Arte", body: "Recibimos tu logo o diseño y lo adaptamos a la técnica elegida." },
+  { n: 1, title: "Cotización", body: "Nos contás qué producto, cantidad y técnica de decorado querés." },
+  { n: 2, title: "Arte", body: "Recibimos tu logo o diseño definitivo y lo adaptamos a la técnica elegida." },
   { n: 3, title: "Muestra", body: "Te enviamos una muestra para aprobar antes de producir." },
   { n: 4, title: "Producción", body: "Producimos la tirada completa con tu marca." },
   { n: 5, title: "Entrega", body: "Coordinamos el despacho a todo el país." },
@@ -65,6 +65,7 @@ export default function PersonalizaPage() {
       </div>
 
       {/* TIPOS DE DECORACIÓN */}
+      {/* TODO: Marce va a redefinir las técnicas disponibles */}
       <div style={{ marginTop: "64px" }}>
         <span className="eyebrow">Técnicas disponibles</span>
         <h2 className="h-md" style={{ marginTop: "12px", fontSize: "24px" }}>

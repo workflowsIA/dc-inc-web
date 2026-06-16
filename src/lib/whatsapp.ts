@@ -48,7 +48,13 @@ function orderBody(items: CartItem[], wholesale: boolean): string {
   let msg = "";
   for (const i of items) {
     const sub = unitPrice(i, wholesale) * i.qty;
-    msg += `• ${i.qty}× ${i.name}${i.deco ? " (+ decorado)" : ""} — ${ars(sub)}\n`;
+    // Venta por bulto cerrado: expresamos bultos (y unidades totales) en vez
+    // de unidades sueltas, coherente con lo que muestra el carrito.
+    const step = i.bulto > 0 ? i.bulto : 1;
+    const bultos = Math.max(1, Math.round(i.qty / step));
+    const qtyLabel =
+      step > 1 ? `${bultos} ${bultos === 1 ? "bulto" : "bultos"} (${i.qty} u)` : `${i.qty} u`;
+    msg += `• ${qtyLabel} — ${i.name}${i.deco ? " (+ decorado)" : ""} — ${ars(sub)}\n`;
   }
   msg += `\nSubtotal: ${ars(t.sub)}`;
   if (t.rate > 0) msg += `\nDescuento volumen (${t.rate * 100}%): -${ars(t.disc)}`;

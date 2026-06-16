@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Manrope, Space_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { esES } from "@clerk/localizations";
 import Header from "@/components/site/Header";
 import Footer from "@/components/site/Footer";
 import ChromeWrapper from "@/components/site/ChromeWrapper";
@@ -59,6 +60,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ClerkProvider
+      localization={esES}
       afterSignOutUrl="/"
       appearance={{
         variables: {

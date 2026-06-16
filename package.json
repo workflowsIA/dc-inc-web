@@ -17,6 +17,7 @@
     "export:meta": "tsx --env-file=.env.local scripts/export-meta-catalog.ts"
   },
   "dependencies": {
+    "@clerk/localizations": "^4.8.2",
     "@clerk/nextjs": "^7.4.3",
     "@portabletext/react": "^6.2.0",
     "@sanity/client": "^7.22.1",

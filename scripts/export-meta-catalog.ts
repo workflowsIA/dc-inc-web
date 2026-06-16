@@ -56,6 +56,27 @@ function csvEscape(v: string | number | undefined | null): string {
   return s;
 }
 
+/**
+ * Strips HTML tags and decodes basic HTML entities. Meta Catalog / WhatsApp
+ * Catalog NO renderizan HTML — toman las descripciones como texto plano, así que
+ * los tags se ven literales en el cliente. Limpiamos antes de exportar.
+ */
+function stripHtml(s: string): string {
+  return s
+    .replace(/<\s*br\s*\/?>/gi, "\n")        // <br> → newline
+    .replace(/<\/\s*p\s*>/gi, "\n")           // </p> → newline
+    .replace(/<\s*p[^>]*>/gi, "")             // <p ...> → nada
+    .replace(/<[^>]+>/g, "")                  // resto de tags → nada
+    .replace(/&nbsp;/g, " ")                  // espacios no separables
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, "\n\n")               // colapsa newlines extra
+    .trim();
+}
+
 function availability(level?: string): string {
   if (level === "out") return "out of stock";
   return "in stock"; // ok / low / undefined → in stock (Meta no tiene "low")
@@ -111,7 +132,8 @@ async function main() {
       continue;
     }
     const title = r.name.slice(0, 150);
-    const desc = (r.description || `${r.category || ""} ${r.subtype || ""} — ${r.name}`.trim()).slice(0, 9999);
+    const rawDesc = r.description || `${r.category || ""} ${r.subtype || ""} — ${r.name}`.trim();
+    const desc = stripHtml(rawDesc).slice(0, 9999);
     const extras = (r.extraImages || []).filter(Boolean).slice(0, 9).join(",");
     const row = [
       r.sku, // id
