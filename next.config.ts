@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { productRedirects } from "./src/data/product-redirects";
 
 const nextConfig: NextConfig = {
   images: {
@@ -56,11 +57,18 @@ const nextConfig: NextConfig = {
       { source: "/book-online", destination: "/", permanent: true },
       { source: "/fullscreen-page-1", destination: "/", permanent: true },
 
-      // --- Fichas de producto viejas de Wix ---
-      // Los slugs viejos NO coinciden con los nuevos y no tenemos el mapeo
-      // nombre↔slug, así que mandamos todo el catch-all a /productos.
-      // TODO: si más adelante conseguimos el mapeo viejo→nuevo, refinar a
-      // redirects por-producto (/product-page/<viejo> → /productos/<nuevo>).
+      // --- Fichas de producto viejas de Wix (1:1) ---
+      // Mapeo viejo→nuevo generado cruzando los sitemaps de Wix y del sitio
+      // nuevo (ver src/data/product-redirects.ts). Estas reglas específicas
+      // van ANTES del catch-all para que matcheen primero.
+      ...productRedirects.map(({ old, new: nuevo }) => ({
+        source: `/product-page/${old}`,
+        destination: `/productos/${nuevo}`,
+        permanent: true,
+      })),
+
+      // Catch-all: cualquier ficha vieja sin match 1:1 cae al listado general
+      // (evita 404). DEBE quedar al final.
       { source: "/product-page/:slug*", destination: "/productos", permanent: true },
     ];
   },

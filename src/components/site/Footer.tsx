@@ -54,8 +54,10 @@ export default function Footer() {
               <li>
                 <Link href="/categoria/copas-y-vasos">Cristalería</Link>
               </li>
+              {/* "Cajas y estuches" no existe como categoría en el catálogo
+                  → linkeamos al catálogo completo en vez de a un slug roto. */}
               <li>
-                <Link href="/categoria/cajas-y-estuches">Cajas y estuches</Link>
+                <Link href="/productos">Cajas y estuches</Link>
               </li>
               <li>
                 <Link href="/categoria/tapas-y-precintos">Tapas y accesorios</Link>

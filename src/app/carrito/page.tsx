@@ -11,7 +11,8 @@ export default function CarritoPage() {
   const setQty = useCart((s) => s.setQty);
   const remove = useCart((s) => s.remove);
   const { user } = useUser();
-  const wholesale = (user?.publicMetadata?.role as string | undefined) === "wholesale";
+  const role = user?.publicMetadata?.role as string | undefined;
+  const wholesale = role === "wholesale" || role === "admin";
   const [cp, setCp] = useState("");
   const [shipMsg, setShipMsg] = useState(false);
 
@@ -118,7 +119,10 @@ export default function CarritoPage() {
               })()}
               <div className="cart-line-price" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <div style={{ textAlign: "right" }}>
-                  <strong>{ars(unitPrice(i, wholesale) * i.qty)}</strong>
+                  {/* Cliente final ve el precio con IVA incluido; mayorista, neto */}
+                  <strong>
+                    {ars(unitPrice(i, wholesale) * i.qty * (wholesale ? 1 : 1.21))}
+                  </strong>
                   {(() => {
                     const step = i.bulto > 0 ? i.bulto : 1;
                     const bultos = Math.max(1, Math.round(i.qty / step));
@@ -152,19 +156,29 @@ export default function CarritoPage() {
           <h3 className="h-md" style={{ fontSize: "18px" }}>
             Resumen
           </h3>
-          {wholesale && (
-            <p style={{ marginTop: "6px", fontSize: "12px", color: "var(--amber-deep)", fontWeight: 700 }}>
-              Precios mayoristas aplicados
-            </p>
-          )}
+          <p style={{ marginTop: "6px", fontSize: "12px", color: "var(--amber-deep)", fontWeight: 700 }}>
+            {wholesale
+              ? "Precios mayoristas aplicados (neto + IVA)"
+              : "Precios con IVA incluido"}
+          </p>
           <dl style={{ marginTop: "16px", display: "grid", gap: "8px", fontSize: "14px" }}>
-            <Row label="Subtotal" value={ars(t.sub)} />
+            <Row label="Subtotal (neto)" value={ars(t.sub)} />
             {t.rate > 0 && (
               <Row label={`Descuento volumen (${t.rate * 100}%)`} value={`-${ars(t.disc)}`} muted />
             )}
             <Row label="IVA 21%" value={ars(t.iva)} muted />
+            {t.finalConsumer ? (
+              <Row label="Envío estimado" value={ars(t.shipping)} muted />
+            ) : (
+              <Row label="Envío" value="a cotizar" muted />
+            )}
             <Row label="Total estimado" value={ars(t.total)} strong />
           </dl>
+          {t.finalConsumer && (
+            <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--muted)" }}>
+              Envío estimado — se confirma al cerrar el pedido.
+            </p>
+          )}
           {t.hasDeco && (
             <p style={{ marginTop: "16px", fontSize: "13px", color: "var(--muted)" }}>
               Incluye decorado — coordinamos arte por WhatsApp.

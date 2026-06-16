@@ -53,6 +53,16 @@ export const metadata: Metadata = {
     title: "DC Inc — Packaging y cristalería mayorista",
     description: SITE_DESC,
   },
+  // Verification tags para el cutover desde Wix (Google Search Console + Bing).
+  // Los códigos se cargan por env var; vacío = no se emite el tag.
+  // TODO: cargar los códigos reales de Google/Bing en Vercel
+  //       (NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION / NEXT_PUBLIC_BING_VERIFICATION).
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.NEXT_PUBLIC_BING_VERIFICATION
+      ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_VERIFICATION }
+      : {},
+  },
 };
 
 export default function RootLayout({

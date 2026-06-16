@@ -11,7 +11,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import ProductCard from "@/components/blocks/ProductCard";
-import { COMBOS, BRANDS, getProduct } from "@/data/products";
+import { COMBOS, getProduct } from "@/data/products";
 import type { Product } from "@/data/products";
 import { ars } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
@@ -21,8 +21,10 @@ import {
   getFeaturedProducts,
   getProducts,
   getProductCount,
+  getClients,
   toLegacyProduct,
 } from "@/lib/sanity-data";
+import type { SanityClient } from "@/lib/queries";
 import s from "./page.module.css";
 
 export const revalidate = 60;
@@ -100,6 +102,15 @@ export default async function Home() {
     .slice(0, 6)
     .map(([name, count]) => ({ name, count: String(count), img: CAT_IMG[name] }));
   if (cats.length === 0) cats = categoryDataFallback;
+
+  // Clientes de la vidriera "confían en nosotros" (schema `client` en Sanity).
+  // Si no hay clientes cargados, la sección se oculta (sin placeholders).
+  let clients: SanityClient[] = [];
+  try {
+    clients = await getClients();
+  } catch (e) {
+    console.error("[home] clients fetch failed:", (e as Error).message);
+  }
 
   return (
     <>
@@ -380,38 +391,52 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* BRANDS — PLACEHOLDER: cards con nombre, logos reales pendientes de Marce */}
-      <section className="section">
-        <div className="wrap center">
-          <span className="eyebrow" style={{ justifyContent: "center" }}>
-            Marcas que confían
-          </span>
-          <h2 className="h-lg" style={{ margin: "12px 0 8px" }}>
-            Producimos para las mejores
-          </h2>
-          <p
-            className="lead"
-            style={{ margin: "0 auto 34px", maxWidth: "54ch" }}
-          >
-            Cervecerías artesanales, destilerías, bodegas y bares de todo el país
-            eligen DC Inc para su packaging y su cristalería.
-          </p>
-          <div className={s.brandRow}>
-            {BRANDS.slice(0, 8).map((b) => (
-              <div key={b} className={s.brandLogo}>
-                {b}
-              </div>
-            ))}
+      {/* CLIENTES QUE CONFÍAN — lee el schema `client` (getClients). Si no hay
+          clientes cargados, la sección se oculta (sin placeholders). */}
+      {clients.length > 0 && (
+        <section className="section">
+          <div className="wrap center">
+            <span className="eyebrow" style={{ justifyContent: "center" }}>
+              Marcas que confían
+            </span>
+            <h2 className="h-lg" style={{ margin: "12px 0 8px" }}>
+              Producimos para las mejores
+            </h2>
+            <p
+              className="lead"
+              style={{ margin: "0 auto 34px", maxWidth: "54ch" }}
+            >
+              Cervecerías artesanales, destilerías, bodegas y bares de todo el país
+              eligen DC Inc para su packaging y su cristalería.
+            </p>
+            <div className={s.brandRow}>
+              {clients.slice(0, 8).map((c) => (
+                <div key={c._id} className={s.brandLogo} title={c.name}>
+                  {c.logo ? (
+                    <Image
+                      src={c.logo}
+                      alt={c.name}
+                      width={150}
+                      height={60}
+                      unoptimized
+                      style={{ objectFit: "contain", maxHeight: "54px", width: "auto" }}
+                    />
+                  ) : (
+                    c.name
+                  )}
+                </div>
+              ))}
+            </div>
+            <Link
+              className="btn btn-ghost"
+              style={{ marginTop: "30px" }}
+              href="/nosotros"
+            >
+              Ver casos destacados <ArrowRight />
+            </Link>
           </div>
-          <Link
-            className="btn btn-ghost"
-            style={{ marginTop: "30px" }}
-            href="/nosotros"
-          >
-            Ver casos destacados <ArrowRight />
-          </Link>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* CTA BAND */}
       <section className="section" style={{ paddingTop: 0 }}>

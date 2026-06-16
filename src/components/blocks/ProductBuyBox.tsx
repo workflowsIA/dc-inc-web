@@ -2,10 +2,16 @@
 import { useState } from "react";
 import { useCart, type ProductSnapshot } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
+import {
+  resolveDisplayPrice,
+  ENVIO_ESTIMADO_CLIENTE_FINAL,
+  type PricingInput,
+} from "@/lib/pricing";
 
 interface Props {
   product: ProductSnapshot;
-  unitPrice: number;
+  /** datos de precio crudos para resolver la vista (cliente final vs mayorista + oferta) */
+  pricing: PricingInput;
   wholesale: boolean;
   deli: string;
   presentations?: string[];
@@ -22,8 +28,13 @@ function parsePres(s: string): Pres {
   return { label: s, units: m ? parseInt(m[1], 10) : 1 };
 }
 
-export default function ProductBuyBox({ product, unitPrice, wholesale, deli, presentations }: Props) {
+export default function ProductBuyBox({ product, pricing, wholesale, deli, presentations }: Props) {
   const add = useCart((s) => s.add);
+  // Precio de vista: cliente final ve IVA incluido + envío estimado; mayorista
+  // ve neto + IVA y "envío a cotizar". La oferta (salePrice) aplica acá si vige.
+  const dp = resolveDisplayPrice(pricing, wholesale);
+  const unitPrice = dp.display;
+  const finalConsumer = dp.finalConsumer;
   // Ordenadas de menor a mayor (caja antes que pallet) → default = el bulto más chico.
   const presList = (presentations ?? []).map(parsePres).sort((a, b) => a.units - b.units);
   const hasPres = presList.length > 0;
@@ -38,6 +49,10 @@ export default function ProductBuyBox({ product, unitPrice, wholesale, deli, pre
   const unitsTotal = unitsPerSel * qty;
   const bultoPrice = unitPrice * unitsPerSel;
   const total = unitPrice * unitsTotal;
+  // Sufijo de IVA según el tipo de usuario.
+  const ivaTag = finalConsumer ? "IVA incl." : "+ IVA";
+  // Tachado por unidad (oferta o precio anterior), en la misma base que unitPrice.
+  const strikeUnit = dp.strike;
 
   function handleAdd() {
     add({ ...product, bulto: unitsPerSel }, unitsTotal);
@@ -88,13 +103,26 @@ export default function ProductBuyBox({ product, unitPrice, wholesale, deli, pre
 
       {/* PRECIO PROMINENTE */}
       <div style={{ padding: "20px", background: "var(--bg-2)", borderRadius: "var(--r-lg)" }}>
+        {dp.onSale && (
+          <span
+            className="badge badge-promo"
+            style={{ marginBottom: "8px", display: "inline-block" }}
+          >
+            Oferta
+          </span>
+        )}
         {unitsPerSel > 1 ? (
           <>
             <div style={{ fontSize: "12px", color: "var(--muted)" }}>
               {sel ? `${sel.label} (${unitsPerSel} u)` : `Bulto cerrado (${unitsPerSel} u)`}
             </div>
             <div style={{ fontFamily: "var(--display)", fontSize: "32px", fontWeight: 700, color: "var(--ink)" }}>
-              {ars(bultoPrice)} <span style={{ fontSize: "14px", color: "var(--muted)" }}>+ IVA</span>
+              {strikeUnit ? (
+                <span style={{ fontSize: "18px", color: "var(--muted)", textDecoration: "line-through", marginRight: "8px" }}>
+                  {ars(strikeUnit * unitsPerSel)}
+                </span>
+              ) : null}
+              {ars(bultoPrice)} <span style={{ fontSize: "14px", color: "var(--muted)" }}>{ivaTag}</span>
               {mayoristaBadge}
             </div>
             <div style={{ marginTop: "4px", fontSize: "13px", color: "var(--muted)" }}>
@@ -105,12 +133,23 @@ export default function ProductBuyBox({ product, unitPrice, wholesale, deli, pre
           <>
             <div style={{ fontSize: "12px", color: "var(--muted)" }}>Precio por unidad</div>
             <div style={{ fontFamily: "var(--display)", fontSize: "32px", fontWeight: 700, color: "var(--ink)" }}>
-              {ars(unitPrice)} <span style={{ fontSize: "14px", color: "var(--muted)" }}>/ u + IVA</span>
+              {strikeUnit ? (
+                <span style={{ fontSize: "18px", color: "var(--muted)", textDecoration: "line-through", marginRight: "8px" }}>
+                  {ars(strikeUnit)}
+                </span>
+              ) : null}
+              {ars(unitPrice)} <span style={{ fontSize: "14px", color: "var(--muted)" }}>/ u {ivaTag}</span>
               {mayoristaBadge}
             </div>
             <div style={{ marginTop: "4px", fontSize: "13px", color: "var(--muted)" }}>Despacho {deli}</div>
           </>
         )}
+        {/* Envío: cliente final ve estimado; mayorista, a cotizar */}
+        <div style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
+          {finalConsumer
+            ? `Envío estimado: ${ars(ENVIO_ESTIMADO_CLIENTE_FINAL)} (se confirma al cerrar)`
+            : "Envío a cotizar"}
+        </div>
       </div>
 
       {/* CANTIDAD + TOTAL */}
@@ -138,7 +177,7 @@ export default function ProductBuyBox({ product, unitPrice, wholesale, deli, pre
         <div style={{ marginLeft: "auto", textAlign: "right" }}>
           <div style={{ fontSize: "12px", color: "var(--muted)" }}>Total · {unitsTotal} u</div>
           <div style={{ fontFamily: "var(--display)", fontSize: "22px", fontWeight: 700 }}>
-            {ars(total)} <span style={{ fontSize: "12px", color: "var(--muted)" }}>+ IVA</span>
+            {ars(total)} <span style={{ fontSize: "12px", color: "var(--muted)" }}>{ivaTag}</span>
           </div>
         </div>
       </div>

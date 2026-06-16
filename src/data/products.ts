@@ -19,6 +19,14 @@ export interface Product {
   may: number;
   /** precio público anterior si está en promo */
   oldPub?: number;
+  /** oferta activa (campo Sanity isOnSale) */
+  onSale?: boolean;
+  /** precio de oferta (público) — pisa al precio normal mientras la oferta esté vigente */
+  salePrice?: number;
+  /** inicio de la oferta (ISO) — opcional */
+  saleStart?: string;
+  /** fin de la oferta (ISO) — opcional */
+  saleEnd?: string;
   bulto: number;
   pallet: number;
   deli: string;

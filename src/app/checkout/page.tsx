@@ -20,7 +20,8 @@ export default function CheckoutPage() {
 
 function CheckoutForm({ user }: { user: ClerkUser | null }) {
   const items = useCart((s) => s.items);
-  const wholesale = (user?.publicMetadata?.role as string | undefined) === "wholesale";
+  const role = user?.publicMetadata?.role as string | undefined;
+  const wholesale = role === "wholesale" || role === "admin";
   const md = (user?.unsafeMetadata ?? {}) as Record<string, string>;
 
   // Logueado → prefilleamos Nombre y Email con los datos del user (editables).
@@ -153,14 +154,19 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
                 <span style={{ color: "var(--muted)" }}>
                   {i.qty}× {i.name}
                 </span>
-                <strong>{ars(unitPrice(i, wholesale) * i.qty)}</strong>
+                <strong>{ars(unitPrice(i, wholesale) * i.qty * (wholesale ? 1 : 1.21))}</strong>
               </div>
             ))}
           </div>
           <div style={{ height: "1px", background: "var(--line)", margin: "14px 0" }} />
-          <Row label="Subtotal" value={ars(t.sub)} />
+          <Row label="Subtotal (neto)" value={ars(t.sub)} />
           {t.rate > 0 && <Row label={`Descuento (${t.rate * 100}%)`} value={`-${ars(t.disc)}`} muted />}
           <Row label="IVA 21%" value={ars(t.iva)} muted />
+          {t.finalConsumer ? (
+            <Row label="Envío estimado" value={ars(t.shipping)} muted />
+          ) : (
+            <Row label="Envío" value="a cotizar" muted />
+          )}
           <Row label="Total estimado" value={ars(t.total)} strong />
 
           <a

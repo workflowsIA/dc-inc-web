@@ -14,12 +14,16 @@ import {
   combosQuery,
   brandsQuery,
   clientsQuery,
+  blogPostsQuery,
+  blogPostBySlugQuery,
+  blogPostSlugsQuery,
   heroQuery,
   type SanityProduct,
   type SanityCategory,
   type SanityCombo,
   type SanityBrand,
   type SanityClient,
+  type SanityBlogPost,
 } from "./queries";
 import type { Product, Badge, StockLevel } from "@/data/products";
 
@@ -36,6 +40,10 @@ export function toLegacyProduct(p: SanityProduct): Product {
     pub: p.pricePublic,
     may: p.priceWholesale,
     oldPub: p.pricePublicOld,
+    onSale: p.isOnSale,
+    salePrice: p.salePrice,
+    saleStart: p.saleStartDate,
+    saleEnd: p.saleEndDate,
     bulto: p.unitsPerBulk || 1,
     pallet: p.unitsPerPallet ?? 0,
     deli: p.deliveryTime || "24-48 hs",
@@ -94,6 +102,21 @@ export async function getBrands(): Promise<SanityBrand[]> {
  *  arme la sección — debe leer CLIENTES (no marcas de producto). */
 export async function getClients(): Promise<SanityClient[]> {
   return await sanityClient.fetch(clientsQuery, {}, { next: { revalidate: 300 } });
+}
+
+/** Artículos del blog (index). */
+export async function getBlogPosts(): Promise<SanityBlogPost[]> {
+  return await sanityClient.fetch(blogPostsQuery, {}, { next: { revalidate: 300 } });
+}
+
+/** Artículo único por slug (incluye body portable text). */
+export async function getBlogPostBySlug(slug: string): Promise<SanityBlogPost | null> {
+  return await sanityClient.fetch(blogPostBySlugQuery, { slug }, { next: { revalidate: 300 } });
+}
+
+/** Slugs de todos los artículos — para generateStaticParams. */
+export async function getAllBlogPostSlugs(): Promise<string[]> {
+  return await sanityClient.fetch(blogPostSlugsQuery);
 }
 
 export async function getHero(placement: "home" | "home-promo" | "catalog-inline") {

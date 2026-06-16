@@ -1,13 +1,19 @@
+import Image from "next/image";
 import Link from "next/link";
+import { getBlogPosts } from "@/lib/sanity-data";
+import type { SanityBlogPost } from "@/lib/queries";
+
+export const revalidate = 300;
 
 export const metadata = {
   title: "Blog · Guías de packaging y cristalería",
   description:
-    "Guías técnicas sobre packaging para bebidas, tipos de vidrio, decorado y envío de cristalería. Próximamente.",
+    "Guías técnicas sobre packaging para bebidas, tipos de vidrio, decorado y envío de cristalería.",
+  alternates: { canonical: "/blog" },
 };
 
 /* Layout listo para los artículos GEO del mes 2. El contenido se carga
-   desde Sanity (schema blogPost) cuando estén publicados. Por ahora
+   desde Sanity (schema blogPost). Si todavía no hay artículos publicados,
    mostramos los temas planeados como "próximamente". */
 const PROXIMOS = [
   {
@@ -32,7 +38,16 @@ const PROXIMOS = [
   },
 ];
 
-export default function BlogPage() {
+export default async function BlogPage() {
+  let posts: SanityBlogPost[] = [];
+  try {
+    posts = await getBlogPosts();
+  } catch (e) {
+    console.error("[blog] Sanity fetch failed:", (e as Error).message);
+  }
+
+  const hasPosts = posts.length > 0;
+
   return (
     <div className="wrap" style={{ padding: "48px 24px 80px" }}>
       <span className="eyebrow">Blog</span>
@@ -40,29 +55,68 @@ export default function BlogPage() {
         Guías técnicas para elegir mejor
       </h1>
       <p className="lead" style={{ marginTop: "12px", maxWidth: "56ch" }}>
-        Estamos preparando contenido práctico sobre packaging, materiales,
-        decorado y logística. Estos son los primeros temas que vienen.
+        {hasPosts
+          ? "Contenido práctico sobre packaging, materiales, decorado y logística para bebidas."
+          : "Estamos preparando contenido práctico sobre packaging, materiales, decorado y logística. Estos son los primeros temas que vienen."}
       </p>
 
-      <div className="grid grid-2" style={{ marginTop: "40px", maxWidth: "820px" }}>
-        {PROXIMOS.map((p) => (
-          <div key={p.title} className="card" style={{ padding: "24px", display: "grid", gap: "10px" }}>
-            <span className="eyebrow">{p.cat}</span>
-            <h3 className="h-md" style={{ fontSize: "19px" }}>
-              {p.title}
-            </h3>
-            <p style={{ fontSize: "14px", color: "var(--muted)", lineHeight: 1.6 }}>
-              {p.body}
-            </p>
-            <span
-              className="badge"
-              style={{ justifySelf: "start", marginTop: "4px" }}
+      {hasPosts ? (
+        <div className="grid grid-2" style={{ marginTop: "40px", maxWidth: "820px" }}>
+          {posts.map((p) => (
+            <Link
+              key={p._id}
+              href={`/blog/${p.slug}`}
+              className="card"
+              style={{ padding: "0", display: "grid", gap: "0", overflow: "hidden" }}
             >
-              Próximamente
-            </span>
-          </div>
-        ))}
-      </div>
+              {p.cover && (
+                <Image
+                  src={p.cover}
+                  alt={p.title}
+                  width={410}
+                  height={220}
+                  unoptimized
+                  style={{ width: "100%", height: "auto", objectFit: "cover" }}
+                />
+              )}
+              <div style={{ padding: "24px", display: "grid", gap: "10px" }}>
+                {p.category && <span className="eyebrow">{p.category}</span>}
+                <h3 className="h-md" style={{ fontSize: "19px" }}>
+                  {p.title}
+                </h3>
+                {p.excerpt && (
+                  <p style={{ fontSize: "14px", color: "var(--muted)", lineHeight: 1.6 }}>
+                    {p.excerpt}
+                  </p>
+                )}
+                <span style={{ fontSize: "14px", color: "var(--amber-deep)", fontWeight: 600 }}>
+                  Leer artículo →
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-2" style={{ marginTop: "40px", maxWidth: "820px" }}>
+          {PROXIMOS.map((p) => (
+            <div key={p.title} className="card" style={{ padding: "24px", display: "grid", gap: "10px" }}>
+              <span className="eyebrow">{p.cat}</span>
+              <h3 className="h-md" style={{ fontSize: "19px" }}>
+                {p.title}
+              </h3>
+              <p style={{ fontSize: "14px", color: "var(--muted)", lineHeight: 1.6 }}>
+                {p.body}
+              </p>
+              <span
+                className="badge"
+                style={{ justifySelf: "start", marginTop: "4px" }}
+              >
+                Próximamente
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <p style={{ marginTop: "40px", fontSize: "14px" }}>
         <Link href="/productos" style={{ color: "var(--muted)" }}>

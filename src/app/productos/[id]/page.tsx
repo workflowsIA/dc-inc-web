@@ -65,7 +65,6 @@ export default async function ProductPage({ params }: Props) {
   if (!product) notFound();
 
   const wholesale = await isWholesale();
-  const price = wholesale ? product.may : product.pub;
 
   // Productos relacionados: misma categoría, excluyendo el actual (máx 4).
   // getProducts() es una sola query cacheada → sin costo extra en el build.
@@ -134,10 +133,18 @@ export default async function ProductPage({ params }: Props) {
 
           <div style={{ marginTop: "24px" }}>
             <ProductBuyBox
-              unitPrice={price}
               wholesale={wholesale}
               deli={product.deli}
               presentations={product.presentations}
+              pricing={{
+                pub: product.pub,
+                may: product.may,
+                oldPub: product.oldPub,
+                onSale: product.onSale,
+                salePrice: product.salePrice,
+                saleStart: product.saleStart,
+                saleEnd: product.saleEnd,
+              }}
               product={{
                 id: product.id,
                 name: product.name,

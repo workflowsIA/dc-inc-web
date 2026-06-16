@@ -28,10 +28,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const { name, inCat } = await load(slug);
   if (!name) return { title: "Categoría" };
+  const desc = `${name} al por mayor en DC Inc (${inCat.length} productos). Stock real, factura A/B/E y envíos a todo el país con transporte para vidrio.`;
   return {
     title: name,
-    description: `${name} al por mayor en DC Inc (${inCat.length} productos). Stock real, factura A/B/E y envíos a todo el país con transporte para vidrio.`,
+    description: desc,
     alternates: { canonical: `/categoria/${slug}` },
+    openGraph: {
+      title: `${name} · DC Inc`,
+      description: desc,
+      url: `/categoria/${slug}`,
+      type: "website",
+    },
   };
 }
 

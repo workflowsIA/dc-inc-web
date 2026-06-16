@@ -1,15 +1,37 @@
+import Image from "next/image";
 import Link from "next/link";
 import { waSimpleURL } from "@/lib/whatsapp";
+import { getClients } from "@/lib/sanity-data";
+import type { SanityClient } from "@/lib/queries";
+
+export const revalidate = 300;
+
+const NOSOTROS_DESC =
+  "DC Inc es distribuidor B2B de packaging y cristalería para bebidas en Argentina desde 2018. Botellas, latas, cajas, copas, vasos y decorado propio.";
 
 export const metadata = {
   title: "Nosotros",
-  description:
-    "DC Inc es distribuidor B2B de packaging y cristalería para bebidas en Argentina desde 2018. Botellas, latas, cajas, copas, vasos y decorado propio.",
+  description: NOSOTROS_DESC,
+  alternates: { canonical: "/nosotros" },
+  openGraph: {
+    title: "Nosotros · DC Inc",
+    description: NOSOTROS_DESC,
+    url: "/nosotros",
+    type: "website",
+  },
 };
 
 /* NOTA: texto institucional placeholder basado en el brief — pendiente de
    redacción final de Marce (ver placeholders-y-pedidos-web-mvp). */
-export default function NosotrosPage() {
+export default async function NosotrosPage() {
+  // Clientes de la vidriera (schema `client`). Si no hay, ocultamos la sección.
+  let clients: SanityClient[] = [];
+  try {
+    clients = await getClients();
+  } catch {
+    // sin Sanity → sección oculta
+  }
+
   return (
     <div className="wrap" style={{ padding: "48px 24px 80px" }}>
       <div className="section-head">
@@ -50,33 +72,50 @@ export default function NosotrosPage() {
         <Value title="Conveniente" body="Precios mayoristas, mínimo accesible y factura A, B o E." />
       </div>
 
-      {/* MARCAS — placeholder hasta recibir los logos de Marce */}
-      <div style={{ marginTop: "64px" }}>
-        <span className="eyebrow">Marcas que confían en nosotros</span>
-        <h2 className="h-md" style={{ marginTop: "12px", fontSize: "24px" }}>
-          Producimos para algunas de las mejores marcas del rubro
-        </h2>
-        <div className="grid grid-4" style={{ marginTop: "24px" }}>
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div
-              key={i}
-              style={{
-                aspectRatio: "3/2",
-                background: "var(--bg-2)",
-                border: "1px solid var(--line)",
-                borderRadius: "var(--r)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--muted)",
-                fontSize: "13px",
-              }}
-            >
-              Cliente {i + 1}
-            </div>
-          ))}
+      {/* CLIENTES QUE CONFÍAN — schema `client` (getClients). Sin clientes
+          cargados, la sección no se muestra. */}
+      {clients.length > 0 && (
+        <div style={{ marginTop: "64px" }}>
+          <span className="eyebrow">Marcas que confían en nosotros</span>
+          <h2 className="h-md" style={{ marginTop: "12px", fontSize: "24px" }}>
+            Producimos para algunas de las mejores marcas del rubro
+          </h2>
+          <div className="grid grid-4" style={{ marginTop: "24px" }}>
+            {clients.map((c) => (
+              <div
+                key={c._id}
+                title={c.name}
+                style={{
+                  aspectRatio: "3/2",
+                  background: "var(--bg-2)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "var(--r)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--muted)",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  padding: "12px",
+                }}
+              >
+                {c.logo ? (
+                  <Image
+                    src={c.logo}
+                    alt={c.name}
+                    width={160}
+                    height={80}
+                    unoptimized
+                    style={{ objectFit: "contain", maxHeight: "100%", maxWidth: "100%", width: "auto" }}
+                  />
+                ) : (
+                  c.name
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div
         className="card"

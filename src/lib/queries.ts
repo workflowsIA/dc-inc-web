@@ -13,6 +13,10 @@ export const productsQuery = groq`
     pricePublic,
     priceWholesale,
     pricePublicOld,
+    isOnSale,
+    salePrice,
+    saleStartDate,
+    saleEndDate,
     presentations,
     unitsPerBulk,
     unitsPerPallet,
@@ -37,6 +41,10 @@ export const productBySlugQuery = groq`
     pricePublic,
     priceWholesale,
     pricePublicOld,
+    isOnSale,
+    salePrice,
+    saleStartDate,
+    saleEndDate,
     presentations,
     unitsPerBulk,
     unitsPerPallet,
@@ -62,6 +70,7 @@ export const featuredProductsQuery = groq`
   *[_type == "product" && "best" in badges] | order(_createdAt desc)[0...4] {
     _id, sku, name, "slug": slug.current,
     pricePublic, priceWholesale, pricePublicOld,
+    isOnSale, salePrice, saleStartDate, saleEndDate,
     unitsPerBulk, deliveryTime, stockLevel, badges,
     "image": coalesce(images[0].asset->url, legacyImageUrl),
     "category": category->name
@@ -98,6 +107,26 @@ export const clientsQuery = groq`
   }
 `;
 
+/** Artículos del blog (index) — ordenados por fecha de publicación. */
+export const blogPostsQuery = groq`
+  *[_type == "blogPost" && defined(slug.current)] | order(publishedAt desc) {
+    _id, title, "slug": slug.current, excerpt, category, publishedAt,
+    "cover": cover.asset->url
+  }
+`;
+
+/** Artículo único por slug. */
+export const blogPostBySlugQuery = groq`
+  *[_type == "blogPost" && slug.current == $slug][0] {
+    _id, title, "slug": slug.current, excerpt, category, publishedAt,
+    "cover": cover.asset->url,
+    body
+  }
+`;
+
+/** Slugs de todos los artículos — para generateStaticParams. */
+export const blogPostSlugsQuery = groq`*[_type == "blogPost" && defined(slug.current)][].slug.current`;
+
 /** Hero/banner por placement. */
 export const heroQuery = groq`
   *[_type == "hero" && active == true && placement == $placement] | order(order asc)[0] {
@@ -115,6 +144,10 @@ export interface SanityProduct {
   pricePublic: number;
   priceWholesale: number;
   pricePublicOld?: number;
+  isOnSale?: boolean;
+  salePrice?: number;
+  saleStartDate?: string;
+  saleEndDate?: string;
   presentations?: string[];
   unitsPerBulk: number;
   unitsPerPallet?: number;
@@ -159,4 +192,18 @@ export interface SanityClient {
   name: string;
   website?: string;
   logo?: string;
+}
+
+import type { PortableTextBlock } from "@portabletext/react";
+
+export interface SanityBlogPost {
+  _id: string;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  category?: string;
+  publishedAt?: string;
+  cover?: string;
+  /** sólo presente en el detalle (blogPostBySlugQuery) */
+  body?: PortableTextBlock[];
 }

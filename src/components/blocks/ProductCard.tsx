@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Product, Badge } from "@/data/products";
 import { ars } from "@/lib/format";
+import { resolveDisplayPrice, ENVIO_ESTIMADO_CLIENTE_FINAL } from "@/lib/pricing";
 import { AddToCartIcon } from "./AddToCart";
 
 const BADGE_LABELS: Record<Badge, { cls: string; label: string }> = {
@@ -18,7 +19,7 @@ interface Props {
 }
 
 export default function ProductCard({ product, wholesale = false }: Props) {
-  const price = wholesale ? product.may : product.pub;
+  const dp = resolveDisplayPrice(product, wholesale);
   const stockClass =
     product.stock === "ok"
       ? "stock-ok"
@@ -96,10 +97,14 @@ export default function ProductCard({ product, wholesale = false }: Props) {
         <div className="pcard-foot">
           <div className="pcard-price">
             <span className="price-from">Desde</span>
-            {product.oldPub && !wholesale && (
-              <span className="price-old">{ars(product.oldPub)}</span>
+            {dp.strike && (
+              <span className="price-old">{ars(dp.strike)}</span>
             )}
-            <span className="price">{ars(price)}</span>
+            <span className="price">{ars(dp.display)}</span>
+            {/* Cliente final ve IVA incluido; mayorista ve neto + IVA */}
+            <span className="price-unit">
+              {dp.finalConsumer ? "IVA incl." : "+ IVA"}
+            </span>
           </div>
           <AddToCartIcon
             product={{
@@ -114,6 +119,13 @@ export default function ProductCard({ product, wholesale = false }: Props) {
             }}
           />
         </div>
+        {dp.finalConsumer ? (
+          <p
+            style={{ marginTop: "6px", fontSize: "11px", color: "var(--muted)" }}
+          >
+            + Envío estimado: {ars(ENVIO_ESTIMADO_CLIENTE_FINAL)}
+          </p>
+        ) : null}
       </div>
     </article>
   );

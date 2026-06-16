@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { X } from "lucide-react";
 import ProductCard from "@/components/blocks/ProductCard";
@@ -5,14 +6,39 @@ import { PRODUCTS } from "@/data/products";
 import type { Product } from "@/data/products";
 import { isWholesale } from "@/lib/user";
 import { getProducts, toLegacyProduct } from "@/lib/sanity-data";
+import { resolveDisplayPrice } from "@/lib/pricing";
+import { ars } from "@/lib/format";
 
 export const revalidate = 60;
+
+const CATALOG_DESC =
+  "Catálogo mayorista de DC Inc: botellas, latas, cajas, copas, vasos, tapas y botellones para bebidas. Stock real, factura A/B/E y envíos a todo el país.";
+
+export const metadata: Metadata = {
+  title: "Catálogo de packaging y cristalería",
+  description: CATALOG_DESC,
+  alternates: { canonical: "/productos" },
+  openGraph: {
+    title: "Catálogo de packaging y cristalería · DC Inc",
+    description: CATALOG_DESC,
+    url: "/productos",
+    type: "website",
+  },
+};
 
 interface SearchParams {
   q?: string;
   cat?: string;
   sub?: string;
+  min?: string;
+  max?: string;
   page?: string;
+}
+
+/** Precio sobre el que filtra el rango: el que el usuario realmente ve
+ *  (cliente final = público con IVA incl. / oferta; mayorista = neto). */
+function filterPrice(p: Product, wholesale: boolean): number {
+  return resolveDisplayPrice(p, wholesale).display;
 }
 
 const PER_PAGE = 24;
@@ -30,7 +56,7 @@ export default async function CatalogPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { q, cat, sub, page: pageParam } = await searchParams;
+  const { q, cat, sub, min: minParam, max: maxParam, page: pageParam } = await searchParams;
   const wholesale = await isWholesale();
 
   let products: Product[] = PRODUCTS;
@@ -47,6 +73,15 @@ export default async function CatalogPage({
   const cats = [...new Set(products.map((p) => p.cat).filter(Boolean))].sort();
   const subs = [...new Set(products.map((p) => p.sub).filter(Boolean))].sort();
 
+  // Rango de precio: bounds reales del catálogo (sobre el precio que ve el usuario)
+  const allPrices = products.map((p) => filterPrice(p, wholesale)).filter((n) => n > 0);
+  const priceFloor = allPrices.length ? Math.floor(Math.min(...allPrices)) : 0;
+  const priceCeil = allPrices.length ? Math.ceil(Math.max(...allPrices)) : 0;
+  const minNum = minParam != null && minParam !== "" ? Number(minParam) : null;
+  const maxNum = maxParam != null && maxParam !== "" ? Number(maxParam) : null;
+  const hasMin = minNum != null && !Number.isNaN(minNum);
+  const hasMax = maxNum != null && !Number.isNaN(maxNum);
+
   // Filtrado
   const qn = q ? norm(q) : "";
   const filtered = products.filter((p) => {
@@ -56,10 +91,15 @@ export default async function CatalogPage({
       const hay = norm(`${p.name} ${p.sku} ${p.cat} ${p.sub}`);
       if (!hay.includes(qn)) return false;
     }
+    if (hasMin || hasMax) {
+      const pr = filterPrice(p, wholesale);
+      if (hasMin && pr < minNum!) return false;
+      if (hasMax && pr > maxNum!) return false;
+    }
     return true;
   });
 
-  const hasFilter = !!(q || cat || sub);
+  const hasFilter = !!(q || cat || sub || hasMin || hasMax);
 
   // Paginación
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
@@ -67,11 +107,13 @@ export default async function CatalogPage({
   const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   // URL con un filtro removido (preserva los otros)
-  const urlWithout = (drop: "q" | "cat" | "sub") => {
+  const urlWithout = (drop: "q" | "cat" | "sub" | "price") => {
     const p = new URLSearchParams();
     if (q && drop !== "q") p.set("q", q);
     if (cat && drop !== "cat") p.set("cat", cat);
     if (sub && drop !== "sub") p.set("sub", sub);
+    if (hasMin && drop !== "price") p.set("min", String(minNum));
+    if (hasMax && drop !== "price") p.set("max", String(maxNum));
     const qs = p.toString();
     return qs ? `/productos?${qs}` : "/productos";
   };
@@ -82,6 +124,8 @@ export default async function CatalogPage({
     if (q) p.set("q", q);
     if (cat) p.set("cat", cat);
     if (sub) p.set("sub", sub);
+    if (hasMin) p.set("min", String(minNum));
+    if (hasMax) p.set("max", String(maxNum));
     if (n > 1) p.set("page", String(n));
     const qs = p.toString();
     return qs ? `/productos?${qs}` : "/productos";
@@ -168,6 +212,63 @@ export default async function CatalogPage({
                 </ul>
               </>
             )}
+
+            {/* FILTRO POR RANGO DE PRECIO — GET form, preserva q/cat/sub */}
+            {priceCeil > 0 && (
+              <>
+                <h4 className="h-md" style={{ fontSize: "16px", margin: "24px 0 12px" }}>
+                  Precio {wholesale ? "(neto)" : "(IVA incl.)"}
+                </h4>
+                <p style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "12px" }}>
+                  Entre {ars(priceFloor)} y {ars(priceCeil)}
+                </p>
+                <form method="get" action="/productos" style={{ display: "grid", gap: "10px" }}>
+                  {/* Mantener los otros filtros activos al enviar */}
+                  {q && <input type="hidden" name="q" value={q} />}
+                  {cat && <input type="hidden" name="cat" value={cat} />}
+                  {sub && <input type="hidden" name="sub" value={sub} />}
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <input
+                      type="number"
+                      name="min"
+                      inputMode="numeric"
+                      placeholder={String(priceFloor)}
+                      defaultValue={hasMin ? String(minNum) : ""}
+                      min={0}
+                      aria-label="Precio mínimo"
+                      style={{
+                        width: "100%",
+                        minWidth: 0,
+                        padding: "8px 10px",
+                        border: "1px solid var(--line-2)",
+                        borderRadius: "var(--r-sm)",
+                        fontSize: "14px",
+                      }}
+                    />
+                    <input
+                      type="number"
+                      name="max"
+                      inputMode="numeric"
+                      placeholder={String(priceCeil)}
+                      defaultValue={hasMax ? String(maxNum) : ""}
+                      min={0}
+                      aria-label="Precio máximo"
+                      style={{
+                        width: "100%",
+                        minWidth: 0,
+                        padding: "8px 10px",
+                        border: "1px solid var(--line-2)",
+                        borderRadius: "var(--r-sm)",
+                        fontSize: "14px",
+                      }}
+                    />
+                  </div>
+                  <button type="submit" className="btn btn-ghost btn-sm" style={{ width: "100%" }}>
+                    Aplicar precio
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         </aside>
 
@@ -188,6 +289,12 @@ export default async function CatalogPage({
               {sub && (
                 <Link className="chip on" href={urlWithout("sub")}>
                   {sub} <span className="chip-x"><X /></span>
+                </Link>
+              )}
+              {(hasMin || hasMax) && (
+                <Link className="chip on" href={urlWithout("price")}>
+                  {hasMin ? ars(minNum!) : ars(priceFloor)} – {hasMax ? ars(maxNum!) : ars(priceCeil)}{" "}
+                  <span className="chip-x"><X /></span>
                 </Link>
               )}
               <Link className="chip" href="/productos">

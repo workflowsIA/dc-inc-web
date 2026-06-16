@@ -1,5 +1,6 @@
 import type { CartItem } from "./cart-store";
 import { ars } from "./format";
+import { ENVIO_ESTIMADO_CLIENTE_FINAL } from "./pricing";
 
 /** Numero de WhatsApp Business de DC Inc — del Wix actual. */
 export const WA_NUMBER = "5491161072310";
@@ -10,8 +11,12 @@ interface Totals {
   disc: number;
   net: number;
   iva: number;
+  /** envío estimado (sólo cliente final; 0 para mayorista que cotiza envío) */
+  shipping: number;
   total: number;
   hasDeco: boolean;
+  /** true = cliente final (precio final con IVA incluido + envío estimado) */
+  finalConsumer: boolean;
 }
 
 /** Precio unitario según el rol del usuario. */
@@ -34,8 +39,22 @@ export function totalsFor(items: CartItem[], wholesale = false): Totals {
   const disc = sub * rate;
   const net = sub - disc;
   const iva = net * 0.21;
-  const total = net + iva;
-  return { sub, rate, disc, net, iva, total, hasDeco: items.some((i) => i.deco) };
+  // Cliente final (no mayorista): el total incluye el envío estimado (placeholder).
+  // Mayorista: el envío va "a cotizar", no se suma al total.
+  const finalConsumer = !wholesale;
+  const shipping = finalConsumer ? ENVIO_ESTIMADO_CLIENTE_FINAL : 0;
+  const total = net + iva + shipping;
+  return {
+    sub,
+    rate,
+    disc,
+    net,
+    iva,
+    shipping,
+    total,
+    hasDeco: items.some((i) => i.deco),
+    finalConsumer,
+  };
 }
 
 export function waSimpleURL(message?: string): string {
@@ -58,7 +77,13 @@ function orderBody(items: CartItem[], wholesale: boolean): string {
   }
   msg += `\nSubtotal: ${ars(t.sub)}`;
   if (t.rate > 0) msg += `\nDescuento volumen (${t.rate * 100}%): -${ars(t.disc)}`;
-  msg += `\nIVA 21%: ${ars(t.iva)}\nTotal estimado: ${ars(t.total)}`;
+  msg += `\nIVA 21%: ${ars(t.iva)}`;
+  if (t.finalConsumer) {
+    msg += `\nEnvío estimado: ${ars(t.shipping)} (se confirma al cerrar)`;
+  } else {
+    msg += `\nEnvío: a cotizar`;
+  }
+  msg += `\nTotal estimado: ${ars(t.total)}`;
   if (t.hasDeco) msg += "\n\nIncluye decorado — coordinar arte.";
   return msg;
 }
