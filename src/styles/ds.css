@@ -110,8 +110,18 @@ p{ margin:0; }
 .btn-ghost:hover{ border-color:var(--charcoal); background:var(--bg-2); }
 .btn-ghost-light{ background:transparent; color:#fff; border-color:rgba(255,255,255,.28); }
 .btn-ghost-light:hover{ border-color:#fff; background:rgba(255,255,255,.08); }
-.btn-wa{ background:var(--wa); color:#fff; }
-.btn-wa:hover{ background:var(--wa-deep); }
+/* WhatsApp button — solid green, white text + icon, bold. The .ftr-scoped
+   selectors win over the footer link rule (.ftr a) so the footer button is
+   never washed out (gray text/icon on green). */
+.btn-wa,
+.ftr a.btn-wa{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  background:var(--wa); color:#fff; font-weight:700; border-color:transparent;
+}
+.btn-wa:hover,
+.ftr a.btn-wa:hover{ background:var(--wa-deep); color:#fff; }
+.btn-wa svg,
+.ftr a.btn-wa svg{ color:#fff; }
 .btn-lg{ padding:16px 28px; font-size:16px; }
 .btn-sm{ padding:9px 14px; font-size:13px; }
 .btn-block{ width:100%; }

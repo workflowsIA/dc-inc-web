@@ -12,6 +12,8 @@ interface Metrics {
   otros: number;
   sinSubtipo: number;
   destacados: number;
+  enOferta: number;
+  sinStock: number;
   conDescripcion: number;
   conPresentacion: number;
   combos: number;
@@ -27,6 +29,8 @@ const QUERY = `{
   "otros": count(*[_type == "product" && category->name == "Otros"]),
   "sinSubtipo": count(*[_type == "product" && category->name == "Copas y vasos" && !defined(subtype)]),
   "destacados": count(*[_type == "product" && count(badges) > 0]),
+  "enOferta": count(*[_type == "product" && isOnSale == true]),
+  "sinStock": count(*[_type == "product" && stockLevel == "out"]),
   "conDescripcion": count(*[_type == "product" && defined(description)]),
   "conPresentacion": count(*[_type == "product" && count(presentations) > 0]),
   "combos": count(*[_type == "combo"]),
@@ -83,6 +87,7 @@ export function Dashboard() {
             <Card label="Con descripción" value={m.conDescripcion} sub={`${pct(m.conDescripcion, m.total)}%`} />
             <Card label="Con presentación" value={m.conPresentacion} sub={`${pct(m.conPresentacion, m.total)}%`} />
             <Card label="Destacados" value={m.destacados} />
+            <Card label="En oferta" value={m.enOferta} />
             <Card label="Combos" value={m.combos} />
             <Card label="Marcas / clientes" value={m.marcas} />
             <Card label="Artículos blog" value={m.articulos} />
@@ -96,6 +101,7 @@ export function Dashboard() {
             <Alert label="Productos sin foto" value={m.sinFoto} />
             <Alert label='Productos en "Otros"' value={m.otros} />
             <Alert label="Cristalería sin subtipo" value={m.sinSubtipo} />
+            <Alert label="Productos sin stock" value={m.sinStock} />
           </div>
 
           {/* POR CATEGORÍA */}

@@ -3,6 +3,7 @@ import { structureTool } from "sanity/structure";
 import { schemaTypes } from "./sanity/schemas";
 import { structure } from "./sanity/structure";
 import { Dashboard } from "./sanity/Dashboard";
+import { dcTheme } from "./sanity/theme";
 
 // Nota: el studio standalone (sanity deploy → dc-inc.sanity.studio) se buildea
 // con Vite, que solo inyecta vars con prefijo SANITY_STUDIO_. Las NEXT_PUBLIC_
@@ -23,6 +24,8 @@ export default defineConfig({
   projectId,
   dataset,
   basePath: "/studio",
+  // Tema de marca DC (amber + charcoal). Ver sanity/theme.ts.
+  theme: dcTheme,
   plugins: [structureTool({ structure })],
   schema: { types: schemaTypes },
   // Deshabilitamos la feature de "Releases" (programación de publicaciones en

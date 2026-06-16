@@ -9,6 +9,7 @@ import {
   DocumentsIcon,
   WarningOutlineIcon,
   StarIcon,
+  BoltIcon,
 } from "@sanity/icons";
 
 /**
@@ -72,6 +73,22 @@ export const structure: StructureResolver = (S) =>
                           S.documentList()
                             .title("Productos destacados")
                             .filter('_type == "product" && count(badges) > 0'),
+                        ),
+                      S.listItem()
+                        .title("En oferta")
+                        .icon(BoltIcon)
+                        .child(
+                          S.documentList()
+                            .title("Productos en oferta")
+                            .filter('_type == "product" && isOnSale == true'),
+                        ),
+                      S.listItem()
+                        .title("Sin stock")
+                        .icon(WarningOutlineIcon)
+                        .child(
+                          S.documentList()
+                            .title("Productos sin stock")
+                            .filter('_type == "product" && stockLevel == "out"'),
                         ),
                     ]),
                 ),
