@@ -37,6 +37,44 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   const set = (k: keyof CheckoutInfo) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setInfo((s) => ({ ...s, [k]: e.target.value }));
 
+  // Persistimos el pedido en Sanity vía /api/orders ANTES de abrir WhatsApp.
+  // Importante: NO bloqueamos el handoff a WhatsApp — el <a> hace su navegación
+  // nativa (target=_blank) igual; si la creación falla, solo logueamos.
+  const persistOrder = () => {
+    const orderItems = items.map((i) => {
+      const step = i.bulto > 0 ? i.bulto : 1;
+      const bultos = Math.max(1, Math.round(i.qty / step));
+      const precioUnitario = unitPrice(i, wholesale);
+      return {
+        name: i.name,
+        sku: i.sku,
+        bultos,
+        unidades: i.qty,
+        precioUnitario,
+        subtotal: precioUnitario * i.qty,
+      };
+    });
+    const payload = {
+      customerName: info.nombre,
+      customerEmail: info.email,
+      customerCompany: info.empresa,
+      customerPhone: info.telefono,
+      items: orderItems,
+      subtotal: t.sub,
+      iva: t.iva,
+      total: t.total,
+      notes: info.notas,
+      origin: "web" as const,
+    };
+    // fire-and-forget: no await, no preventDefault. Errores solo a consola.
+    fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true, // que sobreviva a la navegación a WhatsApp
+    }).catch((err) => console.error("[checkout] no se pudo persistir el pedido:", err));
+  };
+
   if (items.length === 0) {
     return (
       <div className="wrap" style={{ padding: "80px 24px", textAlign: "center" }}>
@@ -131,6 +169,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
             href={waCheckoutURL(items, wholesale, info)}
             target="_blank"
             rel="noopener"
+            onClick={persistOrder}
           >
             Confirmar pedido por WhatsApp
           </a>

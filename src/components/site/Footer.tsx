@@ -33,7 +33,7 @@ export default function Footer() {
             </p>
             <a
               className="btn btn-wa btn-sm"
-              style={{ marginTop: "18px", display: "inline-flex", alignItems: "center", gap: "8px" }}
+              style={{ marginTop: "18px" }}
               href={waSimpleURL()}
               target="_blank"
               rel="noopener"

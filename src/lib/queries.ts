@@ -83,10 +83,18 @@ export const combosQuery = groq`
   }
 `;
 
-/** Marcas/clientes activos (vidriera home). */
+/** Marcas de producto activas. */
 export const brandsQuery = groq`
   *[_type == "brand" && active == true] | order(order asc, name asc) {
     _id, name, url, "logo": logo.asset->url
+  }
+`;
+
+/** Clientes de la vidriera "confían en nosotros" (home / nosotros).
+ *  Separado de `brand` (que ahora es solo marcas de producto). */
+export const clientsQuery = groq`
+  *[_type == "client" && active == true] | order(order asc, name asc) {
+    _id, name, website, "logo": logo.asset->url
   }
 `;
 
@@ -143,5 +151,12 @@ export interface SanityBrand {
   _id: string;
   name: string;
   url?: string;
+  logo?: string;
+}
+
+export interface SanityClient {
+  _id: string;
+  name: string;
+  website?: string;
   logo?: string;
 }

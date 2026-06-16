@@ -13,11 +13,13 @@ import {
   categoriesQuery,
   combosQuery,
   brandsQuery,
+  clientsQuery,
   heroQuery,
   type SanityProduct,
   type SanityCategory,
   type SanityCombo,
   type SanityBrand,
+  type SanityClient,
 } from "./queries";
 import type { Product, Badge, StockLevel } from "@/data/products";
 
@@ -84,6 +86,14 @@ export async function getCombos(): Promise<SanityCombo[]> {
 
 export async function getBrands(): Promise<SanityBrand[]> {
   return await sanityClient.fetch(brandsQuery, {}, { next: { revalidate: 300 } });
+}
+
+/** Clientes de la vidriera "confían en nosotros".
+ *  NOTA: la sección de clientes del front todavía no está renderizada (nadie
+ *  consume getBrands/getClients hoy). Este getter queda listo para cuando se
+ *  arme la sección — debe leer CLIENTES (no marcas de producto). */
+export async function getClients(): Promise<SanityClient[]> {
+  return await sanityClient.fetch(clientsQuery, {}, { next: { revalidate: 300 } });
 }
 
 export async function getHero(placement: "home" | "home-promo" | "catalog-inline") {

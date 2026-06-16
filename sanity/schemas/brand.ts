@@ -1,17 +1,19 @@
 import { defineField, defineType } from "sanity";
-import { UsersIcon } from "@sanity/icons";
+import { TagIcon } from "@sanity/icons";
 
-/** Vidriera de marcas/clientes en el home. */
+/**
+ * Marca de producto (Pernod, Coca, etc.). SOLO marcas de catálogo.
+ * Los logos de "clientes que confían en nosotros" viven en el schema `client`.
+ */
 export default defineType({
   name: "brand",
-  title: "Marca / Cliente vidriera",
+  title: "Marca",
   type: "document",
-  icon: UsersIcon,
+  icon: TagIcon,
   fields: [
     defineField({ name: "name", title: "Nombre", type: "string", validation: (r) => r.required() }),
     defineField({ name: "logo", title: "Logo", type: "image" }),
     defineField({ name: "url", title: "Link (opcional)", type: "url" }),
-    defineField({ name: "testimonial", title: "Testimonio (opcional)", type: "text", rows: 3 }),
     defineField({ name: "order", title: "Orden", type: "number" }),
     defineField({ name: "active", title: "Activo", type: "boolean", initialValue: true }),
   ],
@@ -21,7 +23,7 @@ export default defineType({
       return {
         title: title || "(Sin nombre)",
         subtitle: active === false ? "Inactivo" : undefined,
-        media: media || UsersIcon,
+        media: media || TagIcon,
       };
     },
   },

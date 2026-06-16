@@ -1,0 +1,156 @@
+import { defineField, defineType, defineArrayMember } from "sanity";
+import { BillIcon } from "@sanity/icons";
+
+/**
+ * Pedido (order) — espeja un panel de pedidos tipo Wix.
+ * Se crea desde el checkout vía /api/orders (server-side, token de escritura),
+ * y también puede crearse/editarse a mano desde el Studio.
+ *
+ * El orderNumber se autogenera en el API route (formato "#10001" / timestamp);
+ * acá queda como string editable por si Marce necesita corregirlo.
+ */
+export default defineType({
+  name: "order",
+  title: "Pedido",
+  type: "document",
+  icon: BillIcon,
+  fields: [
+    defineField({
+      name: "orderNumber",
+      title: "N° de pedido",
+      type: "string",
+      description: 'Autogenerado al crear el pedido (ej. "#10001").',
+      validation: (r) => r.required(),
+    }),
+    defineField({
+      name: "createdAt",
+      title: "Fecha",
+      type: "datetime",
+      initialValue: () => new Date().toISOString(),
+      validation: (r) => r.required(),
+    }),
+
+    // ---- Cliente ----
+    defineField({ name: "customerName", title: "Nombre del cliente", type: "string" }),
+    defineField({ name: "customerEmail", title: "Email", type: "string" }),
+    defineField({ name: "customerCompany", title: "Empresa", type: "string" }),
+    defineField({ name: "customerPhone", title: "Teléfono", type: "string" }),
+
+    // ---- Items ----
+    defineField({
+      name: "items",
+      title: "Items",
+      type: "array",
+      of: [
+        defineArrayMember({
+          type: "object",
+          name: "orderItem",
+          fields: [
+            defineField({ name: "name", title: "Producto", type: "string" }),
+            defineField({ name: "sku", title: "SKU", type: "string" }),
+            defineField({ name: "bultos", title: "Bultos", type: "number" }),
+            defineField({ name: "unidades", title: "Unidades", type: "number" }),
+            defineField({ name: "precioUnitario", title: "Precio unitario", type: "number" }),
+            defineField({ name: "subtotal", title: "Subtotal", type: "number" }),
+          ],
+          preview: {
+            select: { title: "name", sku: "sku", bultos: "bultos", subtotal: "subtotal" },
+            prepare({ title, sku, bultos, subtotal }) {
+              const parts = [
+                typeof bultos === "number" ? `${bultos} bulto${bultos === 1 ? "" : "s"}` : null,
+                typeof subtotal === "number" ? `$${subtotal.toLocaleString("es-AR")}` : null,
+              ].filter(Boolean);
+              return {
+                title: title || "(Item)",
+                subtitle: [sku, parts.join(" · ")].filter(Boolean).join(" — ") || undefined,
+              };
+            },
+          },
+        }),
+      ],
+    }),
+
+    // ---- Totales ----
+    defineField({ name: "subtotal", title: "Subtotal", type: "number" }),
+    defineField({ name: "iva", title: "IVA", type: "number" }),
+    defineField({ name: "total", title: "Total", type: "number" }),
+
+    // ---- Estados ----
+    defineField({
+      name: "paymentStatus",
+      title: "Estado de pago",
+      type: "string",
+      options: {
+        list: [
+          { title: "No pagado", value: "no_pagado" },
+          { title: "Pagado", value: "pagado" },
+        ],
+        layout: "radio",
+      },
+      initialValue: "no_pagado",
+    }),
+    defineField({
+      name: "fulfillmentStatus",
+      title: "Estado de procesamiento",
+      type: "string",
+      options: {
+        list: [
+          { title: "No procesado", value: "no_procesado" },
+          { title: "Procesado", value: "procesado" },
+          { title: "Enviado", value: "enviado" },
+        ],
+        layout: "radio",
+      },
+      initialValue: "no_procesado",
+    }),
+    defineField({
+      name: "origin",
+      title: "Origen",
+      type: "string",
+      options: {
+        list: [
+          { title: "Web", value: "web" },
+          { title: "WhatsApp", value: "whatsapp" },
+        ],
+        layout: "radio",
+      },
+      initialValue: "web",
+    }),
+    defineField({ name: "notes", title: "Notas", type: "text", rows: 3 }),
+  ],
+
+  orderings: [
+    {
+      title: "Más recientes primero",
+      name: "createdAtDesc",
+      by: [{ field: "createdAt", direction: "desc" }],
+    },
+  ],
+
+  preview: {
+    select: {
+      orderNumber: "orderNumber",
+      customerName: "customerName",
+      customerCompany: "customerCompany",
+      createdAt: "createdAt",
+      total: "total",
+      paymentStatus: "paymentStatus",
+      fulfillmentStatus: "fulfillmentStatus",
+    },
+    prepare({ orderNumber, customerName, customerCompany, createdAt, total, paymentStatus, fulfillmentStatus }) {
+      const cliente = [customerName, customerCompany].filter(Boolean).join(" · ");
+      const fecha = createdAt
+        ? new Date(createdAt).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })
+        : "";
+      const totalLabel = typeof total === "number" ? `$${total.toLocaleString("es-AR")}` : "";
+      const estado = [
+        paymentStatus === "pagado" ? "Pagado" : "No pagado",
+        fulfillmentStatus === "enviado" ? "Enviado" : fulfillmentStatus === "procesado" ? "Procesado" : "No procesado",
+      ].join(" · ");
+      return {
+        title: [orderNumber, cliente].filter(Boolean).join(" — ") || "(Pedido)",
+        subtitle: [fecha, totalLabel, estado].filter(Boolean).join(" · "),
+      };
+    },
+  },
+});
