@@ -207,11 +207,30 @@ export default defineType({
       description: "Plazo estimado de entrega que se muestra en la ficha.",
     }),
     defineField({
+      name: "stockQty",
+      title: "Stock (unidades)",
+      type: "number",
+      group: "presentacion",
+      description:
+        "Stock real en piezas individuales. Se sincroniza desde la planilla (Productos_Inventario_DC → Stock Venta). No editar a mano: lo pisa la sincronización.",
+      validation: (r) => r.integer(),
+    }),
+    defineField({
+      name: "stockMin",
+      title: "Stock mínimo (umbral)",
+      type: "number",
+      group: "presentacion",
+      description:
+        "Umbral de reposición (Minimos stock). Si el stock real baja de este número, el cliente ve 'Stock limitado'. Se sincroniza desde la planilla.",
+      validation: (r) => r.integer().positive(),
+    }),
+    defineField({
       name: "stockLevel",
-      title: "Stock",
+      title: "Stock (estado mostrado)",
       type: "string",
       group: "presentacion",
-      description: "Estado de disponibilidad que ve el cliente.",
+      description:
+        "Estado de disponibilidad que ve el cliente. Se calcula automáticamente desde el stock real: 0 = Sin stock, ≤ mínimo = Limitado, resto = Disponible. Override manual solo si hace falta.",
       options: {
         list: [
           { title: "Disponible", value: "ok" },

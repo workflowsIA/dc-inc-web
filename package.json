@@ -14,7 +14,8 @@
     "stats:images": "tsx --env-file=.env.local scripts/image-stats.ts",
     "categories:fix": "tsx --env-file=.env.local scripts/fix-categories.ts",
     "enrich:wix": "tsx --env-file=.env.local scripts/enrich-from-wix.ts",
-    "export:meta": "tsx --env-file=.env.local scripts/export-meta-catalog.ts"
+    "export:meta": "tsx --env-file=.env.local scripts/export-meta-catalog.ts",
+    "sync:sheet": "tsx --env-file=.env.local scripts/sync-sheet-to-sanity.ts"
   },
   "dependencies": {
     "@clerk/localizations": "^4.8.2",
@@ -25,6 +26,8 @@
     "@sanity/ui": "^3.2.0",
     "@sanity/vision": "^5.30.0",
     "clsx": "^2.1.1",
+    "google-auth-library": "^10.7.0",
+    "googleapis": "^173.0.0",
     "lucide-react": "^1.17.0",
     "next": "16.2.7",
     "next-sanity": "^13.0.11",

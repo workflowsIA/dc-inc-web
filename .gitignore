@@ -42,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Reportes generados por el sync (se regeneran en cada corrida)
+reports/

@@ -35,8 +35,13 @@ export default function ProductBuyBox({ product, pricing, wholesale, deli, prese
   const dp = resolveDisplayPrice(pricing, wholesale);
   const unitPrice = dp.display;
   const finalConsumer = dp.finalConsumer;
-  // Ordenadas de menor a mayor (caja antes que pallet) → default = el bulto más chico.
-  const presList = (presentations ?? []).map(parsePres).sort((a, b) => a.units - b.units);
+  // Bultos (caja/pallet) ordenados de menor a mayor → default = el bulto más chico.
+  const bultoPres = (presentations ?? []).map(parsePres).sort((a, b) => a.units - b.units);
+  // Minorista (cliente final) puede comprar de a UNA unidad: anteponemos la opción
+  // Individual (units:1) y queda como default. Mayorista compra solo por bulto cerrado.
+  const presList: Pres[] = finalConsumer
+    ? [{ label: "Individual", units: 1 }, ...bultoPres]
+    : bultoPres;
   const hasPres = presList.length > 0;
   const [idx, setIdx] = useState(0);
   const [qty, setQty] = useState(1);
@@ -188,7 +193,9 @@ export default function ProductBuyBox({ product, pricing, wholesale, deli, prese
 
       {unitsPerSel > 1 && (
         <p style={{ marginTop: "10px", fontSize: "12px", color: "var(--muted)", textAlign: "center" }}>
-          Venta mayorista por bulto cerrado.
+          {finalConsumer
+            ? `Comprás un bulto cerrado de ${unitsPerSel} u. Para unidades sueltas elegí «Individual».`
+            : "Venta mayorista por bulto cerrado."}
         </p>
       )}
     </div>
