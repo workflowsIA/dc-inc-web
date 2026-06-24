@@ -95,8 +95,29 @@ async function readPrecios(): Promise<{ codigo: string; descripcion: string }[]>
   return out;
 }
 
+// Excluir del auto-match: packs (bundles, sin SKU de insumo único) y cristalería
+// (Copa/Vaso/Copón no están en la planilla de precios).
+function exclusion(name: string): string | null {
+  const n = name.trim().toLowerCase();
+  if (n.startsWith("pack")) return "pack/bundle: no tiene SKU de insumo único (decisión de negocio)";
+  if (/^(copa|vaso|copon|copón|valijin)\b/.test(n))
+    return "cristalería: no está en la planilla de precios";
+  return null;
+}
+
+function writeCsv(
+  path: string,
+  comment: string,
+  cols: string[],
+  rows: string[][],
+) {
+  const head = `# ${comment}\n# Generado: ${new Date().toISOString()} - Total: ${rows.length}\n${cols.join(",")}\n`;
+  const body = rows.map((r) => r.map(escapeCsv).join(",")).join("\n");
+  writeFileSync(path, head + body + "\n", "utf-8");
+}
+
 async function main() {
-  console.log("\n🔎 Proponiendo CODIGO para los SKUs sin match\n");
+  console.log("\n🔎 Proponiendo CODIGO para los SKUs sin match (v2: asignación golosa)\n");
   const precios = await readPrecios();
   console.log(`   Filas de precios con CODIGO+DESCRIPCION: ${precios.length}`);
 
@@ -104,75 +125,132 @@ async function main() {
     await sanityWriteClient.fetch(
       `*[_type == "product" && defined(sku) && sku match "product_*"]{ _id, sku, name }`,
     );
-  console.log(`   Productos sin match (sku basura): ${productos.length}\n`);
+  console.log(`   Productos sin match (sku basura): ${productos.length}`);
 
-  type Row = {
-    _id: string;
-    name: string;
-    sku_actual: string;
-    codigo_propuesto: string;
-    descripcion_match: string;
-    score: number;
-  };
-  const rows: Row[] = [];
-  for (const p of productos) {
+  // todo el catálogo (para detectar duplicados contra productos ya corregidos)
+  const catalogo: { _id: string; name?: string; sku: string }[] =
+    await sanityWriteClient.fetch(
+      `*[_type == "product" && defined(sku)]{ _id, name, sku }`,
+    );
+  // códigos YA en uso por productos correctos → la asignación golosa no debe reusarlos.
+  const usados = catalogo
+    .filter((p) => !p.sku.startsWith("product_"))
+    .map((p) => p.sku);
+  // nombres que ya tienen una versión "buena" (con código real)
+  const nombresBuenos = new Set(
+    catalogo
+      .filter((p) => !p.sku.startsWith("product_") && p.name)
+      .map((p) => norm(p.name!)),
+  );
+  console.log(`   Códigos ya en uso (no reasignar): ${usados.length}\n`);
+
+  // 1) candidatos rankeados por producto (score >= 0.4)
+  type Cand = { codigo: string; desc: string; s: number; comp: number };
+  type Prod = { _id: string; name: string; cands: Cand[]; excl: string | null };
+  const prods: Prod[] = productos.map((p) => {
     const name = p.name ?? "";
-    let best = { codigo: "", descripcion: "", s: 0, comp: 0 };
+    const cands: Cand[] = [];
     for (const c of precios) {
       const s = score(name, c.descripcion);
-      if (s === 0) continue;
-      // tiebreak: preferir fila "Unidad" (código base) y descripción más corta
+      if (s < 0.4) continue;
       const unidad = /unidad/i.test(c.descripcion) ? 0.03 : 0;
-      const lenPenalty = tokens(c.descripcion).length * 0.0005;
-      const comp = s + unidad - lenPenalty;
-      if (comp > best.comp)
-        best = { codigo: c.codigo, descripcion: c.descripcion, s, comp };
+      const comp = s + unidad - tokens(c.descripcion).length * 0.0005;
+      cands.push({ codigo: c.codigo, desc: c.descripcion, s, comp });
     }
-    rows.push({
-      _id: p._id,
-      name,
-      sku_actual: p.sku,
-      codigo_propuesto: best.s > 0 ? best.codigo : "",
-      descripcion_match: best.descripcion,
-      score: Math.round(best.s * 100) / 100,
-    });
+    cands.sort((a, b) => b.comp - a.comp);
+    return { _id: p._id, name, cands, excl: exclusion(name) };
+  });
+
+  // 2) detectar duplicados → borrar perdedores. Dos casos:
+  //    (a) ya existe una versión "buena" (con código real) del mismo nombre
+  //    (b) dos product_* con el mismo nombre dentro de este lote (queda uno)
+  const eliminar: string[][] = [];
+  const dupLosers = new Set<string>();
+  const byName = new Map<string, Prod[]>();
+  for (const p of prods) {
+    if (p.excl) continue;
+    if (nombresBuenos.has(norm(p.name))) {
+      dupLosers.add(p._id);
+      eliminar.push([p._id, p.name, "duplicado de producto ya corregido (mismo nombre)"]);
+      continue;
+    }
+    const k = norm(p.name);
+    (byName.get(k) ?? byName.set(k, []).get(k)!).push(p);
+  }
+  for (const [, grp] of byName) {
+    if (grp.length < 2) continue;
+    for (const loser of grp.slice(1)) {
+      dupLosers.add(loser._id);
+      eliminar.push([loser._id, loser.name, `duplicado de ${grp[0]._id}`]);
+    }
   }
 
-  // Ordenar por score ascendente: los de baja confianza primero (para revisar).
-  rows.sort((a, b) => a.score - b.score);
+  // 3) asignación golosa: pares (producto, candidato) por score desc; cada código a un solo producto
+  // Solo asignar automáticamente matches confiables (s >= 0.7). Por debajo, el
+  // riesgo de pegar un código equivocado (lata→caja, precinto de otro tamaño) es alto.
+  const MIN_ASSIGN = 0.7;
+  const pairs: { p: Prod; c: Cand }[] = [];
+  for (const p of prods) {
+    if (p.excl || dupLosers.has(p._id)) continue;
+    for (const c of p.cands) if (c.s >= MIN_ASSIGN) pairs.push({ p, c });
+  }
+  pairs.sort((a, b) => b.c.comp - a.c.comp);
+
+  const takenCode = new Set<string>(usados);
+  const assigned = new Map<string, Cand>();
+  for (const { p, c } of pairs) {
+    if (assigned.has(p._id)) continue;
+    if (takenCode.has(c.codigo)) continue;
+    assigned.set(p._id, c);
+    takenCode.add(c.codigo);
+  }
+
+  // 4) armar las tres salidas
+  const aplicar: string[][] = [];
+  const revisar: string[][] = [];
+  for (const p of prods) {
+    if (dupLosers.has(p._id)) continue;
+    if (p.excl) {
+      revisar.push([p.name, "", p.excl, p._id]);
+      continue;
+    }
+    const a = assigned.get(p._id);
+    if (a) {
+      aplicar.push([p._id, a.codigo, p.name, String(Math.round(a.s * 100) / 100)]);
+    } else {
+      const motivo = p.cands.length
+        ? "todos sus códigos ya fueron tomados por otro producto (revisar a mano)"
+        : "sin match en la planilla";
+      revisar.push([p.name, p.cands[0]?.codigo ?? "", motivo, p._id]);
+    }
+  }
+  aplicar.sort((a, b) => Number(b[3]) - Number(a[3]));
 
   const dir = join(process.cwd(), "reports");
   mkdirSync(dir, { recursive: true });
-  const path = join(dir, "sku-fix-propuesta.csv");
-  const header =
-    "# Propuesta de correccion de SKU para los productos sin match.\n" +
-    "# REVISAR a mano: 'score' = confianza del match (1 = exacto). Ordenado de menor a mayor.\n" +
-    "# Vaciar 'codigo_propuesto' en las filas que esten mal antes de aplicar.\n" +
-    `# Generado: ${new Date().toISOString()} - Total: ${rows.length}\n` +
-    "score,name,codigo_propuesto,descripcion_match,sku_actual,_id\n";
-  const body = rows
-    .map((r) =>
-      [
-        String(r.score),
-        r.name,
-        r.codigo_propuesto,
-        r.descripcion_match,
-        r.sku_actual,
-        r._id,
-      ]
-        .map(escapeCsv)
-        .join(","),
-    )
-    .join("\n");
-  writeFileSync(path, header + body + "\n", "utf-8");
+  writeCsv(
+    join(dir, "sku-fix-aplicar.csv"),
+    "SKUs a corregir (códigos únicos, sin colisión). Aplica con: npm run sku:apply",
+    ["_id", "sku_nuevo", "name", "score"],
+    aplicar,
+  );
+  writeCsv(
+    join(dir, "sku-fix-eliminar.csv"),
+    "Productos DUPLICADOS en Sanity (mismo nombre). Borra con: npm run sku:dedup",
+    ["_id", "name", "motivo"],
+    eliminar,
+  );
+  writeCsv(
+    join(dir, "sku-fix-revisar.csv"),
+    "Sin resolución automática (packs, cristalería, sin código libre). Necesitan decisión/Marce.",
+    ["name", "codigo_sugerido", "motivo", "_id"],
+    revisar,
+  );
 
-  const altos = rows.filter((r) => r.score >= 0.8).length;
-  const medios = rows.filter((r) => r.score >= 0.5 && r.score < 0.8).length;
-  const bajos = rows.filter((r) => r.score < 0.5).length;
-  console.log(`   Confianza alta (≥0.8): ${altos}`);
-  console.log(`   Confianza media (0.5–0.8): ${medios}`);
-  console.log(`   Confianza baja (<0.5): ${bajos}  ← revisar sí o sí`);
-  console.log(`\n   📄 ${path}\n`);
+  console.log(`   ✅ Aplicar (SKU único):   ${aplicar.length}`);
+  console.log(`   🗑️  Eliminar (duplicados): ${eliminar.length}`);
+  console.log(`   ⏳ Revisar (packs/etc.):  ${revisar.length}`);
+  console.log(`\n   📄 reports/sku-fix-{aplicar,eliminar,revisar}.csv\n`);
 }
 
 main().catch((err) => {
