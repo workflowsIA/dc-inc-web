@@ -1,7 +1,8 @@
 /**
  * Endpoint de sincronización Sheet → Sanity (precios + stock).
  *
- * - GET  → lo dispara el Vercel Cron (configurado en vercel.json) cada 10 min.
+ * - GET  → lo dispara el Vercel Cron (configurado en vercel.json) 1x/día (límite Hobby).
+ *          Para mayor frecuencia: Pro plan, o un scheduler externo pegándole con ?secret=.
  * - POST → "publicar ahora" (botón en el panel admin para empujar cambios urgentes).
  *
  * Auth: header `Authorization: Bearer <SYNC_CRON_SECRET>` o `?secret=<...>`.
