@@ -52,7 +52,7 @@ async function main() {
   );
   console.log(`   Correcciones a aplicar: ${rows.length}\n`);
 
-  // chequeo de seguridad: que no haya sku_nuevo duplicado
+  // chequeo 1: que no haya sku_nuevo duplicado dentro de la lista
   const seen = new Map<string, string>();
   const dups: string[] = [];
   for (const r of rows) {
@@ -64,18 +64,35 @@ async function main() {
     process.exit(1);
   }
 
+  // chequeo 2: que el sku_nuevo no esté YA en uso por otro producto en Sanity
+  const codes = rows.map((r) => r.sku_nuevo);
+  const existentes: { _id: string; sku: string }[] = await sanityWriteClient.fetch(
+    `*[_type == "product" && sku in $codes]{ _id, sku }`,
+    { codes },
+  );
+  const ocupado = new Map(existentes.map((e) => [e.sku, e._id]));
+
   const tx = sanityWriteClient.transaction();
+  let skipped = 0;
   for (const r of rows) {
+    const dueno = ocupado.get(r.sku_nuevo);
+    if (dueno && dueno !== r._id) {
+      console.log(`   ⚠️  SALTEADO ${r.name.padEnd(38)} → ${r.sku_nuevo} (ya lo usa ${dueno})`);
+      skipped++;
+      continue;
+    }
     if (DRY_RUN) {
       console.log(`   ${r.name.padEnd(40)} → ${r.sku_nuevo}`);
     } else {
       tx.patch(r._id, (p) => p.set({ sku: r.sku_nuevo }));
     }
   }
+  if (skipped) console.log(`\n   (${skipped} salteado(s) por colisión con un producto existente)\n`);
 
+  const aplicados = rows.length - skipped;
   if (!DRY_RUN) {
-    await tx.commit({ visibility: "async" });
-    console.log(`✅ ${rows.length} SKUs corregidos en Sanity.`);
+    if (aplicados > 0) await tx.commit({ visibility: "async" });
+    console.log(`✅ ${aplicados} SKUs corregidos en Sanity.`);
     console.log("   Corré 'npm run sync:sheet' para que tomen stock/precio.\n");
   } else {
     console.log(`\n(DRY RUN — no se escribió nada. Quitá --dry-run para aplicar.)\n`);
