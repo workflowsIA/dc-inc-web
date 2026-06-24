@@ -15,7 +15,9 @@
     "categories:fix": "tsx --env-file=.env.local scripts/fix-categories.ts",
     "enrich:wix": "tsx --env-file=.env.local scripts/enrich-from-wix.ts",
     "export:meta": "tsx --env-file=.env.local scripts/export-meta-catalog.ts",
-    "sync:sheet": "tsx --env-file=.env.local scripts/sync-sheet-to-sanity.ts"
+    "sync:sheet": "tsx --env-file=.env.local scripts/sync-sheet-to-sanity.ts",
+    "sku:propose": "tsx --env-file=.env.local scripts/propose-sku-fix.ts",
+    "sku:apply": "tsx --env-file=.env.local scripts/apply-sku-fix.ts"
   },
   "dependencies": {
     "@clerk/localizations": "^4.8.2",
