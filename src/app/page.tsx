@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import ProductCard from "@/components/blocks/ProductCard";
 import ComboCard from "@/components/blocks/ComboCard";
-import { getProduct } from "@/data/products";
 import type { Product } from "@/data/products";
 import { waSimpleURL } from "@/lib/whatsapp";
 import { isWholesale } from "@/lib/user";
@@ -30,7 +29,6 @@ import s from "./page.module.css";
 
 export const revalidate = 60;
 
-const featuredIds = ["lata-473", "copa-pinta", "bot-am-355", "copa-gin"];
 
 /** Packshot local por nombre de categoría real (de Sanity). Fallback: placeholder. */
 const CAT_IMG: Record<string, string> = {
@@ -88,11 +86,6 @@ export default async function Home() {
     console.error("[home] featured fetch failed:", (e as Error).message);
   }
   if (featured.length === 0) featured = allLegacy.slice(0, 4);
-  if (featured.length === 0) {
-    featured = featuredIds
-      .map((id) => getProduct(id))
-      .filter((p): p is Product => !!p);
-  }
 
   // Tiles de categoría: nombres y conteos reales del catálogo (top 6, sin "Otros").
   const catCounts: Record<string, number> = {};

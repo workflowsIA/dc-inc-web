@@ -72,7 +72,11 @@ function orderBody(items: CartItem[], wholesale: boolean): string {
     const step = i.bulto > 0 ? i.bulto : 1;
     const bultos = Math.max(1, Math.round(i.qty / step));
     const qtyLabel =
-      step > 1 ? `${bultos} ${bultos === 1 ? "bulto" : "bultos"} (${i.qty} u)` : `${i.qty} u`;
+      i.kind === "combo"
+        ? `${i.qty} ${i.qty === 1 ? "combo" : "combos"}`
+        : step > 1
+          ? `${bultos} ${bultos === 1 ? "bulto" : "bultos"} (${i.qty} u)`
+          : `${i.qty} u`;
     msg += `• ${qtyLabel} — ${i.name}${i.deco ? " (+ decorado)" : ""} — ${ars(sub)}\n`;
   }
   msg += `\nSubtotal: ${ars(t.sub)}`;

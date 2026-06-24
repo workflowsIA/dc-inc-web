@@ -136,6 +136,7 @@ export default async function ComboPage({ params }: Props) {
                   slug: combo.slug,
                   name: combo.name,
                   price: combo.pricePublicFrom,
+                  imageUrl: combo.image ?? undefined,
                 }}
               />
             )}

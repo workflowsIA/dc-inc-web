@@ -20,6 +20,7 @@ export interface ComboSnapshot {
   slug: string;
   name: string;
   price: number;
+  imageUrl?: string;
 }
 
 function toCartSnapshot(combo: ComboSnapshot): ProductSnapshot {
@@ -31,6 +32,8 @@ function toCartSnapshot(combo: ComboSnapshot): ProductSnapshot {
     may: combo.price,
     bulto: 1,
     pallet: 0,
+    imageUrl: combo.imageUrl,
+    kind: "combo",
   };
 }
 

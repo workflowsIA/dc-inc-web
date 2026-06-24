@@ -16,6 +16,8 @@ export interface CartItem {
   imageUrl?: string;
   qty: number;
   deco?: boolean;
+  /** "combo" = ítem armado a precio cerrado (no se vende por bulto). */
+  kind?: "combo";
 }
 
 export type ProductSnapshot = Omit<CartItem, "qty" | "deco">;

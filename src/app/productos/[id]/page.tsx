@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProduct as getMockProduct } from "@/data/products";
 import {
   getAllProductSlugs,
   getProductBySlug,
@@ -39,7 +38,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   } catch {
     // ignore
   }
-  if (!product) product = getMockProduct(id) ?? null;
   if (!product) return { title: "Producto no encontrado" };
 
   const cat = product.sub ? `${product.cat} · ${product.sub}` : product.cat;
@@ -60,8 +58,6 @@ export default async function ProductPage({ params }: Props) {
   } catch (e) {
     console.error("[product page] Sanity fetch failed:", (e as Error).message);
   }
-  // 2. Fallback al mock (para los 16 SKUs del wireframe original)
-  if (!product) product = getMockProduct(id) ?? null;
   if (!product) notFound();
 
   const wholesale = await isWholesale();

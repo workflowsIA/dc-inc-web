@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { X } from "lucide-react";
 import ProductCard from "@/components/blocks/ProductCard";
-import { PRODUCTS } from "@/data/products";
 import type { Product } from "@/data/products";
 import { isWholesale } from "@/lib/user";
 import { getProducts, toLegacyProduct } from "@/lib/sanity-data";
@@ -64,14 +63,12 @@ export default async function CatalogPage({
   const selectedSubs = (Array.isArray(sub) ? sub : sub ? [sub] : []).filter(Boolean);
   const subSet = new Set(selectedSubs);
 
-  let products: Product[] = PRODUCTS;
+  let products: Product[] = [];
   try {
     const sanityProducts = await getProducts();
-    if (sanityProducts.length > 0) {
-      products = sanityProducts.map(toLegacyProduct);
-    }
+    products = sanityProducts.map(toLegacyProduct);
   } catch (e) {
-    console.error("[catalog] Sanity fetch failed, usando mock:", (e as Error).message);
+    console.error("[catalog] Sanity fetch failed:", (e as Error).message);
   }
 
   // Categorías y subtipos reales, derivados del catálogo (no hardcodeados)

@@ -81,8 +81,8 @@ export default function CarritoPage() {
                 <div>
                   <div style={{ fontWeight: 700 }}>{i.name}</div>
                   <div className="mono" style={{ fontSize: "12px", color: "var(--muted)" }}>
-                    {i.sku}
-                    {i.bulto > 1 ? ` · bulto ${i.bulto} u` : ""}
+                    {i.kind === "combo" ? "Combo armado" : i.sku}
+                    {i.kind !== "combo" && i.bulto > 1 ? ` · bulto ${i.bulto} u` : ""}
                     {i.deco ? " · con decorado" : ""}
                   </div>
                 </div>
@@ -128,7 +128,11 @@ export default function CarritoPage() {
                     const bultos = Math.max(1, Math.round(i.qty / step));
                     return (
                       <div style={{ fontSize: "12px", color: "var(--muted)" }}>
-                        {step > 1 ? `${bultos} ${bultos === 1 ? "bulto" : "bultos"} · ${i.qty} u` : `${i.qty} u`}
+                        {i.kind === "combo"
+                          ? `${i.qty} ${i.qty === 1 ? "combo" : "combos"}`
+                          : step > 1
+                            ? `${bultos} ${bultos === 1 ? "bulto" : "bultos"} · ${i.qty} u`
+                            : `${i.qty} u`}
                       </div>
                     );
                   })()}
