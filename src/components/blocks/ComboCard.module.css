@@ -1,0 +1,62 @@
+/* Card de combo — mismo lenguaje visual que la sección "combos" de la home
+ * (.combo en page.module.css), pero como componente reutilizable. */
+.combo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  transition: transform 0.16s, box-shadow 0.16s;
+}
+.combo:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-2);
+}
+.media {
+  position: relative;
+}
+.media :global(.ph) {
+  border: none;
+  border-radius: 0;
+  aspect-ratio: 16 / 10;
+}
+.img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: #fff;
+}
+.badges {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+}
+.link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.body {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.body h3 {
+  font-size: 19px;
+}
+.body p {
+  font-size: 14px;
+  color: var(--muted);
+}
+.foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+}

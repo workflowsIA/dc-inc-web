@@ -18,6 +18,7 @@ export default function DecoradoForm() {
   const [tecnica, setTecnica] = useState(TECNICAS[0]);
   const [marca, setMarca] = useState("");
   const [comentarios, setComentarios] = useState("");
+  const [sending, setSending] = useState(false);
 
   function buildUrl() {
     const lines = [
@@ -31,6 +32,33 @@ export default function DecoradoForm() {
     if (comentarios) lines.push(`• Comentarios: ${comentarios}`);
     lines.push("", "Les paso el archivo del arte por acá.");
     return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(lines.join("\n"))}`;
+  }
+
+  /** Persiste el lead en Sanity y, pase lo que pase, abre WhatsApp.
+   *  El POST es "best effort": si falla, no bloqueamos al usuario. */
+  async function handleSubmit() {
+    if (sending) return;
+    const waUrl = buildUrl();
+    setSending(true);
+    try {
+      await fetch("/api/lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          producto,
+          cantidad,
+          tecnica,
+          marca,
+          comentarios,
+          origen: "decorado-web",
+        }),
+      });
+    } catch (e) {
+      console.error("[DecoradoForm] no se pudo guardar el lead:", e);
+    } finally {
+      setSending(false);
+      window.open(waUrl, "_blank", "noopener");
+    }
   }
 
   return (
@@ -74,15 +102,15 @@ export default function DecoradoForm() {
         </label>
       </div>
 
-      <a
+      <button
+        type="button"
         className="btn btn-wa btn-lg"
         style={{ marginTop: "22px", display: "inline-flex" }}
-        href={buildUrl()}
-        target="_blank"
-        rel="noopener"
+        onClick={handleSubmit}
+        disabled={sending}
       >
-        Enviar cotización por WhatsApp
-      </a>
+        {sending ? "Enviando…" : "Enviar cotización por WhatsApp"}
+      </button>
       <p style={{ marginTop: "10px", fontSize: "12px", color: "var(--muted)" }}>
         El archivo del arte (logo en alta, PDF/AI/PNG) lo enviás directamente por
         WhatsApp cuando te respondamos.

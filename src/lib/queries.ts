@@ -84,13 +84,28 @@ export const categoriesQuery = groq`
   }
 `;
 
-/** Combos activos. */
+/** Combos activos (listado: home / index). */
 export const combosQuery = groq`
   *[_type == "combo" && active == true] | order(_createdAt desc) {
     _id, name, "slug": slug.current, description, pricePublicFrom, pricePublicOld, badge,
     "image": image.asset->url
   }
 `;
+
+/** Combo único por slug (incluye los SKUs incluidos para la ficha). */
+export const comboBySlugQuery = groq`
+  *[_type == "combo" && active == true && slug.current == $slug][0] {
+    _id, name, "slug": slug.current, description, pricePublicFrom, pricePublicOld, badge,
+    "image": image.asset->url,
+    "items": items[]->{
+      _id, sku, name, "slug": slug.current,
+      "image": coalesce(images[0].asset->url, legacyImageUrl)
+    }
+  }
+`;
+
+/** Slugs de todos los combos activos — para generateStaticParams. */
+export const comboSlugsQuery = groq`*[_type == "combo" && active == true && defined(slug.current)][].slug.current`;
 
 /** Marcas de producto activas. */
 export const brandsQuery = groq`
@@ -169,6 +184,15 @@ export interface SanityCategory {
   image?: string;
 }
 
+/** SKU incluido en un combo (sólo los campos que muestra la ficha). */
+export interface SanityComboItem {
+  _id: string;
+  sku: string;
+  name: string;
+  slug?: string;
+  image?: string;
+}
+
 export interface SanityCombo {
   _id: string;
   name: string;
@@ -178,6 +202,8 @@ export interface SanityCombo {
   pricePublicOld?: number;
   badge?: string;
   image?: string;
+  /** sólo presente en el detalle (comboBySlugQuery) */
+  items?: SanityComboItem[];
 }
 
 export interface SanityBrand {

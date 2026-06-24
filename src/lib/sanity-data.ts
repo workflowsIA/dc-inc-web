@@ -12,6 +12,8 @@ import {
   featuredProductsQuery,
   categoriesQuery,
   combosQuery,
+  comboBySlugQuery,
+  comboSlugsQuery,
   brandsQuery,
   clientsQuery,
   blogPostsQuery,
@@ -90,6 +92,14 @@ export async function getCategories(): Promise<SanityCategory[]> {
 
 export async function getCombos(): Promise<SanityCombo[]> {
   return await sanityClient.fetch(combosQuery, {}, { next: { revalidate: 60 } });
+}
+
+export async function getComboBySlug(slug: string): Promise<SanityCombo | null> {
+  return await sanityClient.fetch(comboBySlugQuery, { slug }, { next: { revalidate: 60 } });
+}
+
+export async function getAllComboSlugs(): Promise<string[]> {
+  return await sanityClient.fetch(comboSlugsQuery);
 }
 
 export async function getBrands(): Promise<SanityBrand[]> {

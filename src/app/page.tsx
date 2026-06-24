@@ -11,9 +11,9 @@ import {
   ArrowRight,
 } from "lucide-react";
 import ProductCard from "@/components/blocks/ProductCard";
-import { COMBOS, getProduct } from "@/data/products";
+import ComboCard from "@/components/blocks/ComboCard";
+import { getProduct } from "@/data/products";
 import type { Product } from "@/data/products";
-import { ars } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
 import { isWholesale } from "@/lib/user";
 import { catSlug } from "@/lib/slug";
@@ -22,9 +22,10 @@ import {
   getProducts,
   getProductCount,
   getClients,
+  getCombos,
   toLegacyProduct,
 } from "@/lib/sanity-data";
-import type { SanityClient } from "@/lib/queries";
+import type { SanityClient, SanityCombo } from "@/lib/queries";
 import s from "./page.module.css";
 
 export const revalidate = 60;
@@ -110,6 +111,14 @@ export default async function Home() {
     clients = await getClients();
   } catch (e) {
     console.error("[home] clients fetch failed:", (e as Error).message);
+  }
+
+  // Combos activos desde Sanity. Si no hay (o falla), la sección se oculta.
+  let combos: SanityCombo[] = [];
+  try {
+    combos = await getCombos();
+  } catch (e) {
+    console.error("[home] combos fetch failed:", (e as Error).message);
   }
 
   return (
@@ -284,57 +293,32 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* COMBOS — PLACEHOLDER: combos genéricos hasta que Marce defina los reales */}
-      <section
-        className="section surface"
-        style={{
-          borderTop: "1px solid var(--line)",
-          borderBottom: "1px solid var(--line)",
-        }}
-      >
-        <div className="wrap">
-          <div className="section-head">
-            <div>
-              <span className="eyebrow">Combos armados</span>
-              <h2 className="h-lg" style={{ marginTop: "12px" }}>
-                Listos para sumar al pedido
-              </h2>
+      {/* COMBOS — combos activos desde Sanity (schema `combo`). */}
+      {combos.length > 0 && (
+        <section
+          className="section surface"
+          style={{
+            borderTop: "1px solid var(--line)",
+            borderBottom: "1px solid var(--line)",
+          }}
+        >
+          <div className="wrap">
+            <div className="section-head">
+              <div>
+                <span className="eyebrow">Combos armados</span>
+                <h2 className="h-lg" style={{ marginTop: "12px" }}>
+                  Listos para sumar al pedido
+                </h2>
+              </div>
             </div>
-            <Link className="btn btn-ghost" href="/productos">
-              Ver combos <ArrowRight />
-            </Link>
+            <div className="grid grid-3">
+              {combos.map((c) => (
+                <ComboCard key={c._id} combo={c} />
+              ))}
+            </div>
           </div>
-          <div className="grid grid-3">
-            {COMBOS.map((c) => (
-              <article key={c.id} className={s.combo}>
-                <div style={{ position: "relative" }}>
-                  <div className="ph" data-ph={c.name} />
-                  <div
-                    className="pcard-badges"
-                    style={{ position: "absolute", top: "12px", left: "12px" }}
-                  >
-                    <span className="badge badge-deco">{c.badge}</span>
-                  </div>
-                </div>
-                <div className={s.cbody}>
-                  <h3>{c.name}</h3>
-                  <p>{c.desc}</p>
-                  <div className={s.cfoot}>
-                    <div>
-                      <span className="price-from">Desde</span>{" "}
-                      <span className="price">{ars(c.from)}</span>{" "}
-                      <span className="price-unit">/u</span>
-                    </div>
-                    <Link className="btn btn-dark btn-sm" href="/productos">
-                      Sumar combo
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* PROMO BANNER */}
       <section className="section">

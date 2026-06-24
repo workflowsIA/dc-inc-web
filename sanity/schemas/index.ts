@@ -7,6 +7,7 @@ import client from "./client";
 import order from "./order";
 import hero from "./hero";
 import blogPost from "./blogPost";
+import lead from "./lead";
 
 export const schemaTypes = [
   product,
@@ -18,4 +19,5 @@ export const schemaTypes = [
   order,
   hero,
   blogPost,
+  lead,
 ];

@@ -29,7 +29,8 @@ export const metadata: Metadata = {
 interface SearchParams {
   q?: string;
   cat?: string;
-  sub?: string;
+  /** Multi-select: ?sub=X&sub=Y → string[]; un solo valor → string. */
+  sub?: string | string[];
   min?: string;
   max?: string;
   page?: string;
@@ -59,6 +60,10 @@ export default async function CatalogPage({
   const { q, cat, sub, min: minParam, max: maxParam, page: pageParam } = await searchParams;
   const wholesale = await isWholesale();
 
+  // Subtipos seleccionados (multi-select). Acepta ?sub=X&sub=Y o un único ?sub=X.
+  const selectedSubs = (Array.isArray(sub) ? sub : sub ? [sub] : []).filter(Boolean);
+  const subSet = new Set(selectedSubs);
+
   let products: Product[] = PRODUCTS;
   try {
     const sanityProducts = await getProducts();
@@ -86,7 +91,7 @@ export default async function CatalogPage({
   const qn = q ? norm(q) : "";
   const filtered = products.filter((p) => {
     if (cat && p.cat !== cat) return false;
-    if (sub && p.sub !== sub) return false;
+    if (subSet.size > 0 && !subSet.has(p.sub)) return false;
     if (qn) {
       const hay = norm(`${p.name} ${p.sku} ${p.cat} ${p.sub}`);
       if (!hay.includes(qn)) return false;
@@ -99,37 +104,52 @@ export default async function CatalogPage({
     return true;
   });
 
-  const hasFilter = !!(q || cat || sub || hasMin || hasMax);
+  const hasFilter = !!(q || cat || subSet.size > 0 || hasMin || hasMax);
 
   // Paginación
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const page = Math.min(Math.max(1, parseInt(pageParam || "1", 10) || 1), totalPages);
   const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  // URL con un filtro removido (preserva los otros)
-  const urlWithout = (drop: "q" | "cat" | "sub" | "price") => {
+  /** Construye la URL del catálogo con los filtros actuales. Permite
+   *  sobreescribir el set de subtipos y omitir filtros (q/cat/price). */
+  const buildUrl = (opts?: {
+    subs?: string[];
+    dropQ?: boolean;
+    dropCat?: boolean;
+    dropPrice?: boolean;
+    page?: number;
+  }) => {
     const p = new URLSearchParams();
-    if (q && drop !== "q") p.set("q", q);
-    if (cat && drop !== "cat") p.set("cat", cat);
-    if (sub && drop !== "sub") p.set("sub", sub);
-    if (hasMin && drop !== "price") p.set("min", String(minNum));
-    if (hasMax && drop !== "price") p.set("max", String(maxNum));
+    if (q && !opts?.dropQ) p.set("q", q);
+    if (cat && !opts?.dropCat) p.set("cat", cat);
+    // Multi-select: un parámetro `sub` por subtipo seleccionado.
+    for (const s of opts?.subs ?? selectedSubs) p.append("sub", s);
+    if (hasMin && !opts?.dropPrice) p.set("min", String(minNum));
+    if (hasMax && !opts?.dropPrice) p.set("max", String(maxNum));
+    if (opts?.page && opts.page > 1) p.set("page", String(opts.page));
     const qs = p.toString();
     return qs ? `/productos?${qs}` : "/productos";
   };
 
-  // URL a una página (preserva filtros)
-  const urlForPage = (n: number) => {
-    const p = new URLSearchParams();
-    if (q) p.set("q", q);
-    if (cat) p.set("cat", cat);
-    if (sub) p.set("sub", sub);
-    if (hasMin) p.set("min", String(minNum));
-    if (hasMax) p.set("max", String(maxNum));
-    if (n > 1) p.set("page", String(n));
-    const qs = p.toString();
-    return qs ? `/productos?${qs}` : "/productos";
+  // Alterna un subtipo dentro del set seleccionado (preserva el resto).
+  const urlToggleSub = (s: string) => {
+    const next = subSet.has(s)
+      ? selectedSubs.filter((x) => x !== s)
+      : [...selectedSubs, s];
+    return buildUrl({ subs: next });
   };
+
+  // URL con un filtro removido (preserva los otros)
+  const urlWithout = (drop: "q" | "cat" | "price") =>
+    buildUrl({
+      dropQ: drop === "q",
+      dropCat: drop === "cat",
+      dropPrice: drop === "price",
+    });
+
+  // URL a una página (preserva filtros)
+  const urlForPage = (n: number) => buildUrl({ page: n });
 
   return (
     <div className="wrap" style={{ padding: "32px 24px 80px" }}>
@@ -195,20 +215,46 @@ export default async function CatalogPage({
                   Tipo de cristalería
                 </h4>
                 <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "6px" }}>
-                  {subs.map((g) => (
-                    <li key={g}>
-                      <Link
-                        href={`/productos?sub=${encodeURIComponent(g)}`}
-                        style={{
-                          fontSize: "14px",
-                          color: g === sub ? "var(--amber-deep)" : "var(--muted)",
-                          fontWeight: g === sub ? 700 : 400,
-                        }}
-                      >
-                        {g}
-                      </Link>
-                    </li>
-                  ))}
+                  {subs.map((g) => {
+                    const on = subSet.has(g);
+                    return (
+                      <li key={g}>
+                        <Link
+                          href={urlToggleSub(g)}
+                          aria-pressed={on}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            fontSize: "14px",
+                            color: on ? "var(--amber-deep)" : "var(--muted)",
+                            fontWeight: on ? 700 : 400,
+                          }}
+                        >
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: "16px",
+                              height: "16px",
+                              flexShrink: 0,
+                              borderRadius: "4px",
+                              border: `1px solid ${on ? "var(--amber-deep)" : "var(--line-2)"}`,
+                              background: on ? "var(--amber-deep)" : "#fff",
+                              color: "#fff",
+                              fontSize: "11px",
+                              lineHeight: 1,
+                            }}
+                          >
+                            {on ? "✓" : ""}
+                          </span>
+                          {g}
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               </>
             )}
@@ -226,7 +272,9 @@ export default async function CatalogPage({
                   {/* Mantener los otros filtros activos al enviar */}
                   {q && <input type="hidden" name="q" value={q} />}
                   {cat && <input type="hidden" name="cat" value={cat} />}
-                  {sub && <input type="hidden" name="sub" value={sub} />}
+                  {selectedSubs.map((s) => (
+                    <input key={s} type="hidden" name="sub" value={s} />
+                  ))}
                   <div style={{ display: "flex", gap: "8px" }}>
                     <input
                       type="number"
@@ -286,11 +334,11 @@ export default async function CatalogPage({
                   {cat} <span className="chip-x"><X /></span>
                 </Link>
               )}
-              {sub && (
-                <Link className="chip on" href={urlWithout("sub")}>
-                  {sub} <span className="chip-x"><X /></span>
+              {selectedSubs.map((s) => (
+                <Link key={s} className="chip on" href={urlToggleSub(s)}>
+                  {s} <span className="chip-x"><X /></span>
                 </Link>
-              )}
+              ))}
               {(hasMin || hasMax) && (
                 <Link className="chip on" href={urlWithout("price")}>
                   {hasMin ? ars(minNum!) : ars(priceFloor)} – {hasMax ? ars(maxNum!) : ars(priceCeil)}{" "}
