@@ -65,6 +65,45 @@ export const productSlugsQuery = groq`*[_type == "product" && defined(slug.curre
 /** Count total de productos activos. */
 export const productCountQuery = groq`count(*[_type == "product"])`;
 
+/** Productos por lista de SKUs — para recalcular precios de un pedido server-side
+ *  y para rearmar el carrito en "repetir pedido". Trae solo lo necesario. */
+export const productsBySkusQuery = groq`
+  *[_type == "product" && sku in $skus] {
+    sku, name, "slug": slug.current,
+    pricePublic, priceWholesale,
+    isOnSale, salePrice, saleStartDate, saleEndDate,
+    unitsPerBulk, unitsPerPallet,
+    "image": coalesce(images[0].asset->url, legacyImageUrl)
+  }
+`;
+
+/** Combos por lista de slugs — para recalcular pedidos con combos. */
+export const combosBySlugsQuery = groq`
+  *[_type == "combo" && slug.current in $slugs] {
+    _id, name, "slug": slug.current, pricePublicFrom,
+    "image": image.asset->url
+  }
+`;
+
+/** Pedidos de un usuario logueado (historial en Mi cuenta). */
+export const ordersByUserQuery = groq`
+  *[_type == "order" && clerkUserId == $uid] | order(createdAt desc)[0...50] {
+    _id, orderNumber, createdAt, priceBasis,
+    subtotal, iva, total, paymentStatus, fulfillmentStatus, origin, notes,
+    items[]{ name, sku, bultos, unidades, precioUnitario, subtotal }
+  }
+`;
+
+/** Todos los pedidos (panel admin). */
+export const allOrdersQuery = groq`
+  *[_type == "order"] | order(createdAt desc)[0...200] {
+    _id, orderNumber, createdAt, priceBasis,
+    customerName, customerCompany, customerEmail, customerPhone,
+    subtotal, iva, total, paymentStatus, fulfillmentStatus, origin, notes,
+    items[]{ name, sku, bultos, unidades, precioUnitario, subtotal }
+  }
+`;
+
 /** Productos destacados para la home. */
 export const featuredProductsQuery = groq`
   *[_type == "product" && "best" in badges] | order(_createdAt desc)[0...4] {
@@ -232,4 +271,57 @@ export interface SanityBlogPost {
   cover?: string;
   /** sólo presente en el detalle (blogPostBySlugQuery) */
   body?: PortableTextBlock[];
+}
+
+export interface SanityOrderItem {
+  name?: string;
+  sku?: string;
+  bultos?: number;
+  unidades?: number;
+  precioUnitario?: number;
+  subtotal?: number;
+}
+
+export interface SanityOrder {
+  _id: string;
+  orderNumber: string;
+  createdAt: string;
+  priceBasis?: "final" | "mayorista";
+  customerName?: string;
+  customerCompany?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  subtotal?: number;
+  iva?: number;
+  total?: number;
+  paymentStatus?: "no_pagado" | "pagado";
+  fulfillmentStatus?: "no_procesado" | "procesado" | "enviado";
+  origin?: "web" | "whatsapp";
+  notes?: string;
+  items?: SanityOrderItem[];
+}
+
+/** Producto reducido para recálculo de pedidos (productsBySkusQuery). */
+export interface OrderPricingProduct {
+  sku: string;
+  name: string;
+  slug?: string;
+  pricePublic: number;
+  priceWholesale: number;
+  isOnSale?: boolean;
+  salePrice?: number;
+  saleStartDate?: string;
+  saleEndDate?: string;
+  unitsPerBulk: number;
+  unitsPerPallet?: number;
+  image?: string;
+}
+
+/** Combo reducido para recálculo de pedidos (combosBySlugsQuery). */
+export interface OrderPricingCombo {
+  _id: string;
+  name: string;
+  slug: string;
+  pricePublicFrom?: number;
+  image?: string;
 }

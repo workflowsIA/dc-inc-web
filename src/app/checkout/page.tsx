@@ -42,28 +42,22 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   // Importante: NO bloqueamos el handoff a WhatsApp — el <a> hace su navegación
   // nativa (target=_blank) igual; si la creación falla, solo logueamos.
   const persistOrder = () => {
-    const orderItems = items.map((i) => {
-      const step = i.bulto > 0 ? i.bulto : 1;
-      const bultos = Math.max(1, Math.round(i.qty / step));
-      const precioUnitario = unitPrice(i, wholesale);
-      return {
-        name: i.name,
-        sku: i.sku,
-        bultos,
-        unidades: i.qty,
-        precioUnitario,
-        subtotal: precioUnitario * i.qty,
-      };
-    });
+    // SEGURIDAD: NO mandamos precios ni totales. El server los recalcula desde
+    // Sanity y deriva el rol mayorista de la sesión. Solo enviamos qué se pidió.
+    const orderItems = items.map((i) => ({
+      sku: i.sku,
+      slug: i.id, // el carrito usa el slug como id; sirve para combos
+      kind: i.kind, // "combo" | undefined
+      qty: i.qty,
+      name: i.name, // fallback de display si el server no lo encuentra
+      deco: i.deco,
+    }));
     const payload = {
       customerName: info.nombre,
       customerEmail: info.email,
       customerCompany: info.empresa,
       customerPhone: info.telefono,
       items: orderItems,
-      subtotal: t.sub,
-      iva: t.iva,
-      total: t.total,
       notes: info.notas,
       origin: "web" as const,
     };

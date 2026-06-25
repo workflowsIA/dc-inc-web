@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { sanityWriteClient } from "@/lib/sanity";
 
 /**
@@ -14,15 +15,17 @@ import { sanityWriteClient } from "@/lib/sanity";
 
 export const runtime = "nodejs";
 
-interface IncomingLead {
-  nombre?: string;
-  producto?: string;
-  cantidad?: string;
-  tecnica?: string;
-  marca?: string;
-  comentarios?: string;
-  origen?: string;
-}
+// Validación con Zod: producto + técnica obligatorios, todo acotado en longitud
+// para frenar payloads basura (auditoría jun-2026, P0-1).
+const LeadSchema = z.object({
+  nombre: z.string().trim().max(120).optional(),
+  producto: z.string().trim().min(1).max(200),
+  cantidad: z.string().trim().max(80).optional(),
+  tecnica: z.string().trim().min(1).max(120),
+  marca: z.string().trim().max(120).optional(),
+  comentarios: z.string().trim().max(2000).optional(),
+  origen: z.string().trim().max(60).optional(),
+});
 
 export async function POST(req: Request) {
   if (!process.env.SANITY_API_WRITE_TOKEN) {
@@ -32,21 +35,18 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: IncomingLead;
+  let raw: unknown;
   try {
-    body = (await req.json()) as IncomingLead;
+    raw = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  // Validación mínima: necesitamos al menos producto y técnica para que el lead
-  // sea útil. El resto es opcional.
-  if (!body.producto || !body.tecnica) {
-    return NextResponse.json(
-      { ok: false, error: "missing_fields" },
-      { status: 400 },
-    );
+  const parsed = LeadSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
   }
+  const body = parsed.data;
 
   try {
     const doc = {

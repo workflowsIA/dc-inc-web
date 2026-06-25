@@ -1,91 +1,187 @@
 import { NextResponse } from "next/server";
-import { sanityWriteClient } from "@/lib/sanity";
+import { z } from "zod";
+import { auth } from "@clerk/nextjs/server";
+import { sanityClient, sanityWriteClient } from "@/lib/sanity";
+import { isWholesale } from "@/lib/user";
+import {
+  productsBySkusQuery,
+  combosBySlugsQuery,
+  type OrderPricingProduct,
+  type OrderPricingCombo,
+} from "@/lib/queries";
+import { IVA_RATE, ENVIO_ESTIMADO_CLIENTE_FINAL, isSaleActive } from "@/lib/pricing";
 
 /**
  * POST /api/orders — crea un pedido (`order`) en Sanity desde el checkout.
  *
- * Server-side: usa `sanityWriteClient`, que se autentica con
- * SANITY_API_WRITE_TOKEN (la misma env var que usan los scripts de migración,
- * ver scripts/migrate-wix-to-sanity.ts). El token NUNCA se expone al cliente.
+ * SEGURIDAD (auditoría jun-2026):
+ *  - El cliente manda SOLO { sku/slug, kind, qty }. Los precios y totales se
+ *    RECALCULAN server-side leyendo Sanity → nunca se confía en lo que manda el
+ *    browser (antes el total era 100% manipulable).
+ *  - El rol mayorista se deriva server-side con isWholesale() (sesión Clerk),
+ *    no de un flag del cliente.
+ *  - El payload se valida con Zod (tipos, longitudes, topes) para frenar basura.
  *
- * IMPORTANTE: para que esto funcione en producción, SANITY_API_WRITE_TOKEN
- * también tiene que estar seteada en Vercel (Project Settings → Environment
- * Variables), no solo en .env.local local.
+ * Token de escritura: SANITY_API_WRITE_TOKEN (server-only, nunca al cliente).
+ * El handoff a WhatsApp NO depende de esta ruta (errores "blandos").
  *
- * El handoff a WhatsApp NO depende de esta ruta: el checkout abre wa.me igual
- * aunque acá falle. Por eso devolvemos errores "blandos" (200/500) que el
- * cliente loguea sin bloquear el flujo.
+ * NOTA: rate-limit real por IP requiere infra externa (Upstash / Vercel
+ * Firewall); acá queda la validación de payload como primera barrera.
  */
 
 export const runtime = "nodejs";
 
-interface IncomingItem {
-  name?: string;
-  sku?: string;
-  bultos?: number;
-  unidades?: number;
-  precioUnitario?: number;
-  subtotal?: number;
+const ItemSchema = z.object({
+  sku: z.string().trim().max(64).optional(),
+  slug: z.string().trim().max(160).optional(),
+  kind: z.literal("combo").optional(),
+  qty: z.number().int().positive().max(100000),
+  name: z.string().trim().max(200).optional(),
+  deco: z.boolean().optional(),
+});
+
+const OrderSchema = z.object({
+  customerName: z.string().trim().max(120).optional(),
+  customerEmail: z.string().trim().max(160).optional(),
+  customerCompany: z.string().trim().max(160).optional(),
+  customerPhone: z.string().trim().max(40).optional(),
+  items: z.array(ItemSchema).min(1).max(200),
+  notes: z.string().trim().max(2000).optional(),
+  origin: z.enum(["web", "whatsapp"]).optional(),
+});
+
+/** Descuento por volumen — placeholder hasta confirmar con Marce.
+ *  Mantiene la misma regla que src/lib/whatsapp.ts (volumeRate). */
+function volumeRate(subtotal: number): number {
+  if (subtotal >= 1_000_000) return 0.15;
+  if (subtotal >= 500_000) return 0.1;
+  if (subtotal >= 300_000) return 0.05;
+  return 0;
 }
 
-interface IncomingOrder {
-  customerName?: string;
-  customerEmail?: string;
-  customerCompany?: string;
-  customerPhone?: string;
-  items?: IncomingItem[];
-  subtotal?: number;
-  iva?: number;
-  total?: number;
-  notes?: string;
-  origin?: "web" | "whatsapp";
-}
-
-/** Genera un número de pedido legible tipo "#10001" basado en timestamp. */
+/** N° de pedido legible + sufijo aleatorio para evitar colisiones en el mismo minuto. */
 function makeOrderNumber(): string {
-  // 10000 + minutos desde un epoch arbitrario → corto y monótono creciente.
   const base = Math.floor((Date.now() - Date.UTC(2026, 0, 1)) / 60000);
-  return `#${10000 + base}`;
+  const rnd = Math.random().toString(36).slice(2, 5).toUpperCase();
+  return `#${10000 + base}-${rnd}`;
 }
 
 export async function POST(req: Request) {
   if (!process.env.SANITY_API_WRITE_TOKEN) {
-    // Sin token no podemos escribir; lo señalamos pero sin romper el checkout.
-    return NextResponse.json(
-      { ok: false, error: "missing_write_token" },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, error: "missing_write_token" }, { status: 500 });
   }
 
-  let body: IncomingOrder;
+  let raw: unknown;
   try {
-    body = (await req.json()) as IncomingOrder;
+    raw = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
+  const parsed = OrderSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
+  }
+  const body = parsed.data;
+
+  // Rol y usuario desde la sesión (server-side, no del cliente).
+  const wholesale = await isWholesale();
+  const { userId } = await auth();
+
   try {
+    // Separamos items en combos (por slug) y productos (por sku).
+    const comboSlugs = body.items.filter((i) => i.kind === "combo" && i.slug).map((i) => i.slug!);
+    const productSkus = body.items.filter((i) => i.kind !== "combo" && i.sku).map((i) => i.sku!);
+
+    const [products, combos] = await Promise.all([
+      productSkus.length
+        ? sanityClient.fetch<OrderPricingProduct[]>(productsBySkusQuery, { skus: productSkus })
+        : Promise.resolve([]),
+      comboSlugs.length
+        ? sanityClient.fetch<OrderPricingCombo[]>(combosBySlugsQuery, { slugs: comboSlugs })
+        : Promise.resolve([]),
+    ]);
+
+    const productBySku = new Map(products.map((p) => [p.sku, p]));
+    const comboBySlug = new Map(combos.map((c) => [c.slug, c]));
+
+    type Line = {
+      _type: "orderItem";
+      _key: string;
+      name: string;
+      sku: string;
+      bultos?: number;
+      unidades?: number;
+      precioUnitario?: number;
+      subtotal?: number;
+    };
+
+    const lines: Line[] = [];
+    let sub = 0;
+
+    for (const it of body.items) {
+      let name = it.name ?? "";
+      let sku = it.sku ?? "";
+      let unitNet: number | undefined;
+      let bultos: number | undefined;
+
+      if (it.kind === "combo") {
+        const combo = it.slug ? comboBySlug.get(it.slug) : undefined;
+        if (!combo) continue; // combo inexistente → no inventamos precio
+        name = combo.name;
+        sku = combo.slug;
+        unitNet = typeof combo.pricePublicFrom === "number" ? combo.pricePublicFrom : 0;
+      } else {
+        const prod = it.sku ? productBySku.get(it.sku) : undefined;
+        if (!prod) continue; // sku inexistente → se descarta
+        name = prod.name;
+        sku = prod.sku;
+        const saleOn = isSaleActive(prod.isOnSale, prod.saleStartDate, prod.saleEndDate);
+        // Precio NETO (sin IVA), igual semántica que el checkout previo.
+        unitNet = wholesale
+          ? prod.priceWholesale
+          : saleOn && typeof prod.salePrice === "number"
+            ? prod.salePrice
+            : prod.pricePublic;
+        const step = prod.unitsPerBulk > 0 ? prod.unitsPerBulk : 1;
+        bultos = Math.max(1, Math.round(it.qty / step));
+      }
+
+      const lineSub = (unitNet ?? 0) * it.qty;
+      sub += lineSub;
+      lines.push({
+        _type: "orderItem",
+        _key: `${sku || "item"}-${Math.random().toString(36).slice(2, 8)}`,
+        name,
+        sku,
+        bultos,
+        unidades: it.qty,
+        precioUnitario: unitNet,
+        subtotal: lineSub,
+      });
+    }
+
+    // Totales (misma fórmula que totalsFor de whatsapp.ts).
+    const rate = volumeRate(sub);
+    const net = sub - sub * rate;
+    const iva = net * IVA_RATE;
+    const shipping = wholesale ? 0 : ENVIO_ESTIMADO_CLIENTE_FINAL;
+    const total = net + iva + shipping;
+
     const doc = {
       _type: "order",
       orderNumber: makeOrderNumber(),
       createdAt: new Date().toISOString(),
+      clerkUserId: userId ?? undefined,
+      priceBasis: wholesale ? "mayorista" : "final",
       customerName: body.customerName ?? "",
       customerEmail: body.customerEmail ?? "",
       customerCompany: body.customerCompany ?? "",
       customerPhone: body.customerPhone ?? "",
-      items: (body.items ?? []).map((i) => ({
-        _type: "orderItem",
-        _key: `${i.sku ?? "item"}-${Math.random().toString(36).slice(2, 8)}`,
-        name: i.name ?? "",
-        sku: i.sku ?? "",
-        bultos: typeof i.bultos === "number" ? i.bultos : undefined,
-        unidades: typeof i.unidades === "number" ? i.unidades : undefined,
-        precioUnitario: typeof i.precioUnitario === "number" ? i.precioUnitario : undefined,
-        subtotal: typeof i.subtotal === "number" ? i.subtotal : undefined,
-      })),
-      subtotal: typeof body.subtotal === "number" ? body.subtotal : undefined,
-      iva: typeof body.iva === "number" ? body.iva : undefined,
-      total: typeof body.total === "number" ? body.total : undefined,
+      items: lines,
+      subtotal: sub,
+      iva,
+      total,
       paymentStatus: "no_pagado",
       fulfillmentStatus: "no_procesado",
       origin: body.origin ?? "web",

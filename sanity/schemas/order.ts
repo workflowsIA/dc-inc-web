@@ -31,6 +31,27 @@ export default defineType({
     }),
 
     // ---- Cliente ----
+    defineField({
+      name: "clerkUserId",
+      title: "ID de usuario (Clerk)",
+      type: "string",
+      description: "Se setea solo cuando el pedido lo hace un usuario logueado. Habilita el historial en Mi cuenta.",
+      readOnly: true,
+    }),
+    defineField({
+      name: "priceBasis",
+      title: "Base de precio",
+      type: "string",
+      description: "Con qué lista se calculó el pedido (recalculado server-side).",
+      options: {
+        list: [
+          { title: "Cliente final", value: "final" },
+          { title: "Mayorista", value: "mayorista" },
+        ],
+        layout: "radio",
+      },
+      readOnly: true,
+    }),
     defineField({ name: "customerName", title: "Nombre del cliente", type: "string" }),
     defineField({ name: "customerEmail", title: "Email", type: "string" }),
     defineField({ name: "customerCompany", title: "Empresa", type: "string" }),

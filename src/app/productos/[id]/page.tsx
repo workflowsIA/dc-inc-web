@@ -50,23 +50,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductPage({ params }: Props) {
   const { id } = await params;
+  const wholesale = await isWholesale();
   // 1. Intentar Sanity por slug
   let product = null;
   try {
     const sanity = await getProductBySlug(id);
-    if (sanity) product = toLegacyProduct(sanity);
+    if (sanity) product = toLegacyProduct(sanity, wholesale);
   } catch (e) {
     console.error("[product page] Sanity fetch failed:", (e as Error).message);
   }
   if (!product) notFound();
 
-  const wholesale = await isWholesale();
-
   // Productos relacionados: misma categoría, excluyendo el actual (máx 4).
   // getProducts() es una sola query cacheada → sin costo extra en el build.
   let related: typeof product[] = [];
   try {
-    const all = (await getProducts()).map(toLegacyProduct);
+    const all = (await getProducts()).map((p) => toLegacyProduct(p, wholesale));
     related = all
       .filter((p) => p.id !== product!.id && p.cat === product!.cat && p.cat !== "Otros")
       .slice(0, 4);

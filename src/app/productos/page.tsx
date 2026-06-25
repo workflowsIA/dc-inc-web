@@ -66,7 +66,7 @@ export default async function CatalogPage({
   let products: Product[] = [];
   try {
     const sanityProducts = await getProducts();
-    products = sanityProducts.map(toLegacyProduct);
+    products = sanityProducts.map((p) => toLegacyProduct(p, wholesale));
   } catch (e) {
     console.error("[catalog] Sanity fetch failed:", (e as Error).message);
   }

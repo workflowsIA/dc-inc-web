@@ -13,10 +13,13 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-async function load(slug: string): Promise<{ inCat: Product[]; name: string | null }> {
+async function load(
+  slug: string,
+  wholesale = false,
+): Promise<{ inCat: Product[]; name: string | null }> {
   let products: Product[] = [];
   try {
-    products = (await getProducts()).map(toLegacyProduct);
+    products = (await getProducts()).map((p) => toLegacyProduct(p, wholesale));
   } catch {
     // sin Sanity
   }
@@ -45,7 +48,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CategoryPage({ params }: Props) {
   const { slug } = await params;
   const wholesale = await isWholesale();
-  const { inCat, name } = await load(slug);
+  const { inCat, name } = await load(slug, wholesale);
   if (!name) notFound();
 
   return (

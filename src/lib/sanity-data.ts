@@ -31,8 +31,14 @@ import type { Product, Badge, StockLevel } from "@/data/products";
 
 /** Convierte un producto Sanity al shape legacy que consumen las páginas
  *  (mismo Product que el mock). El packshot viene como `imageUrl` (URL absoluta
- *  del CDN de Sanity) en vez de `img` (key local). */
-export function toLegacyProduct(p: SanityProduct): Product {
+ *  del CDN de Sanity) en vez de `img` (key local).
+ *
+ *  SEGURIDAD (auditoría jun-2026, P1-1): el precio mayorista (`may`) SOLO se
+ *  incluye cuando `wholesale === true`. Para cualquier otro visitante se manda
+ *  0, así el precio neto/margen NUNCA viaja al browser ni al snapshot del carrito.
+ *  Las páginas de catálogo ya son dinámicas (leen `isWholesale()`), así que el
+ *  valor se resuelve por request según el rol real de la sesión. */
+export function toLegacyProduct(p: SanityProduct, wholesale = false): Product {
   return {
     id: p.slug || p._id,
     sku: p.sku,
@@ -40,7 +46,7 @@ export function toLegacyProduct(p: SanityProduct): Product {
     sub: p.subtype ?? "",
     name: p.name,
     pub: p.pricePublic,
-    may: p.priceWholesale,
+    may: wholesale ? p.priceWholesale : 0,
     oldPub: p.pricePublicOld,
     onSale: p.isOnSale,
     salePrice: p.salePrice,

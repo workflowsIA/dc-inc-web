@@ -72,7 +72,7 @@ export default async function Home() {
   let allLegacy: Product[] = [];
   try {
     const all = await getProducts();
-    allLegacy = all.map(toLegacyProduct);
+    allLegacy = all.map((p) => toLegacyProduct(p, wholesale));
   } catch (e) {
     console.error("[home] Sanity fetch failed:", (e as Error).message);
   }
@@ -81,7 +81,7 @@ export default async function Home() {
   let featured: Product[] = [];
   try {
     const best = await getFeaturedProducts();
-    if (best.length > 0) featured = best.map(toLegacyProduct);
+    if (best.length > 0) featured = best.map((p) => toLegacyProduct(p, wholesale));
   } catch (e) {
     console.error("[home] featured fetch failed:", (e as Error).message);
   }

@@ -5,27 +5,19 @@
  *          Para mayor frecuencia: Pro plan, o un scheduler externo pegándole con ?secret=.
  * - POST → "publicar ahora" (botón en el panel admin para empujar cambios urgentes).
  *
- * Auth: header `Authorization: Bearer <SYNC_CRON_SECRET>` o `?secret=<...>`.
- * Vercel Cron manda automáticamente `Authorization: Bearer <CRON_SECRET>`; soportamos
- * tanto SYNC_CRON_SECRET como el CRON_SECRET nativo de Vercel.
+ * Auth: header `Authorization: Bearer <SYNC_CRON_SECRET>` (solo header, no query
+ * string — ver src/lib/api-auth.ts). Vercel Cron manda el header automáticamente;
+ * soportamos tanto SYNC_CRON_SECRET como el CRON_SECRET nativo de Vercel.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { runSheetSync } from "@/lib/sheet-sync";
+import { isCronAuthorized } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.SYNC_CRON_SECRET ?? process.env.CRON_SECRET;
-  if (!secret) return false;
-  const auth = req.headers.get("authorization");
-  if (auth === `Bearer ${secret}`) return true;
-  if (req.nextUrl.searchParams.get("secret") === secret) return true;
-  return false;
-}
-
 async function handle(req: NextRequest, dryRun: boolean) {
-  if (!authorized(req)) {
+  if (!isCronAuthorized(req)) {
     return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 401 });
   }
   try {

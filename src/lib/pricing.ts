@@ -97,7 +97,15 @@ export function isSaleActive(
 ): boolean {
   if (!isOnSale) return false;
   const t = now.getTime();
-  if (saleStartDate && t < new Date(saleStartDate).getTime()) return false;
-  if (saleEndDate && t > new Date(saleEndDate).getTime()) return false;
+  if (saleStartDate) {
+    const start = new Date(saleStartDate).getTime();
+    // Fecha inválida (NaN) → ignoramos el límite en vez de desactivar el gate
+    // silenciosamente. Una fecha basura no debe "abrir" ni "cerrar" la oferta sola.
+    if (!Number.isNaN(start) && t < start) return false;
+  }
+  if (saleEndDate) {
+    const end = new Date(saleEndDate).getTime();
+    if (!Number.isNaN(end) && t > end) return false;
+  }
   return true;
 }
