@@ -1,0 +1,50 @@
+name: Sync Sheet → Sanity
+
+# Dispara el sync de precios/stock (Sheet → Sanity) más seguido que el cron de
+# Vercel (que en plan Hobby es 1x/día). GitHub Actions corre gratis y le pega al
+# endpoint /api/sync-sheet con el header Authorization: Bearer (auth header-only,
+# ver src/lib/api-auth.ts). El cron de Vercel queda como backstop diario.
+#
+# Requiere 2 secrets en el repo (Settings → Secrets and variables → Actions):
+#   - SYNC_ENDPOINT_URL  → URL completa del endpoint, ej:
+#                          https://<deploy-v3>.vercel.app/api/sync-sheet
+#   - SYNC_CRON_SECRET   → el mismo valor que la env var SYNC_CRON_SECRET de Vercel
+
+on:
+  schedule:
+    # Cada 30 minutos (UTC). GitHub puede demorar el disparo en horas pico.
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {} # permite correrlo a mano desde la pestaña Actions
+
+# Evita que dos corridas se solapen.
+concurrency:
+  group: sync-sheet
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger sync endpoint
+        env:
+          SYNC_ENDPOINT_URL: ${{ secrets.SYNC_ENDPOINT_URL }}
+          SYNC_CRON_SECRET: ${{ secrets.SYNC_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SYNC_ENDPOINT_URL:-}" ] || [ -z "${SYNC_CRON_SECRET:-}" ]; then
+            echo "❌ Faltan los secrets SYNC_ENDPOINT_URL y/o SYNC_CRON_SECRET."
+            exit 1
+          fi
+          code=$(curl -sS --max-time 120 -o /tmp/sync_out.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${SYNC_CRON_SECRET}" \
+            "${SYNC_ENDPOINT_URL}")
+          echo "HTTP ${code}"
+          echo "--- respuesta ---"
+          cat /tmp/sync_out.json || true
+          echo
+          if [ "${code}" != "200" ]; then
+            echo "❌ El sync devolvió HTTP ${code}"
+            exit 1
+          fi
+          echo "✅ Sync OK"
