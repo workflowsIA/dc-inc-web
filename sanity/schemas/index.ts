@@ -4,6 +4,7 @@ import subtype from "./subtype";
 import combo from "./combo";
 import brand from "./brand";
 import client from "./client";
+import customer from "./customer";
 import order from "./order";
 import hero from "./hero";
 import blogPost from "./blogPost";
@@ -16,6 +17,7 @@ export const schemaTypes = [
   combo,
   brand,
   client,
+  customer,
   order,
   hero,
   blogPost,

@@ -16,6 +16,7 @@
     "enrich:wix": "tsx --env-file=.env.local scripts/enrich-from-wix.ts",
     "export:meta": "tsx --env-file=.env.local scripts/export-meta-catalog.ts",
     "sync:sheet": "tsx --env-file=.env.local scripts/sync-sheet-to-sanity.ts",
+    "backfill:customers": "tsx --env-file=.env.local scripts/backfill-customers.ts",
     "sku:propose": "tsx --env-file=.env.local scripts/propose-sku-fix.ts",
     "sku:apply": "tsx --env-file=.env.local scripts/apply-sku-fix.ts",
     "sku:dedup": "tsx --env-file=.env.local scripts/dedup-skus.ts",

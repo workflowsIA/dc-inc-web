@@ -4,6 +4,7 @@ import {
   TagIcon,
   TagsIcon,
   TrolleyIcon,
+  UsersIcon,
   HomeIcon,
   DocumentsIcon,
   WarningOutlineIcon,
@@ -19,7 +20,9 @@ import {
  * Cuatro grupos top-level claros:
  *   1) Catálogo: productos, categorías, subtipos, combos, marcas (de producto).
  *   2) Ventas: pedidos (Nuevos / Procesados / todos).
- *   3) Contenido del sitio: Home/Hero, Blog y "Marcas con las que trabajamos"
+ *   3) Clientes: cuentas de la tienda (espejo de Clerk) — Todos / En revisión /
+ *      Mayoristas. El estado se edita acá y se propaga a Clerk.
+ *   4) Contenido del sitio: Home/Hero, Blog y "Marcas con las que trabajamos"
  *      (la vidriera de logos que antes se llamaba "Clientes").
  * Dentro de Productos hay vistas "inteligentes" (filtradas) para detectar
  * lo que falta cargar de un vistazo.
@@ -151,6 +154,47 @@ export const structure: StructureResolver = (S) =>
                             .defaultOrdering([{ field: "createdAt", direction: "desc" }]),
                         ),
                     ]),
+                ),
+            ]),
+        ),
+
+      S.divider(),
+
+      // ---- CLIENTES (cuentas de la tienda, espejo de Clerk) ----
+      S.listItem()
+        .title("Clientes")
+        .icon(UsersIcon)
+        .child(
+          S.list()
+            .title("Clientes")
+            .items([
+              S.listItem()
+                .title("Todos")
+                .icon(UsersIcon)
+                .child(
+                  S.documentList()
+                    .title("Todos los clientes")
+                    .filter('_type == "customer"')
+                    .defaultOrdering([{ field: "registeredAt", direction: "desc" }]),
+                ),
+              S.divider(),
+              S.listItem()
+                .title("En revisión")
+                .icon(ClockIcon)
+                .child(
+                  S.documentList()
+                    .title("Mayoristas en revisión")
+                    .filter('_type == "customer" && estado == "en_revision"')
+                    .defaultOrdering([{ field: "registeredAt", direction: "desc" }]),
+                ),
+              S.listItem()
+                .title("Mayoristas")
+                .icon(CheckmarkCircleIcon)
+                .child(
+                  S.documentList()
+                    .title("Mayoristas aprobados")
+                    .filter('_type == "customer" && estado == "mayorista"')
+                    .defaultOrdering([{ field: "empresa", direction: "asc" }]),
                 ),
             ]),
         ),
