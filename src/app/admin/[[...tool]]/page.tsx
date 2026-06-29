@@ -4,8 +4,8 @@
  * Acceso: https://dc-inc-web-v3.vercel.app/admin
  * Studio hosted equivalente: https://dc-inc.sanity.studio/
  *
- * Las páginas web sueltas (/admin/pedidos, /admin/aprobaciones, /admin/clientes)
- * son rutas estáticas y tienen precedencia sobre este catch-all, así conviven.
+ * Todo el backend vive acá (pedidos, clientes, catálogo, contenido). Ya no hay
+ * páginas web sueltas bajo /admin.
  */
 import SanityStudio from "@/components/SanityStudio";
 

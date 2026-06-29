@@ -93,15 +93,15 @@ export default function MiCuentaTabs() {
             Panel admin
           </h3>
           <Link
-            href="/admin/aprobaciones"
+            href="/admin"
             className="card"
             style={{ display: "block", padding: "20px", maxWidth: "420px" }}
           >
             <h4 className="h-md" style={{ fontSize: "16px", marginBottom: "6px" }}>
-              Aprobar mayoristas
+              Abrir el backend
             </h4>
             <p style={{ fontSize: "14px", color: "var(--muted)" }}>
-              Usuarios pendientes de aprobación.
+              Pedidos, clientes y catálogo en el Studio.
             </p>
           </Link>
         </div>

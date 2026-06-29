@@ -28,11 +28,13 @@ export default defineConfig({
   theme: dcTheme,
   plugins: [structureTool({ structure })],
   schema: { types: schemaTypes },
-  // Deshabilitamos la feature de "Releases" (programación de publicaciones en
-  // lote) — no la usamos y solo agrega ruido para Marce.
+  // Deshabilitamos "Releases" y "Scheduled Publishing/Drafts" (programación de
+  // publicaciones) — no las usamos y solo agregan ruido para Marce.
   releases: { enabled: false },
+  scheduledPublishing: { enabled: false },
   tools: (prev) => [
     { name: "dashboard", title: "Dashboard", component: Dashboard },
-    ...prev,
+    // Filtramos cualquier tool de "scheduled drafts/publishing" del navbar.
+    ...prev.filter((t) => !/schedul/i.test(t.name) && !/schedul/i.test(String(t.title ?? ""))),
   ],
 });
