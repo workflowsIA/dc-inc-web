@@ -25,12 +25,18 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   const wholesale = role === "wholesale" || role === "admin";
   const md = (user?.unsafeMetadata ?? {}) as Record<string, string>;
 
-  // Logueado → prefilleamos Nombre y Email con los datos del user (editables).
+  // Logueado → prefilleamos con los datos del perfil (editables). Nombre y email
+  // salen de la cuenta Clerk; empresa y teléfono, de "Mi cuenta → Datos de
+  // empresa" (unsafeMetadata). Con fallbacks por si falta el campo "primary".
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
   const [info, setInfo] = useState<CheckoutInfo>({
-    nombre: user?.firstName ?? md.contacto ?? "",
+    nombre: fullName || md.contacto || "",
     empresa: md.empresa ?? "",
-    email: user?.primaryEmailAddress?.emailAddress ?? "",
-    telefono: md.telefono ?? "",
+    email:
+      user?.primaryEmailAddress?.emailAddress ??
+      user?.emailAddresses?.[0]?.emailAddress ??
+      "",
+    telefono: md.telefono ?? user?.primaryPhoneNumber?.phoneNumber ?? "",
     cp: "",
     notas: "",
   });
