@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { clerkClient } from "@clerk/nextjs/server";
 import { isAdmin } from "@/lib/user";
 import { redirect } from "next/navigation";
@@ -40,6 +41,11 @@ export default async function AprobacionesPage() {
 
   return (
     <div className="wrap" style={{ padding: "48px 24px 80px" }}>
+      <nav style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
+        <Link className="btn btn-ghost btn-sm" href="/admin/pedidos">Pedidos</Link>
+        <span className="btn btn-primary btn-sm">Aprobaciones</span>
+        <Link className="btn btn-ghost btn-sm" href="/admin/clientes">Clientes</Link>
+      </nav>
       <span className="eyebrow">Admin · Aprobaciones</span>
       <h1 className="h-lg" style={{ marginTop: "12px" }}>
         Mayoristas pendientes

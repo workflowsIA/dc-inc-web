@@ -12,6 +12,7 @@
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { auth } from "@clerk/nextjs/server";
 import { sanityWriteClient } from "@/lib/sanity";
 import type { SanityOrder } from "@/lib/queries";
 
@@ -22,6 +23,11 @@ const BodySchema = z.object({ orderId: z.string().trim().min(1).max(80) });
 export async function POST(req: Request) {
   if (process.env.NEXT_PUBLIC_CHECKOUT_SIM !== "1") {
     return NextResponse.json({ ok: false, error: "sim_disabled" }, { status: 403 });
+  }
+  // No se puede pagar sin un usuario logueado (cada compra queda atada a alguien).
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: "auth_required" }, { status: 401 });
   }
   if (!process.env.SANITY_API_WRITE_TOKEN) {
     return NextResponse.json({ ok: false, error: "missing_write_token" }, { status: 500 });

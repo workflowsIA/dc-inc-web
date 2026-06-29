@@ -94,6 +94,17 @@ export const ordersByUserQuery = groq`
   }
 `;
 
+/** Stats de pedidos por usuario (panel de clientes admin). Trae solo lo justo
+ *  para agregar #pedidos y total comprado por cada clerkUserId. */
+export const ordersByUserStatsQuery = groq`
+  *[_type == "order" && defined(clerkUserId)]{ clerkUserId, total, paymentStatus, createdAt }
+`;
+
+/** Pedido por su external_payment_id de Nave (para conciliar desde el webhook). */
+export const orderByNaveExternalIdQuery = groq`
+  *[_type == "order" && naveExternalId == $eid][0]{ _id, orderNumber, paymentStatus, total }
+`;
+
 /** Todos los pedidos (panel admin). */
 export const allOrdersQuery = groq`
   *[_type == "order"] | order(createdAt desc)[0...200] {
@@ -297,6 +308,9 @@ export interface SanityOrder {
   paymentStatus?: "no_pagado" | "pagado";
   fulfillmentStatus?: "no_procesado" | "procesado" | "enviado";
   origin?: "web" | "whatsapp";
+  paymentProvider?: string;
+  paymentId?: string;
+  naveExternalId?: string;
   notes?: string;
   items?: SanityOrderItem[];
 }

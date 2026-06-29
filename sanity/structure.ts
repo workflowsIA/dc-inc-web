@@ -4,7 +4,6 @@ import {
   TagIcon,
   TagsIcon,
   TrolleyIcon,
-  UsersIcon,
   HomeIcon,
   DocumentsIcon,
   WarningOutlineIcon,
@@ -20,8 +19,8 @@ import {
  * Cuatro grupos top-level claros:
  *   1) Catálogo: productos, categorías, subtipos, combos, marcas (de producto).
  *   2) Ventas: pedidos (Nuevos / Procesados / todos).
- *   3) Clientes: clientes de la vidriera ("confían en nosotros").
- *   4) Contenido del sitio: Home/Hero y Blog.
+ *   3) Contenido del sitio: Home/Hero, Blog y "Marcas con las que trabajamos"
+ *      (la vidriera de logos que antes se llamaba "Clientes").
  * Dentro de Productos hay vistas "inteligentes" (filtradas) para detectar
  * lo que falta cargar de un vistazo.
  */
@@ -158,20 +157,6 @@ export const structure: StructureResolver = (S) =>
 
       S.divider(),
 
-      // ---- CLIENTES ----
-      S.listItem()
-        .title("Clientes")
-        .icon(UsersIcon)
-        .child(
-          S.list()
-            .title("Clientes")
-            .items([
-              S.documentTypeListItem("client").title("Clientes").icon(UsersIcon),
-            ]),
-        ),
-
-      S.divider(),
-
       // ---- CONTENIDO DEL SITIO ----
       S.listItem()
         .title("Contenido del sitio")
@@ -182,6 +167,7 @@ export const structure: StructureResolver = (S) =>
             .items([
               S.documentTypeListItem("hero").title("Home / Hero").icon(HomeIcon),
               S.documentTypeListItem("blogPost").title("Blog").icon(DocumentsIcon),
+              S.documentTypeListItem("client").title("Marcas con las que trabajamos").icon(StarIcon),
             ]),
         ),
     ]);

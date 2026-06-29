@@ -1,15 +1,16 @@
 import { defineField, defineType } from "sanity";
-import { UsersIcon } from "@sanity/icons";
+import { StarIcon } from "@sanity/icons";
 
 /**
- * Cliente — logos de la vidriera "clientes que confían en nosotros"
- * (home / nosotros). Separado de `brand`, que ahora es SOLO marcas de producto.
+ * Marca con la que trabajamos — logos de la vidriera (home / nosotros).
+ * El type sigue siendo "client" para no romper datos/queries existentes; solo
+ * cambió el nombre visible. Separado de `brand` (SOLO marcas de producto).
  */
 export default defineType({
   name: "client",
-  title: "Cliente",
+  title: "Marca con la que trabajamos",
   type: "document",
-  icon: UsersIcon,
+  icon: StarIcon,
   fields: [
     defineField({ name: "name", title: "Nombre", type: "string", validation: (r) => r.required() }),
     defineField({ name: "logo", title: "Logo", type: "image", options: { hotspot: true } }),
@@ -26,7 +27,7 @@ export default defineType({
       return {
         title: title || "(Sin nombre)",
         subtitle: active === false ? "Inactivo" : undefined,
-        media: media || UsersIcon,
+        media: media || StarIcon,
       };
     },
   },

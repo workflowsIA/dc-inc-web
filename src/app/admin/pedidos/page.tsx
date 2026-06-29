@@ -48,6 +48,11 @@ export default async function PedidosAdminPage() {
 
   return (
     <div className="wrap" style={{ padding: "48px 24px 80px" }}>
+      <nav style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
+        <span className="btn btn-primary btn-sm">Pedidos</span>
+        <Link className="btn btn-ghost btn-sm" href="/admin/aprobaciones">Aprobaciones</Link>
+        <Link className="btn btn-ghost btn-sm" href="/admin/clientes">Clientes</Link>
+      </nav>
       <span className="eyebrow">Admin · Pedidos</span>
       <h1 className="h-lg" style={{ marginTop: "12px" }}>
         Pedidos web

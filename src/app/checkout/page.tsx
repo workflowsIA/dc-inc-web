@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { useCart } from "@/lib/cart-store";
 
 type ClerkUser = NonNullable<ReturnType<typeof useUser>["user"]>;
@@ -46,8 +46,22 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
     setInfo((s) => ({ ...s, [k]: e.target.value }));
 
   // Compra simulada (testing del funnel completo). Gated por flag público.
+  // Solo se puede COMPRAR estando logueado (cada compra queda atada a un usuario).
   const router = useRouter();
   const simEnabled = process.env.NEXT_PUBLIC_CHECKOUT_SIM === "1";
+  const naveEnabled = process.env.NEXT_PUBLIC_NAVE_ENABLED === "1";
+  const onlinePayEnabled = simEnabled || naveEnabled;
+  const isLoggedIn = !!user;
+  const { redirectToSignIn } = useClerk();
+  // Si no hay sesión, manda a loguearse y vuelve al checkout. Devuelve true si
+  // redirigió (el caller debe cortar el flujo).
+  const requireLogin = (): boolean => {
+    if (isLoggedIn) return false;
+    redirectToSignIn({ signInForceRedirectUrl: "/checkout" });
+    return true;
+  };
+  const [payingNave, setPayingNave] = useState(false);
+  const [naveError, setNaveError] = useState<string | null>(null);
   const [buying, setBuying] = useState(false);
   const [buyError, setBuyError] = useState<string | null>(null);
 
@@ -72,6 +86,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   // "Comprar ahora": crea el pedido (await) y redirige a la pantalla de pago
   // simulada, que hace de stand-in de la pasarela externa (futuro Nave).
   const buyNow = async () => {
+    if (requireLogin()) return;
     setBuyError(null);
     setBuying(true);
     try {
@@ -95,6 +110,48 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
     } catch {
       setBuyError("Hubo un problema de conexión. Probá de nuevo o cerralo por WhatsApp.");
       setBuying(false);
+    }
+  };
+
+  // "Pagar con Nave": crea el pedido (await) y redirige al checkout_url real de
+  // la pasarela. El cobro se confirma por webhook (/api/nave/webhook).
+  const payWithNave = async () => {
+    if (requireLogin()) return;
+    setNaveError(null);
+    setPayingNave(true);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPayload()),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.status === 409 && data?.error === "out_of_stock") {
+        const skus = Array.isArray(data.skus) ? data.skus.join(", ") : "";
+        setNaveError(`Hay productos sin stock${skus ? `: ${skus}` : ""}. Quitalos del carrito para continuar.`);
+        setPayingNave(false);
+        return;
+      }
+      if (!res.ok || !data?.ok || !data.id) {
+        setNaveError("No pudimos generar el pedido. Probá de nuevo o cerralo por WhatsApp.");
+        setPayingNave(false);
+        return;
+      }
+      const navRes = await fetch("/api/nave/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: data.id }),
+      });
+      const navData = await navRes.json().catch(() => null);
+      if (!navRes.ok || !navData?.ok || !navData.checkoutUrl) {
+        setNaveError("No pudimos iniciar el pago. Probá de nuevo o cerralo por WhatsApp.");
+        setPayingNave(false);
+        return;
+      }
+      window.location.href = navData.checkoutUrl as string;
+    } catch {
+      setNaveError("Hubo un problema de conexión. Probá de nuevo o cerralo por WhatsApp.");
+      setPayingNave(false);
     }
   };
 
@@ -147,7 +204,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       <div className="chips" style={{ marginBottom: "28px" }}>
         <Link className="chip" href="/carrito">1 · Carrito</Link>
         <span className="chip on">2 · Tus datos</span>
-        <span className="chip">3 · {simEnabled ? "Pago" : "Confirmar por WhatsApp"}</span>
+        <span className="chip">3 · {onlinePayEnabled ? "Pago" : "Confirmar por WhatsApp"}</span>
       </div>
 
       <h1 className="h-lg">Revisá y confirmá tu pedido</h1>
@@ -159,9 +216,11 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
             Tus datos
           </h3>
           <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "18px" }}>
-            {simEnabled
-              ? "Comprá online (pago de prueba) o coordiná el cierre por WhatsApp. El envío se confirma al cerrar."
-              : "Coordinamos el cierre, el pago y el envío por WhatsApp. No se cobra nada online."}
+            {naveEnabled
+              ? "Pagá online con Nave o coordiná el cierre por WhatsApp. El envío se confirma al cerrar."
+              : simEnabled
+                ? "Comprá online (pago de prueba) o coordiná el cierre por WhatsApp. El envío se confirma al cerrar."
+                : "Coordinamos el cierre, el pago y el envío por WhatsApp. No se cobra nada online."}
           </p>
           <div style={{ display: "grid", gap: "14px" }}>
             <In label="Nombre" value={info.nombre} onChange={set("nombre")} />
@@ -225,7 +284,25 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
           )}
           <Row label="Total estimado" value={ars(t.total)} strong />
 
-          {simEnabled && (
+          {naveEnabled && (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary btn-lg btn-block"
+                style={{ marginTop: "20px" }}
+                onClick={payWithNave}
+                disabled={payingNave}
+              >
+                {payingNave ? "Redirigiendo al pago…" : "Pagar con Nave"}
+              </button>
+              {naveError && (
+                <p style={{ marginTop: "10px", fontSize: "13px", color: "var(--danger, #c0392b)" }}>
+                  {naveError}
+                </p>
+              )}
+            </>
+          )}
+          {!naveEnabled && simEnabled && (
             <>
               <button
                 type="button"
@@ -244,14 +321,14 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
             </>
           )}
           <a
-            className={`btn btn-wa ${simEnabled ? "" : "btn-lg"} btn-block`}
-            style={{ marginTop: simEnabled ? "10px" : "20px" }}
+            className={`btn btn-wa ${onlinePayEnabled ? "" : "btn-lg"} btn-block`}
+            style={{ marginTop: onlinePayEnabled ? "10px" : "20px" }}
             href={waCheckoutURL(items, wholesale, info)}
             target="_blank"
             rel="noopener"
             onClick={persistOrder}
           >
-            {simEnabled ? "Prefiero coordinar por WhatsApp" : "Confirmar pedido por WhatsApp"}
+            {onlinePayEnabled ? "Prefiero coordinar por WhatsApp" : "Confirmar pedido por WhatsApp"}
           </a>
           <Link
             className="btn btn-ghost btn-block"

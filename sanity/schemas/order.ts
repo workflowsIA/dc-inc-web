@@ -111,6 +111,27 @@ export default defineType({
       initialValue: "no_pagado",
     }),
     defineField({
+      name: "paymentProvider",
+      title: "Medio de pago",
+      type: "string",
+      description: "Pasarela que confirmó el cobro (ej. nave). Vacío si se cerró por WhatsApp.",
+      readOnly: true,
+    }),
+    defineField({
+      name: "paymentId",
+      title: "ID de pago",
+      type: "string",
+      description: "ID del pago en la pasarela, para conciliar contra el panel.",
+      readOnly: true,
+    }),
+    defineField({
+      name: "naveExternalId",
+      title: "External payment ID (Nave)",
+      type: "string",
+      description: "ID que enviamos a Nave como external_payment_id para conciliar el webhook.",
+      readOnly: true,
+    }),
+    defineField({
       name: "fulfillmentStatus",
       title: "Estado de procesamiento",
       type: "string",
