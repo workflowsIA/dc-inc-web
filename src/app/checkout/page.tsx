@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useCart } from "@/lib/cart-store";
 
@@ -37,6 +38,59 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   const t = totalsFor(items, wholesale);
   const set = (k: keyof CheckoutInfo) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setInfo((s) => ({ ...s, [k]: e.target.value }));
+
+  // Compra simulada (testing del funnel completo). Gated por flag público.
+  const router = useRouter();
+  const simEnabled = process.env.NEXT_PUBLIC_CHECKOUT_SIM === "1";
+  const [buying, setBuying] = useState(false);
+  const [buyError, setBuyError] = useState<string | null>(null);
+
+  // Payload del pedido: SOLO qué se pidió. El server recalcula precios/totales.
+  const buildPayload = () => ({
+    customerName: info.nombre,
+    customerEmail: info.email,
+    customerCompany: info.empresa,
+    customerPhone: info.telefono,
+    items: items.map((i) => ({
+      sku: i.sku,
+      slug: i.id,
+      kind: i.kind,
+      qty: i.qty,
+      name: i.name,
+      deco: i.deco,
+    })),
+    notes: info.notas,
+    origin: "web" as const,
+  });
+
+  // "Comprar ahora": crea el pedido (await) y redirige a la pantalla de pago
+  // simulada, que hace de stand-in de la pasarela externa (futuro Nave).
+  const buyNow = async () => {
+    setBuyError(null);
+    setBuying(true);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPayload()),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok || !data.id) {
+        setBuyError("No pudimos generar el pedido. Probá de nuevo o cerralo por WhatsApp.");
+        setBuying(false);
+        return;
+      }
+      const q = new URLSearchParams({
+        order: data.id,
+        n: data.orderNumber ?? "",
+        total: String(Math.round(t.total)),
+      });
+      router.push(`/checkout/pago?${q.toString()}`);
+    } catch {
+      setBuyError("Hubo un problema de conexión. Probá de nuevo o cerralo por WhatsApp.");
+      setBuying(false);
+    }
+  };
 
   // Persistimos el pedido en Sanity vía /api/orders ANTES de abrir WhatsApp.
   // Importante: NO bloqueamos el handoff a WhatsApp — el <a> hace su navegación
@@ -87,7 +141,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       <div className="chips" style={{ marginBottom: "28px" }}>
         <Link className="chip" href="/carrito">1 · Carrito</Link>
         <span className="chip on">2 · Tus datos</span>
-        <span className="chip">3 · Confirmar por WhatsApp</span>
+        <span className="chip">3 · {simEnabled ? "Pago" : "Confirmar por WhatsApp"}</span>
       </div>
 
       <h1 className="h-lg">Revisá y confirmá tu pedido</h1>
@@ -99,7 +153,9 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
             Tus datos
           </h3>
           <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "18px" }}>
-            Coordinamos el cierre, el pago y el envío por WhatsApp. No se cobra nada online.
+            {simEnabled
+              ? "Comprá online (pago de prueba) o coordiná el cierre por WhatsApp. El envío se confirma al cerrar."
+              : "Coordinamos el cierre, el pago y el envío por WhatsApp. No se cobra nada online."}
           </p>
           <div style={{ display: "grid", gap: "14px" }}>
             <In label="Nombre" value={info.nombre} onChange={set("nombre")} />
@@ -163,15 +219,33 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
           )}
           <Row label="Total estimado" value={ars(t.total)} strong />
 
+          {simEnabled && (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary btn-lg btn-block"
+                style={{ marginTop: "20px" }}
+                onClick={buyNow}
+                disabled={buying}
+              >
+                {buying ? "Generando pedido…" : "Comprar ahora"}
+              </button>
+              {buyError && (
+                <p style={{ marginTop: "10px", fontSize: "13px", color: "var(--danger, #c0392b)" }}>
+                  {buyError}
+                </p>
+              )}
+            </>
+          )}
           <a
-            className="btn btn-wa btn-lg btn-block"
-            style={{ marginTop: "20px" }}
+            className={`btn btn-wa ${simEnabled ? "" : "btn-lg"} btn-block`}
+            style={{ marginTop: simEnabled ? "10px" : "20px" }}
             href={waCheckoutURL(items, wholesale, info)}
             target="_blank"
             rel="noopener"
             onClick={persistOrder}
           >
-            Confirmar pedido por WhatsApp
+            {simEnabled ? "Prefiero coordinar por WhatsApp" : "Confirmar pedido por WhatsApp"}
           </a>
           <Link
             className="btn btn-ghost btn-block"
