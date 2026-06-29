@@ -23,7 +23,7 @@ export default defineConfig({
   title: "DC Inc",
   projectId,
   dataset,
-  basePath: "/studio",
+  basePath: "/admin",
   // Tema de marca DC (amber + charcoal). Ver sanity/theme.ts.
   theme: dcTheme,
   plugins: [structureTool({ structure })],
