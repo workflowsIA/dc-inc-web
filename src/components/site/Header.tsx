@@ -74,7 +74,7 @@ export default async function Header() {
             WhatsApp
           </a>
           {signedIn ? (
-            <UserButton />
+            <UserButton userProfileMode="navigation" userProfileUrl="/mi-cuenta" />
           ) : (
             <Link className="icon-btn" href="/cuenta" aria-label="Ingresar">
               <User />

@@ -78,8 +78,29 @@ export default function RootLayout({
           colorText: "#1A1A1A",
           colorTextSecondary: "#6E6E6B",
           colorBackground: "#FFFFFF",
+          colorInputBackground: "#FFFFFF",
+          colorInputText: "#1A1A1A",
+          colorDanger: "#C0392B",
           fontFamily: "var(--font-body)",
+          fontFamilyButtons: "var(--font-body)",
           borderRadius: "10px",
+        },
+        elements: {
+          card: {
+            boxShadow: "0 10px 40px rgba(0,0,0,0.08)",
+            border: "1px solid #ECECEC",
+          },
+          headerTitle: { fontFamily: "var(--font-display)", fontWeight: 700 },
+          headerSubtitle: { color: "#6E6E6B" },
+          formButtonPrimary: {
+            backgroundColor: "#E8B53D",
+            color: "#1A1A1A",
+            fontWeight: 700,
+            textTransform: "none",
+            boxShadow: "none",
+          },
+          userButtonPopoverActionButton: { color: "#1A1A1A" },
+          profileSectionPrimaryButton: { color: "#1A1A1A" },
         },
       }}
     >
