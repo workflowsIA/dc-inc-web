@@ -8,8 +8,11 @@
  * IDEMPOTENTE: si el pedido ya está pagado, no repite.
  * Devuelve 200 rápido siempre (Nave reintenta hasta 5 veces ante no-2xx).
  *
- * NOTA: el descuento de stock se enganchará acá cuando tengamos el acceso de
- * edición a la planilla (hoy queda sólo marcar pagado).
+ * DESCUENTO DE STOCK: al confirmar el pago se descuenta el stock en la planilla
+ * (applyStockSale), gateado por STOCK_SALE_ON_PAYMENT=1. Es NO destructivo: si
+ * la celda objetivo es fórmula (caso actual de "Stock Venta"), se saltea y se
+ * loguea — cuando Marce dé el OK a la columna "Ventas web", apuntar
+ * STOCK_SALE_COLUMN ahí y el descuento queda operativo sin tocar código.
  */
 import { NextResponse } from "next/server";
 import { sanityWriteClient } from "@/lib/sanity";
@@ -19,6 +22,7 @@ import {
   getPaymentById,
   type NavePayment,
 } from "@/lib/nave";
+import { stockSaleAfterPayment } from "@/lib/sheet-sync";
 import { orderByNaveExternalIdQuery, type SanityOrder } from "@/lib/queries";
 
 export const runtime = "nodejs";
@@ -76,6 +80,9 @@ export async function POST(req: Request) {
         paymentId: String(payment?.id ?? body.payment_id ?? ""),
       })
       .commit();
+
+    // Descuento de stock en la planilla (gated + no destructivo, ver header).
+    await stockSaleAfterPayment(order, "/api/nave/webhook");
 
     return NextResponse.json({ ok: true, status, handled: true });
   } catch (err) {

@@ -21,7 +21,9 @@
     "sku:apply": "tsx --env-file=.env.local scripts/apply-sku-fix.ts",
     "sku:dedup": "tsx --env-file=.env.local scripts/dedup-skus.ts",
     "sku:lookup": "tsx --env-file=.env.local scripts/lookup-precio.ts",
-    "stock:check": "tsx --env-file=.env.local scripts/check-stock.ts"
+    "stock:check": "tsx --env-file=.env.local scripts/check-stock.ts",
+    "csv:import": "tsx --env-file=.env.local scripts/import-products-csv.ts",
+    "monday:test": "tsx --env-file=.env.local scripts/test-monday.ts"
   },
   "dependencies": {
     "@clerk/localizations": "^4.8.2",

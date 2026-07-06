@@ -86,6 +86,16 @@ export default defineType({
       of: [{ type: "image", options: { hotspot: true } }],
     }),
     defineField({
+      name: "fromSheet",
+      title: "Creado desde la planilla",
+      type: "boolean",
+      group: "basico",
+      readOnly: true,
+      hidden: ({ value }) => !value,
+      description:
+        "Lo creó la sincronización al detectar un SKU nuevo en la planilla de precios. Completá foto y categoría y publicalo para que aparezca en la web.",
+    }),
+    defineField({
       name: "legacyImageUrl",
       title: "URL legacy de imagen (Wix CDN)",
       type: "url",

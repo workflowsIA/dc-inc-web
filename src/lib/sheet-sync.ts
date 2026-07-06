@@ -31,6 +31,9 @@ export interface SyncSummary {
   noMatchDetails: { _id: string; sku: string; name: string; slug: string }[];
   dryRun: boolean;
   changes?: { sku: string; set: Record<string, unknown> }[];
+  /** SKUs de la planilla de precios que NO existían en Sanity → creados como
+   *  borradores (drafts) para dar de alta desde el Studio ("Nuevos desde la planilla"). */
+  createdDrafts: { sku: string; name: string }[];
 }
 
 // ---- helpers ----
@@ -121,6 +124,8 @@ interface PriceRow {
   pricePublic: number | null;
   priceWholesale: number | null;
   unitsPerBulk: number | null;
+  /** DESCRIPCION de la planilla — nombre tentativo para productos nuevos. */
+  name: string;
 }
 
 function buildPriceMap(rows: Record<string, unknown>[]): Map<string, PriceRow> {
@@ -133,8 +138,9 @@ function buildPriceMap(rows: Record<string, unknown>[]): Map<string, PriceRow> {
       r["precio sin iva - (p/presupuestero)"] ?? r["precio sin iva"],
     );
     const unitsPerBulk = toNum(r["unidad por bulto"]);
+    const name = String(r["descripcion"] ?? "").trim();
     if (!map.has(sku) && pricePublic !== null) {
-      map.set(sku, { pricePublic, priceWholesale, unitsPerBulk });
+      map.set(sku, { pricePublic, priceWholesale, unitsPerBulk, name });
     }
   }
   return map;
@@ -230,6 +236,44 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
     await tx.commit({ visibility: "async" });
   }
 
+  // --- Productos NUEVOS en la planilla (SKU con precio que no existe en Sanity) ---
+  // Se crean como BORRADORES (draft) con los datos de la planilla: no aparecen
+  // en la web hasta que alguien les complete foto/categoría y los publique.
+  // Bandeja en el Studio: Catálogo → Productos → "Nuevos desde la planilla".
+  // Idempotente: id determinístico + createIfNotExists (no pisa ediciones a medias).
+  const knownSkus = new Set(products.map((p) => p.sku));
+  const createdDrafts: SyncSummary["createdDrafts"] = [];
+  for (const [sku, price] of priceMap) {
+    if (knownSkus.has(sku)) continue;
+    const name = price.name || sku;
+    const stock = stockMap.get(sku);
+    const level = deriveStockLevel(stock?.stockQty ?? null, stock?.stockMin ?? null);
+    createdDrafts.push({ sku, name });
+    if (dryRun) continue;
+    const idSafe = sku.replace(/[^A-Za-z0-9._-]/g, "-");
+    const slug = name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 96);
+    await sanityWriteClient.createIfNotExists({
+      _id: `drafts.product-sheet-${idSafe}`,
+      _type: "product",
+      sku,
+      name,
+      slug: { _type: "slug", current: slug || idSafe.toLowerCase() },
+      ...(price.pricePublic != null ? { pricePublic: price.pricePublic } : {}),
+      ...(price.priceWholesale != null ? { priceWholesale: price.priceWholesale } : {}),
+      ...(price.unitsPerBulk != null ? { unitsPerBulk: price.unitsPerBulk } : {}),
+      ...(stock?.stockQty != null ? { stockQty: stock.stockQty } : {}),
+      ...(stock?.stockMin != null ? { stockMin: stock.stockMin } : {}),
+      ...(level ? { stockLevel: level } : {}),
+      fromSheet: true,
+    });
+  }
+
   return {
     pricesRead: priceMap.size,
     stockRead: stockMap.size,
@@ -240,12 +284,43 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
     noMatchDetails,
     dryRun,
     changes: dryRun ? changes : undefined,
+    createdDrafts,
   };
 }
 
 // ---------------------------------------------------------------------------
 // Venta web → resta stock en la planilla (único flujo web → Sheet de d-005)
 // ---------------------------------------------------------------------------
+
+/**
+ * Descuenta stock en la planilla tras un PAGO CONFIRMADO (webhook Nave o pago
+ * simulado). Best-effort: nunca lanza (un fallo acá no puede romper la
+ * confirmación del cobro).
+ *
+ * GATED por STOCK_SALE_ON_PAYMENT=1. Mientras la columna objetivo sea fórmula
+ * ("Stock Venta" hoy), applyStockSale la saltea y solo loguea. Cuando Marce dé
+ * el OK a la columna "Ventas web": setear STOCK_SALE_COLUMN y listo.
+ */
+export async function stockSaleAfterPayment(
+  order: { orderNumber?: string; items?: { sku?: string; unidades?: number }[] },
+  tag: string,
+): Promise<void> {
+  if (process.env.STOCK_SALE_ON_PAYMENT !== "1") return;
+  const items = (order.items ?? [])
+    .filter((i) => i.sku && (i.unidades ?? 0) > 0)
+    .map((i) => ({ sku: i.sku as string, unidades: i.unidades as number }));
+  if (items.length === 0) return;
+  try {
+    const res = await applyStockSale(items);
+    console.log(
+      `[${tag}] stock-sale pedido ${order.orderNumber ?? "?"}: aplicados=${res.applied.length}` +
+        (res.skippedFormula.length ? ` fórmula(skip)=${res.skippedFormula.join(",")}` : "") +
+        (res.notFound.length ? ` sin fila=${res.notFound.join(",")}` : ""),
+    );
+  } catch (err) {
+    console.error(`[${tag}] stock-sale falló (pedido ${order.orderNumber ?? "?"}):`, err);
+  }
+}
 
 export interface SaleItem {
   sku: string;
@@ -330,7 +405,13 @@ export async function applyStockSale(
       continue;
     }
     const before = toNum(vals[r][colStock]) ?? 0;
-    const after = Math.max(0, before - (Number(unidades) || 0));
+    // Modo "subtract" (default): la columna es el stock → se resta la venta.
+    // Modo "accumulate": la columna es un contador de ventas (ej. "Ventas web")
+    // → se suma; la planilla de Marce descuenta con su propia fórmula.
+    const after =
+      process.env.STOCK_SALE_MODE === "accumulate"
+        ? before + (Number(unidades) || 0)
+        : Math.max(0, before - (Number(unidades) || 0));
     applied.push({ sku, before, after });
     updates.push({
       range: `${TAB_INVENTARIO}!${colLetter(colStock)}${r + 1}`,

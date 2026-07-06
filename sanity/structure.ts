@@ -49,6 +49,17 @@ export const structure: StructureResolver = (S) =>
                     .items([
                       S.documentTypeListItem("product").title("Todos los productos"),
                       S.divider(),
+                      // Bandeja de altas: SKUs nuevos que la sincronización
+                      // detectó en la planilla y creó como borrador. Completar
+                      // foto + categoría y publicar para que salgan a la web.
+                      S.listItem()
+                        .title("Nuevos desde la planilla")
+                        .icon(ClockIcon)
+                        .child(
+                          S.documentList()
+                            .title("Borradores creados por el sync — completar y publicar")
+                            .filter('_type == "product" && fromSheet == true && _id in path("drafts.**")'),
+                        ),
                       S.listItem()
                         .title("Sin foto")
                         .icon(WarningOutlineIcon)

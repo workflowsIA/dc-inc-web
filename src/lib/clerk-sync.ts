@@ -57,6 +57,18 @@ export interface CustomerFields {
   telefono?: string;
   estado: Estado;
   registeredAt?: string;
+  /** Item del board CRM de Monday asociado (notificación de registro). */
+  mondayItemId?: string;
+}
+
+/** Lee el doc espejo actual (o null). Útil para detectar transiciones. */
+export async function getCustomer(
+  clerkUserId: string,
+): Promise<(CustomerFields & { _id: string }) | null> {
+  return sanityWriteClient.fetch(
+    `*[_id == $id][0]{ _id, clerkUserId, nombre, empresa, email, cuit, telefono, estado, mondayItemId }`,
+    { id: customerDocId(clerkUserId) },
+  );
 }
 
 /** Crea o reemplaza el documento espejo del cliente en Sanity. */
@@ -72,8 +84,21 @@ export async function upsertCustomer(f: CustomerFields): Promise<void> {
     telefono: f.telefono ?? "",
     estado: f.estado,
     registeredAt: f.registeredAt,
+    ...(f.mondayItemId ? { mondayItemId: f.mondayItemId } : {}),
     lastSyncedAt: new Date().toISOString(),
   });
+}
+
+/** Guarda el itemId de Monday en el doc espejo (post-notificación). */
+export async function setCustomerMondayItem(
+  clerkUserId: string,
+  mondayItemId: string,
+): Promise<void> {
+  await sanityWriteClient
+    .patch(customerDocId(clerkUserId))
+    .set({ mondayItemId })
+    .commit()
+    .catch(() => {});
 }
 
 export async function deleteCustomer(clerkUserId: string): Promise<void> {

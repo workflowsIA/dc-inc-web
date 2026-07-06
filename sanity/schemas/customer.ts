@@ -62,6 +62,14 @@ export default defineType({
       type: "datetime",
       readOnly: true,
     }),
+    defineField({
+      name: "mondayItemId",
+      title: "Item en Monday (CRM)",
+      type: "string",
+      readOnly: true,
+      hidden: true,
+      description: "ID del item creado en el board CRM al notificar el registro.",
+    }),
   ],
   orderings: [
     { title: "Más nuevos", name: "registeredDesc", by: [{ field: "registeredAt", direction: "desc" }] },

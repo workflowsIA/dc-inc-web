@@ -58,6 +58,15 @@ async function main() {
   console.log(
     `\n✅ Actualizados: ${r.patched} · sin cambios: ${r.skipped} · sin match en planilla: ${r.noMatch.length}`,
   );
+  if (r.createdDrafts.length) {
+    console.log(
+      `\n🆕 SKUs nuevos en la planilla → ${DRY_RUN ? "se crearían" : "creados"} como BORRADOR (${r.createdDrafts.length}):`,
+    );
+    for (const d of r.createdDrafts) console.log(`   ${d.sku.padEnd(16)} ${d.name}`);
+    console.log(
+      "   → Studio: Catálogo → Productos → «Nuevos desde la planilla» (completar foto/categoría y publicar).",
+    );
+  }
   if (r.noMatch.length) {
     console.log(
       `   (SKUs en Sanity sin fila en las planillas: ${r.noMatch.slice(0, 20).join(", ")}${r.noMatch.length > 20 ? "…" : ""})`,

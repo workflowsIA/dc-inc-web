@@ -19,8 +19,12 @@ import {
   customerFieldsFromWebhook,
   upsertCustomer,
   deleteCustomer,
+  getCustomer,
+  setCustomerMondayItem,
   type ClerkWebhookUser,
+  type CustomerFields,
 } from "@/lib/clerk-sync";
+import { isMondayConfigured, notifyCustomerSignup, addSignupUpdate } from "@/lib/monday";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +47,46 @@ function verifySvix(secret: string, id: string, ts: string, body: string, header
     const b = Buffer.from(s);
     return b.length === exp.length && timingSafeEqual(b, exp);
   });
+}
+
+/**
+ * Notifica el registro en el board CRM de Monday:
+ *  - user.created → item nuevo ("Registro web"; si ya vino con empresa/CUIT,
+ *    "Solicita MAYORISTA").
+ *  - user.updated → solo cuando aparecen POR PRIMERA VEZ datos de empresa
+ *    (empresa o CUIT vacíos → completos): posible mayorista. Si el registro ya
+ *    tiene item en Monday, se agrega un update ahí; si no, item nuevo.
+ * Nunca lanza: un fallo de Monday no puede romper el sync Clerk→Sanity.
+ */
+async function notifyMondaySafe(
+  type: string,
+  fields: CustomerFields,
+  prev: (CustomerFields & { _id: string }) | null,
+): Promise<void> {
+  if (!isMondayConfigured()) return;
+  try {
+    const hasCompanyData = !!(fields.empresa || fields.cuit);
+    if (type === "user.created") {
+      const itemId = await notifyCustomerSignup({
+        kind: hasCompanyData ? "solicitud_mayorista" : "registro",
+        ...fields,
+      });
+      if (itemId) await setCustomerMondayItem(fields.clerkUserId, itemId);
+      return;
+    }
+    // user.updated: transición sin datos de empresa → con datos de empresa.
+    const prevHadCompanyData = !!(prev?.empresa || prev?.cuit);
+    if (!hasCompanyData || prevHadCompanyData) return;
+    const n = { kind: "solicitud_mayorista" as const, ...fields };
+    if (prev?.mondayItemId) {
+      await addSignupUpdate(prev.mondayItemId, n);
+    } else {
+      const itemId = await notifyCustomerSignup(n);
+      if (itemId) await setCustomerMondayItem(fields.clerkUserId, itemId);
+    }
+  } catch (err) {
+    console.warn("[/api/clerk/webhook] notificación Monday falló (ignorada):", err);
+  }
 }
 
 export async function POST(req: Request) {
@@ -76,7 +120,11 @@ export async function POST(req: Request) {
     if (type === "user.deleted") {
       await deleteCustomer(data.id);
     } else if (type === "user.created" || type === "user.updated") {
-      await upsertCustomer(customerFieldsFromWebhook(data));
+      const fields = customerFieldsFromWebhook(data);
+      const prev = type === "user.updated" || isMondayConfigured() ? await getCustomer(data.id) : null;
+      await upsertCustomer({ ...fields, mondayItemId: prev?.mondayItemId });
+      // Notificación en Monday (best-effort: nunca rompe la sincronización).
+      await notifyMondaySafe(type, fields, prev);
     } else {
       return NextResponse.json({ ok: true, ignored: type });
     }

@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { sanityWriteClient } from "@/lib/sanity";
+import { stockSaleAfterPayment } from "@/lib/sheet-sync";
 import type { SanityOrder } from "@/lib/queries";
 
 export const runtime = "nodejs";
@@ -53,6 +54,10 @@ export async function POST(req: Request) {
     .patch(parsed.data.orderId)
     .set({ paymentStatus: "pagado", notes: appendSimNote(order.notes) })
     .commit();
+
+  // Igual que hará el webhook de Nave: descuento de stock en la planilla
+  // (gated por STOCK_SALE_ON_PAYMENT=1; no destructivo — ver sheet-sync.ts).
+  await stockSaleAfterPayment(order, "/api/checkout/simulate-pay");
 
   return NextResponse.json({ ok: true, orderNumber: order.orderNumber, total: order.total });
 }

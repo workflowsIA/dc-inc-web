@@ -48,8 +48,11 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   // Compra simulada (testing del funnel completo). Gated por flag público.
   // Solo se puede COMPRAR estando logueado (cada compra queda atada a un usuario).
   const router = useRouter();
-  const simEnabled = process.env.NEXT_PUBLIC_CHECKOUT_SIM === "1";
-  const naveEnabled = process.env.NEXT_PUBLIC_NAVE_ENABLED === "1";
+  // Los MAYORISTAS no pagan online: su flujo cierra siempre por WhatsApp
+  // (definición de Marce, call jul-2026). El admin conserva los botones para testear.
+  const wholesaleOnlyWA = role === "wholesale";
+  const simEnabled = process.env.NEXT_PUBLIC_CHECKOUT_SIM === "1" && !wholesaleOnlyWA;
+  const naveEnabled = process.env.NEXT_PUBLIC_NAVE_ENABLED === "1" && !wholesaleOnlyWA;
   const onlinePayEnabled = simEnabled || naveEnabled;
   const isLoggedIn = !!user;
   const { redirectToSignIn } = useClerk();
