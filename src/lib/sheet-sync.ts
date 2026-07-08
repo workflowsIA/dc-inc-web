@@ -5,9 +5,17 @@
  *
  * Fuentes (ver vault: entregables/mapeo-sheet-sanity-junio-2026.md):
  *   PRECIOS → "Lista de precios productos - DC Inc 2026" / `Precios Insumos`
- *     CODIGO → sku · Precio unitario → pricePublic · PRECIO SIN IVA → priceWholesale · UNIDAD POR BULTO → unitsPerBulk
+ *     CODIGO → sku · CON IVA - Web → pricePublic · SIN IVA - Presupuesto → priceWholesale · UNIDAD POR BULTO → unitsPerBulk
  *   STOCK   → "Presupuestos | inventario | Actual" / `Productos_Inventario_DC`
  *     Sku → sku · Stock Venta (fila base) → stockQty · Minimos stock → stockMin
+ *
+ * ⚠️ Reestructura de la planilla (jul 2026): Marce pasó a modelo costo+markup
+ * (COSTO DOLAR × dólar tab "Dolar" × MARK UP → SIN IVA; × 1,21 → CON IVA) con
+ * UNA FILA POR PRESENTACIÓN (Unidad/Caja/Pallet; SKU con sufijo P/CP/CG).
+ * Los precios canónicos son "CON IVA - Web" y "SIN IVA - Presupuesto"; la
+ * columna vieja " Precio unitario " quedó como referencia histórica (stale) y
+ * solo se usa de fallback. Las filas de variantes (UNIDAD POR BULTO > 1) se
+ * indexan para matchear SKUs existentes pero NO crean drafts.
  */
 import { google } from "googleapis";
 import { sanityWriteClient } from "./sanity";
@@ -126,6 +134,10 @@ interface PriceRow {
   unitsPerBulk: number | null;
   /** DESCRIPCION de la planilla — nombre tentativo para productos nuevos. */
   name: string;
+  /** true si la fila es una presentación Caja/Pallet (UNIDAD POR BULTO > 1).
+   *  Matchea SKUs existentes pero no crea drafts (evita inundar el Studio
+   *  con variantes LAS473P/CP/CG que en la web son opciones del producto). */
+  isVariant: boolean;
 }
 
 function buildPriceMap(rows: Record<string, unknown>[]): Map<string, PriceRow> {
@@ -133,14 +145,18 @@ function buildPriceMap(rows: Record<string, unknown>[]): Map<string, PriceRow> {
   for (const r of rows) {
     const sku = cleanSku(r["codigo"]);
     if (!sku) continue;
-    const pricePublic = toNum(r["precio unitario"]);
+    // Columnas nuevas (jul 2026) primero; las viejas quedan de fallback.
+    const pricePublic = toNum(r["con iva - web"] ?? r["precio unitario"]);
     const priceWholesale = toNum(
-      r["precio sin iva - (p/presupuestero)"] ?? r["precio sin iva"],
+      r["sin iva - presupuesto"] ??
+        r["precio sin iva - (p/presupuestero)"] ??
+        r["precio sin iva"],
     );
     const unitsPerBulk = toNum(r["unidad por bulto"]);
     const name = String(r["descripcion"] ?? "").trim();
+    const isVariant = unitsPerBulk !== null && unitsPerBulk > 1;
     if (!map.has(sku) && pricePublic !== null) {
-      map.set(sku, { pricePublic, priceWholesale, unitsPerBulk, name });
+      map.set(sku, { pricePublic, priceWholesale, unitsPerBulk, name, isVariant });
     }
   }
   return map;
@@ -217,7 +233,10 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
     const set: Record<string, unknown> = {};
     if (price?.pricePublic != null) set.pricePublic = price.pricePublic;
     if (price?.priceWholesale != null) set.priceWholesale = price.priceWholesale;
-    if (price?.unitsPerBulk != null) set.unitsPerBulk = price.unitsPerBulk;
+    // La fila base de la planilla nueva trae UNIDAD POR BULTO = 1 (es la fila
+    // "Unidad"); pisar con 1 rompería el buy-box por bulto enriquecido de Wix.
+    if (price?.unitsPerBulk != null && price.unitsPerBulk > 1)
+      set.unitsPerBulk = price.unitsPerBulk;
     if (stock?.stockQty != null) set.stockQty = stock.stockQty;
     if (stock?.stockMin != null) set.stockMin = stock.stockMin;
     const level = deriveStockLevel(stock?.stockQty ?? null, stock?.stockMin ?? null);
@@ -245,6 +264,7 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
   const createdDrafts: SyncSummary["createdDrafts"] = [];
   for (const [sku, price] of priceMap) {
     if (knownSkus.has(sku)) continue;
+    if (price.isVariant) continue; // presentación Caja/Pallet → no es un producto nuevo
     const name = price.name || sku;
     const stock = stockMap.get(sku);
     const level = deriveStockLevel(stock?.stockQty ?? null, stock?.stockMin ?? null);
