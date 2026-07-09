@@ -172,21 +172,28 @@ async function createConversation(sourceId: string, contactId: number): Promise<
   return data?.id ?? null;
 }
 
-async function postIncoming(conversationId: number, content: string): Promise<boolean> {
+/**
+ * Postea una NOTA PRIVADA en la conversación (no se envía al cliente).
+ * Chatwoot no permite inyectar mensajes `incoming` en inboxes de WhatsApp
+ * ("Incoming messages are only allowed in Api inboxes"), así que el pedido de
+ * catálogo se registra como nota interna, visible sólo para el agente.
+ */
+async function postPrivateNote(conversationId: number, content: string): Promise<boolean> {
   const res = await cwFetch(`/conversations/${conversationId}/messages`, {
     method: "POST",
-    body: JSON.stringify({ content, message_type: "incoming" }),
+    body: JSON.stringify({ content, message_type: "outgoing", private: true }),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`postIncoming(conv ${conversationId}) ${res.status}: ${body.slice(0, 300)}`);
+    throw new Error(`postPrivateNote(conv ${conversationId}) ${res.status}: ${body.slice(0, 300)}`);
   }
   return true;
 }
 
 /**
- * Inyecta un mensaje ENTRANTE de texto en la conversación del contacto
+ * Registra el texto como NOTA PRIVADA en la conversación del contacto
  * (creando contacto/conversación si hace falta). Devuelve true si se posteó.
+ * Se usa nota privada porque WhatsApp no admite inyectar mensajes `incoming`.
  */
 export async function injectIncomingText(args: {
   waId: string;
@@ -204,7 +211,7 @@ export async function injectIncomingText(args: {
   //    No hace falta source_id para postear en una conversación existente.
   if (contactId) {
     const conv = await findOpenConversation(contactId);
-    if (conv) return postIncoming(conv, args.content);
+    if (conv) return postPrivateNote(conv, args.content);
   }
 
   // 3) No hay conversación (o no hay contacto): resolvemos source_id y creamos.
@@ -221,5 +228,5 @@ export async function injectIncomingText(args: {
   const convId = await createConversation(sourceId, contactId);
   if (!convId) throw new Error(`chatwoot: no pude crear conversación ${e164}`);
 
-  return postIncoming(convId, args.content);
+  return postPrivateNote(convId, args.content);
 }

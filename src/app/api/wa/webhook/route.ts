@@ -34,7 +34,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BUILD = "v6-detailed-errors";
+const BUILD = "v7-private-note";
 const VERIFY_TOKEN = process.env.WA_VERIFY_TOKEN || "";
 const APP_SECRET = process.env.WA_APP_SECRET || "";
 /** URL del webhook de WhatsApp DENTRO de Chatwoot (destino del reenvío). */
