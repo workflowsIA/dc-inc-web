@@ -113,15 +113,18 @@ async function createContact(name: string, e164: string): Promise<ContactRef | n
     // Puede fallar por duplicado (carrera con el propio Chatwoot) → re-buscar.
     const existing = await searchContact(e164);
     if (existing) {
-      const sid = sourceIdFor(existing);
+      const sid = sourceIdFor(existing) ?? (await fetchSourceId(existing.id));
       if (sid) return { contactId: existing.id, sourceId: sid };
+      // Existe pero sin source_id → devolvemos id, el caller resuelve source_id.
+      return { contactId: existing.id, sourceId: "" };
     }
-    return null;
+    const body = await res.text().catch(() => "");
+    throw new Error(`createContact ${res.status}: ${body.slice(0, 300)}`);
   }
   const data = await res.json().catch(() => null);
   const contact = data?.payload?.contact;
-  const sourceId = data?.payload?.contact_inbox?.source_id;
-  if (!contact?.id || !sourceId) return null;
+  const sourceId = data?.payload?.contact_inbox?.source_id ?? "";
+  if (!contact?.id) throw new Error(`createContact: respuesta sin contact.id`);
   return { contactId: contact.id, sourceId };
 }
 
@@ -161,7 +164,10 @@ async function createConversation(sourceId: string, contactId: number): Promise<
       contact_id: contactId,
     }),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`createConversation ${res.status}: ${body.slice(0, 300)}`);
+  }
   const data = await res.json().catch(() => null);
   return data?.id ?? null;
 }
@@ -171,7 +177,11 @@ async function postIncoming(conversationId: number, content: string): Promise<bo
     method: "POST",
     body: JSON.stringify({ content, message_type: "incoming" }),
   });
-  return res.ok;
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`postIncoming(conv ${conversationId}) ${res.status}: ${body.slice(0, 300)}`);
+  }
+  return true;
 }
 
 /**
