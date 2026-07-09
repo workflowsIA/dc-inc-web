@@ -17,12 +17,7 @@
  */
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
-import {
-  isChatwootConfigured,
-  injectIncomingText,
-  chatwootConfigFlags,
-  pingChatwoot,
-} from "@/lib/chatwoot";
+import { isChatwootConfigured, injectIncomingText } from "@/lib/chatwoot";
 import {
   extractOrders,
   hasOrders,
@@ -34,7 +29,6 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BUILD = "v7-private-note";
 const VERIFY_TOKEN = process.env.WA_VERIFY_TOKEN || "";
 const APP_SECRET = process.env.WA_APP_SECRET || "";
 /** URL del webhook de WhatsApp DENTRO de Chatwoot (destino del reenvío). */
@@ -46,33 +40,6 @@ export async function GET(req: Request) {
   const mode = url.searchParams.get("hub.mode");
   const token = url.searchParams.get("hub.verify_token");
   const challenge = url.searchParams.get("hub.challenge");
-
-  // Diagnóstico (protegido por el verify token). No expone secretos.
-  const debug = url.searchParams.get("debug");
-  if (debug && VERIFY_TOKEN && debug === VERIFY_TOKEN) {
-    // Test de inyección: ?debug=<token>&inject=<telefono>&msg=<texto>
-    const injectPhone = url.searchParams.get("inject");
-    if (injectPhone) {
-      try {
-        const ok = await injectIncomingText({
-          waId: injectPhone,
-          name: url.searchParams.get("name") || "Test Proxy",
-          content: url.searchParams.get("msg") || "🔧 test de inyección del proxy",
-        });
-        return NextResponse.json({ build: BUILD, injected: ok });
-      } catch (e) {
-        return NextResponse.json({ build: BUILD, injected: false, error: String((e as Error)?.message || e) });
-      }
-    }
-    const ping = await pingChatwoot();
-    return NextResponse.json({
-      build: BUILD,
-      chatwoot: chatwootConfigFlags(),
-      forwardUrl: Boolean(CHATWOOT_WA_WEBHOOK_URL),
-      appSecret: Boolean(APP_SECRET),
-      chatwootPing: ping,
-    });
-  }
 
   if (mode === "subscribe" && VERIFY_TOKEN && token === VERIFY_TOKEN) {
     return new NextResponse(challenge ?? "", {
