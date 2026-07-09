@@ -103,13 +103,16 @@ async function createContact(name: string, e164: string): Promise<ContactRef | n
   return { contactId: contact.id, sourceId };
 }
 
-async function findOrCreateContact(name: string, e164: string): Promise<ContactRef | null> {
-  const existing = await searchContact(e164);
-  if (existing) {
-    const sid = sourceIdFor(existing);
-    if (sid) return { contactId: existing.id, sourceId: sid };
-  }
-  return createContact(name, e164);
+/**
+ * source_id del contact_inbox — vía el endpoint show (`/contacts/{id}`), que SÍ
+ * incluye `contact_inboxes` (la búsqueda `/contacts/search` NO los devuelve).
+ */
+async function fetchSourceId(contactId: number): Promise<string | null> {
+  const res = await cwFetch(`/contacts/${contactId}`);
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => null);
+  const contact: CwContact | undefined = data?.payload;
+  return contact ? sourceIdFor(contact) : null;
 }
 
 /** Conversación abierta más reciente del contacto en nuestro inbox, si hay. */
@@ -161,12 +164,30 @@ export async function injectIncomingText(args: {
   if (!isChatwootConfigured()) return false;
   const e164 = toE164(args.waId);
 
-  const contact = await findOrCreateContact(args.name, e164);
-  if (!contact) throw new Error(`chatwoot: no pude resolver contacto ${e164}`);
+  // 1) Contacto (id). Puede existir o no.
+  const existing = await searchContact(e164);
+  let contactId = existing?.id ?? null;
 
-  let convId = await findOpenConversation(contact.contactId);
-  if (!convId) convId = await createConversation(contact.sourceId, contact.contactId);
-  if (!convId) throw new Error(`chatwoot: no pude resolver conversación ${e164}`);
+  // 2) Camino feliz: el contacto ya tiene una conversación → posteamos ahí.
+  //    No hace falta source_id para postear en una conversación existente.
+  if (contactId) {
+    const conv = await findOpenConversation(contactId);
+    if (conv) return postIncoming(conv, args.content);
+  }
+
+  // 3) No hay conversación (o no hay contacto): resolvemos source_id y creamos.
+  let sourceId: string | null = existing ? sourceIdFor(existing) : null;
+  if (!contactId) {
+    const created = await createContact(args.name, e164);
+    if (!created) throw new Error(`chatwoot: no pude crear contacto ${e164}`);
+    contactId = created.contactId;
+    sourceId = created.sourceId;
+  }
+  if (!sourceId) sourceId = await fetchSourceId(contactId);
+  if (!sourceId) throw new Error(`chatwoot: sin source_id para ${e164}`);
+
+  const convId = await createConversation(sourceId, contactId);
+  if (!convId) throw new Error(`chatwoot: no pude crear conversación ${e164}`);
 
   return postIncoming(convId, args.content);
 }
