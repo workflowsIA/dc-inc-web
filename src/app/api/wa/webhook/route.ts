@@ -34,6 +34,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const BUILD = "v6-detailed-errors";
 const VERIFY_TOKEN = process.env.WA_VERIFY_TOKEN || "";
 const APP_SECRET = process.env.WA_APP_SECRET || "";
 /** URL del webhook de WhatsApp DENTRO de Chatwoot (destino del reenvío). */
@@ -58,13 +59,14 @@ export async function GET(req: Request) {
           name: url.searchParams.get("name") || "Test Proxy",
           content: url.searchParams.get("msg") || "🔧 test de inyección del proxy",
         });
-        return NextResponse.json({ injected: ok });
+        return NextResponse.json({ build: BUILD, injected: ok });
       } catch (e) {
-        return NextResponse.json({ injected: false, error: String((e as Error)?.message || e) });
+        return NextResponse.json({ build: BUILD, injected: false, error: String((e as Error)?.message || e) });
       }
     }
     const ping = await pingChatwoot();
     return NextResponse.json({
+      build: BUILD,
       chatwoot: chatwootConfigFlags(),
       forwardUrl: Boolean(CHATWOOT_WA_WEBHOOK_URL),
       appSecret: Boolean(APP_SECRET),
