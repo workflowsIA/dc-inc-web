@@ -17,7 +17,12 @@
  */
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { isChatwootConfigured, injectIncomingText } from "@/lib/chatwoot";
+import {
+  isChatwootConfigured,
+  injectIncomingText,
+  chatwootConfigFlags,
+  pingChatwoot,
+} from "@/lib/chatwoot";
 import {
   extractOrders,
   hasOrders,
@@ -40,6 +45,18 @@ export async function GET(req: Request) {
   const mode = url.searchParams.get("hub.mode");
   const token = url.searchParams.get("hub.verify_token");
   const challenge = url.searchParams.get("hub.challenge");
+
+  // Diagnóstico (protegido por el verify token). No expone secretos.
+  const debug = url.searchParams.get("debug");
+  if (debug && VERIFY_TOKEN && debug === VERIFY_TOKEN) {
+    const ping = await pingChatwoot();
+    return NextResponse.json({
+      chatwoot: chatwootConfigFlags(),
+      forwardUrl: Boolean(CHATWOOT_WA_WEBHOOK_URL),
+      appSecret: Boolean(APP_SECRET),
+      chatwootPing: ping,
+    });
+  }
 
   if (mode === "subscribe" && VERIFY_TOKEN && token === VERIFY_TOKEN) {
     return new NextResponse(challenge ?? "", {

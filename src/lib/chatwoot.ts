@@ -27,6 +27,28 @@ function api(path: string): string {
   return `${BASE}/api/v1/accounts/${ACCOUNT_ID}${path}`;
 }
 
+/** Presencia de config (sin exponer valores) — para el endpoint de diagnóstico. */
+export function chatwootConfigFlags() {
+  return {
+    base: Boolean(BASE),
+    account: Boolean(ACCOUNT_ID),
+    token: Boolean(API_TOKEN),
+    inbox: Boolean(INBOX_ID),
+    configured: isChatwootConfigured(),
+  };
+}
+
+/** Ping autenticado a la API de Chatwoot — valida BASE + ACCOUNT + TOKEN. */
+export async function pingChatwoot(): Promise<{ ok: boolean; status: number | string }> {
+  if (!BASE || !ACCOUNT_ID || !API_TOKEN) return { ok: false, status: "no-config" };
+  try {
+    const res = await cwFetch(`/contacts?page=1`);
+    return { ok: res.ok, status: res.status };
+  } catch (e) {
+    return { ok: false, status: String((e as Error)?.message || e) };
+  }
+}
+
 async function cwFetch(path: string, init?: RequestInit): Promise<Response> {
   return fetch(api(path), {
     ...init,
