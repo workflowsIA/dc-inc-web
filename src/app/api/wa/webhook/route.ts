@@ -49,6 +49,20 @@ export async function GET(req: Request) {
   // Diagnóstico (protegido por el verify token). No expone secretos.
   const debug = url.searchParams.get("debug");
   if (debug && VERIFY_TOKEN && debug === VERIFY_TOKEN) {
+    // Test de inyección: ?debug=<token>&inject=<telefono>&msg=<texto>
+    const injectPhone = url.searchParams.get("inject");
+    if (injectPhone) {
+      try {
+        const ok = await injectIncomingText({
+          waId: injectPhone,
+          name: url.searchParams.get("name") || "Test Proxy",
+          content: url.searchParams.get("msg") || "🔧 test de inyección del proxy",
+        });
+        return NextResponse.json({ injected: ok });
+      } catch (e) {
+        return NextResponse.json({ injected: false, error: String((e as Error)?.message || e) });
+      }
+    }
     const ping = await pingChatwoot();
     return NextResponse.json({
       chatwoot: chatwootConfigFlags(),
@@ -111,6 +125,16 @@ export async function POST(req: Request) {
     await forwardToChatwoot(raw);
     return NextResponse.json({ ok: true, ignored: "no_json" });
   }
+
+  // Log de tipos de mensaje recibidos (para diagnóstico en Vercel logs).
+  try {
+    const types = (payload.entry || []).flatMap((e) =>
+      (e.changes || []).flatMap((c) =>
+        (c.value?.messages || []).map((m) => m.type ?? "?"),
+      ),
+    );
+    if (types.length) console.log("[wa/webhook] msg types:", JSON.stringify(types));
+  } catch {}
 
   // Caso rápido y mayoritario: no hay pedidos → passthrough byte-idéntico.
   if (!hasOrders(payload)) {
