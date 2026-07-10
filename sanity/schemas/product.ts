@@ -193,6 +193,39 @@ export default defineType({
         'Opciones de presentación que ve el cliente (ej: "24un en Caja", "2025un en Pallet"). Vienen del export de Wix.',
     }),
     defineField({
+      name: "presentationPricing",
+      title: "Precios por presentación (bulto)",
+      type: "array",
+      group: "presentacion",
+      description:
+        "Precio REAL por presentación cerrada (Caja / Pallet) según la planilla de precios. Lo completa la sincronización Sheet→Sanity: el buy-box lo usa para reflejar el descuento por volumen (el markup por pallet es menor) en vez de multiplicar el precio unitario. Los precios son POR UNIDAD dentro de esa presentación, misma base que Precio público / mayorista. No editar a mano: lo pisa la sincronización.",
+      of: [
+        {
+          type: "object",
+          fields: [
+            { name: "sku", title: "SKU variante (planilla)", type: "string" },
+            { name: "label", title: "Presentación", type: "string" },
+            { name: "unitsPerBulk", title: "Unidades por bulto", type: "number" },
+            { name: "pricePublic", title: "Precio público por unidad (con IVA)", type: "number" },
+            { name: "priceWholesale", title: "Precio mayorista por unidad (sin IVA)", type: "number" },
+          ],
+          preview: {
+            select: { title: "label", units: "unitsPerBulk", price: "pricePublic" },
+            prepare({ title, units, price }) {
+              const fmt = (n: number) => `$${n.toLocaleString("es-AR")}`;
+              const subtitle = [
+                units ? `${units} u` : null,
+                typeof price === "number" ? `${fmt(price)}/u` : null,
+              ]
+                .filter(Boolean)
+                .join("  ·  ");
+              return { title: title || "(presentación)", subtitle };
+            },
+          },
+        },
+      ],
+    }),
+    defineField({
       name: "unitsPerBulk",
       title: "Unidades por bulto",
       type: "number",

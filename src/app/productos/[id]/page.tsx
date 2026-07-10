@@ -131,6 +131,7 @@ export default async function ProductPage({ params }: Props) {
               wholesale={wholesale}
               deli={product.deli}
               presentations={product.presentations}
+              presentationPricing={product.presentationPricing}
               pricing={{
                 pub: product.pub,
                 may: product.may,

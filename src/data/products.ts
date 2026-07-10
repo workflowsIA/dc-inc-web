@@ -4,6 +4,8 @@
  * Same shape, typed.
  */
 
+import type { PresentationPricing } from "@/lib/queries";
+
 export type Badge = "best" | "new" | "promo" | "deco";
 export type StockLevel = "ok" | "low" | "out";
 
@@ -36,6 +38,9 @@ export interface Product {
   specs: Record<string, string>;
   /** opciones de presentación (ej: "24un en Cajas", "2025un en Pallet") */
   presentations?: string[];
+  /** precio real por presentación (caja/pallet) — descuento por volumen; lo puebla el sync.
+   *  priceWholesale sólo viaja al browser para usuarios mayoristas (ver toLegacyProduct). */
+  presentationPricing?: PresentationPricing[];
   /** descripción (texto limpio, puede traer saltos de línea) */
   description?: string;
   /** key del packshot en /public/img/{img}.png (legacy mock) */

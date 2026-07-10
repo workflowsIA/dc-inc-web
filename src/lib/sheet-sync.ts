@@ -162,6 +162,81 @@ function buildPriceMap(rows: Record<string, unknown>[]): Map<string, PriceRow> {
   return map;
 }
 
+/**
+ * Precio por PRESENTACIÓN (bulto: Caja / Pallet) para reflejar el descuento por
+ * volumen en la web. En la planilla nueva cada producto tiene una fila por
+ * presentación; la variante lleva el SKU base + sufijo:
+ *   P → Pallet · CP → Caja · CG → Caja (grande).  (ej: LAS473 base → LAS473CP
+ *   caja UxB=88, LAS473P pallet UxB=6224).
+ *
+ * SUPUESTO (a confirmar contra la planilla real):
+ *  - El SKU de la variante = SKU base + uno de {P, CP, CG} al final. Derivamos el
+ *    SKU base quitando ese sufijo. Si un SKU base terminara legítimamente en esas
+ *    letras habría ambigüedad; NO se rompe el match actual porque las filas base
+ *    (Unidad, UxB=1) se siguen indexando por su SKU completo en buildPriceMap, y
+ *    acá solo tocamos filas variante (UxB > 1).
+ *  - "CON IVA - Web" / "SIN IVA - Presupuesto" de la fila variante son precios
+ *    POR UNIDAD a ese markup (misma base que los del producto), no el total del
+ *    bulto. El buy-box los pasa por resolveDisplayPrice y multiplica por unidades,
+ *    igual que hoy con el precio unitario.
+ *  - `label` (Caja/Pallet) se deriva del sufijo; el buy-box linkea cada fila con
+ *    su presentación por unitsPerBulk (primario) y por label (fallback).
+ */
+const PRES_SUFFIX_RE = /(CP|CG|P)$/;
+
+function presLabelFromSuffix(suffix: string): string {
+  return suffix === "P" ? "Pallet" : "Caja"; // CP / CG → Caja
+}
+
+export interface PresentationPricing {
+  sku: string;
+  label: string;
+  unitsPerBulk: number;
+  pricePublic: number | null;
+  priceWholesale: number | null;
+}
+
+function buildPresentationPricingMap(
+  rows: Record<string, unknown>[],
+): Map<string, PresentationPricing[]> {
+  const map = new Map<string, PresentationPricing[]>();
+  const seen = new Set<string>(); // dedupe por SKU de variante (primera gana)
+  for (const r of rows) {
+    const sku = cleanSku(r["codigo"]);
+    if (!sku) continue;
+    const unitsPerBulk = toNum(r["unidad por bulto"]);
+    // Solo filas variante (Caja/Pallet). La fila base (Unidad) trae UxB = 1.
+    if (unitsPerBulk === null || unitsPerBulk <= 1) continue;
+    const m = sku.match(PRES_SUFFIX_RE);
+    if (!m) continue; // sin sufijo reconocible → no la podemos linkear al base
+    const base = sku.slice(0, sku.length - m[1].length);
+    if (!base) continue;
+    if (seen.has(sku)) continue;
+    seen.add(sku);
+    const pricePublic = toNum(r["con iva - web"] ?? r["precio unitario"]);
+    const priceWholesale = toNum(
+      r["sin iva - presupuesto"] ??
+        r["precio sin iva - (p/presupuestero)"] ??
+        r["precio sin iva"],
+    );
+    if (pricePublic === null && priceWholesale === null) continue; // fila sin precio útil
+    const entry: PresentationPricing = {
+      sku,
+      label: presLabelFromSuffix(m[1]),
+      unitsPerBulk,
+      pricePublic,
+      priceWholesale,
+    };
+    const list = map.get(base);
+    if (list) list.push(entry);
+    else map.set(base, [entry]);
+  }
+  // Orden estable: menor a mayor bulto (Caja antes que Pallet).
+  for (const list of map.values())
+    list.sort((a, b) => a.unitsPerBulk - b.unitsPerBulk);
+  return map;
+}
+
 interface StockRow {
   stockQty: number | null;
   stockMin: number | null;
@@ -204,6 +279,7 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
   ]);
   const priceMap = buildPriceMap(priceRows);
   const stockMap = buildStockMap(stockRows);
+  const presentationPricingMap = buildPresentationPricingMap(priceRows);
 
   const products: { _id: string; sku: string; name?: string; slug?: string }[] =
     await sanityWriteClient.fetch(
@@ -237,6 +313,15 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
     // "Unidad"); pisar con 1 rompería el buy-box por bulto enriquecido de Wix.
     if (price?.unitsPerBulk != null && price.unitsPerBulk > 1)
       set.unitsPerBulk = price.unitsPerBulk;
+    // Precio por presentación (caja/pallet) del producto base → descuento por
+    // volumen en el buy-box. _key por variante para el patch idempotente.
+    const presPricing = presentationPricingMap.get(p.sku);
+    if (presPricing && presPricing.length > 0) {
+      set.presentationPricing = presPricing.map((e) => ({
+        _key: e.sku.replace(/[^A-Za-z0-9._-]/g, "-"),
+        ...e,
+      }));
+    }
     if (stock?.stockQty != null) set.stockQty = stock.stockQty;
     if (stock?.stockMin != null) set.stockMin = stock.stockMin;
     const level = deriveStockLevel(stock?.stockQty ?? null, stock?.stockMin ?? null);
@@ -287,6 +372,13 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
       ...(price.pricePublic != null ? { pricePublic: price.pricePublic } : {}),
       ...(price.priceWholesale != null ? { priceWholesale: price.priceWholesale } : {}),
       ...(price.unitsPerBulk != null ? { unitsPerBulk: price.unitsPerBulk } : {}),
+      ...(presentationPricingMap.get(sku)?.length
+        ? {
+            presentationPricing: presentationPricingMap
+              .get(sku)!
+              .map((e) => ({ _key: e.sku.replace(/[^A-Za-z0-9._-]/g, "-"), ...e })),
+          }
+        : {}),
       ...(stock?.stockQty != null ? { stockQty: stock.stockQty } : {}),
       ...(stock?.stockMin != null ? { stockMin: stock.stockMin } : {}),
       ...(level ? { stockLevel: level } : {}),

@@ -7,6 +7,7 @@ import {
   ENVIO_ESTIMADO_CLIENTE_FINAL,
   type PricingInput,
 } from "@/lib/pricing";
+import type { PresentationPricing } from "@/lib/queries";
 
 interface Props {
   product: ProductSnapshot;
@@ -15,6 +16,8 @@ interface Props {
   wholesale: boolean;
   deli: string;
   presentations?: string[];
+  /** precio real por presentación (caja/pallet) para reflejar el descuento por volumen */
+  presentationPricing?: PresentationPricing[];
 }
 
 interface Pres {
@@ -28,13 +31,13 @@ function parsePres(s: string): Pres {
   return { label: s, units: m ? parseInt(m[1], 10) : 1 };
 }
 
-export default function ProductBuyBox({ product, pricing, wholesale, deli, presentations }: Props) {
+export default function ProductBuyBox({ product, pricing, wholesale, deli, presentations, presentationPricing }: Props) {
   const add = useCart((s) => s.add);
   // Precio de vista: cliente final ve IVA incluido + envío estimado; mayorista
   // ve neto + IVA y "envío a cotizar". La oferta (salePrice) aplica acá si vige.
-  const dp = resolveDisplayPrice(pricing, wholesale);
-  const unitPrice = dp.display;
-  const finalConsumer = dp.finalConsumer;
+  // `finalConsumer` sólo depende del rol (no del precio de presentación), así que
+  // lo resolvemos con el pricing base para poder armar la lista de presentaciones.
+  const finalConsumer = resolveDisplayPrice(pricing, wholesale).finalConsumer;
   // Bultos (caja/pallet) ordenados de menor a mayor → default = el bulto más chico.
   const bultoPres = (presentations ?? []).map(parsePres).sort((a, b) => a.units - b.units);
   // Minorista (cliente final) puede comprar de a UNA unidad: anteponemos la opción
@@ -52,6 +55,27 @@ export default function ProductBuyBox({ product, pricing, wholesale, deli, prese
   // bulto real del producto (product.bulto) para no permitir unidades sueltas.
   const unitsPerSel = sel ? sel.units : product.bulto > 0 ? product.bulto : 1;
   const unitsTotal = unitsPerSel * qty;
+
+  // DESCUENTO POR VOLUMEN: si la presentación elegida (caja/pallet) tiene un precio
+  // propio en la planilla (presentationPricing), usamos SU precio por unidad; si no,
+  // fallback al precio unitario del producto (cálculo lineal de siempre). Se linkea
+  // por unidades por bulto (primario) o por label (fallback). Ese precio pasa por la
+  // MISMA lógica resolveDisplayPrice → IVA/mayorista/oferta idénticos: la oferta
+  // (salePrice) mantiene su prioridad porque resolveDisplayPrice la aplica si vige.
+  const presMatch =
+    sel && sel.units > 1 && presentationPricing?.length
+      ? (presentationPricing.find((pp) => pp.unitsPerBulk === sel.units) ??
+        presentationPricing.find(
+          (pp) => !!pp.label && sel.label.toLowerCase().includes(pp.label.toLowerCase()),
+        ) ??
+        null)
+      : null;
+  const selPricing: PricingInput =
+    presMatch && presMatch.pricePublic != null
+      ? { ...pricing, pub: presMatch.pricePublic, may: presMatch.priceWholesale ?? pricing.may }
+      : pricing;
+  const dp = resolveDisplayPrice(selPricing, wholesale);
+  const unitPrice = dp.display;
   const bultoPrice = unitPrice * unitsPerSel;
   const total = unitPrice * unitsTotal;
   // Sufijo de IVA según el tipo de usuario.

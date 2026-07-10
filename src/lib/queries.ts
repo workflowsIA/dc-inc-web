@@ -46,6 +46,7 @@ export const productBySlugQuery = groq`
     saleStartDate,
     saleEndDate,
     presentations,
+    presentationPricing[]{ sku, label, unitsPerBulk, pricePublic, priceWholesale },
     unitsPerBulk,
     unitsPerPallet,
     deliveryTime,
@@ -200,6 +201,17 @@ export const heroQuery = groq`
 `;
 
 /** Tipo TypeScript inferido de los queries — usar para tipar lo que viene de Sanity. */
+/** Precio por presentación (bulto: Caja/Pallet) — descuento por volumen.
+ *  Lo puebla la sincronización Sheet→Sanity (ver src/lib/sheet-sync.ts). Los
+ *  precios son POR UNIDAD a ese markup, misma base que pricePublic/priceWholesale. */
+export interface PresentationPricing {
+  sku?: string;
+  label?: string;
+  unitsPerBulk: number;
+  pricePublic?: number;
+  priceWholesale?: number;
+}
+
 export interface SanityProduct {
   _id: string;
   sku: string;
@@ -214,6 +226,7 @@ export interface SanityProduct {
   saleStartDate?: string;
   saleEndDate?: string;
   presentations?: string[];
+  presentationPricing?: PresentationPricing[];
   unitsPerBulk: number;
   unitsPerPallet?: number;
   deliveryTime: string;

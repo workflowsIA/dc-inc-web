@@ -64,6 +64,12 @@ export function toLegacyProduct(p: SanityProduct, wholesale = false): Product {
     ),
     description: p.description,
     presentations: p.presentations,
+    // Precio por presentación (descuento por volumen). SEGURIDAD: igual que `may`,
+    // el precio mayorista por presentación SOLO viaja al browser si wholesale.
+    presentationPricing: (p.presentationPricing ?? []).map((pp) => ({
+      ...pp,
+      priceWholesale: wholesale ? pp.priceWholesale : undefined,
+    })),
     imageUrl: p.image,
   };
 }
