@@ -22,7 +22,7 @@ const DIFERENCIALES = [
   },
   {
     title: "Envíos a todo el país",
-    body: "Trabajamos con transportes con convenio que se hacen cargo del vidrio, para que tu mercadería llegue entera.",
+    body: "Logística propia en CABA y GBA, y transportes con convenio que se hacen cargo del vidrio para el resto del país.",
   },
   {
     title: "Decorado propio",
@@ -35,9 +35,12 @@ const DIFERENCIALES = [
 ];
 
 const PLAZOS = [
-  { label: "Envases en stock", value: "24 – 48 hs" },
-  { label: "Decorado / serigrafía", value: "~1 mes" },
+  { label: "Insumos genéricos", value: "24 – 48 hs" },
+  { label: "Personalizados", value: "10 – 15 días" },
 ];
+
+const TRANSPORTES =
+  "Logística propia en CABA y GBA · Andreani, Conte Hnos., Interprovincial, Mostto y Andesmar para el resto del país.";
 
 export default function LogisticaPage() {
   return (
@@ -99,6 +102,9 @@ export default function LogisticaPage() {
         <p style={{ marginTop: "12px", fontSize: "13px", color: "var(--muted)" }}>
           El costo de envío se coordina por WhatsApp al confirmar el pedido, según
           destino y volumen.
+        </p>
+        <p style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
+          <strong style={{ color: "var(--ink)" }}>Transportes:</strong> {TRANSPORTES}
         </p>
       </div>
 

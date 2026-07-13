@@ -7,7 +7,7 @@ import type { SanityClient } from "@/lib/queries";
 export const revalidate = 300;
 
 const NOSOTROS_DESC =
-  "DC Inc es distribuidor B2B de packaging y cristalería para bebidas en Argentina desde 2018. Botellas, latas, cajas, copas, vasos y decorado propio.";
+  "Desde 2018 le ponemos envase a las bebidas argentinas: botellas, latas, tapas, cajas, botellones, vasos, copas y decorado propio. Logística del vidrio propia y stock real.";
 
 export const metadata = {
   title: "Nosotros",
@@ -21,8 +21,7 @@ export const metadata = {
   },
 };
 
-/* NOTA: texto institucional placeholder basado en el brief — pendiente de
-   redacción final de Marce (ver placeholders-y-pedidos-web-mvp). */
+/* NOTA: texto institucional revisado 13-jul-2026 — enviado a Marce para OK final. */
 export default async function NosotrosPage() {
   // Clientes de la vidriera (schema `client`). Si no hay, ocultamos la sección.
   let clients: SanityClient[] = [];
@@ -38,7 +37,7 @@ export default async function NosotrosPage() {
         <div>
           <span className="eyebrow">Nosotros</span>
           <h1 className="h-lg" style={{ marginTop: "12px", maxWidth: "18ch" }}>
-            Packaging y cristalería para los que hacen bebidas
+            Envases para los que hacen bebidas
           </h1>
         </div>
         <Link className="btn btn-ghost" href="/productos">
@@ -48,28 +47,30 @@ export default async function NosotrosPage() {
 
       <div style={{ maxWidth: "62ch", display: "grid", gap: "18px" }}>
         <p className="lead">
-          Desde 2018 abastecemos a quienes producen y venden bebidas en
-          Argentina: cervecerías independientes, destilerías, bodegas, bares y
-          fábricas. Botellas, latas, cajas, copas, vasos, botellones, tapas,
-          accesorios y servicio de decorado propio.
+          Desde 2018 le ponemos envase a las bebidas argentinas. Botellas y
+          latas, tapas, cajas, botellones, vasos, copas y decorado propio: todo
+          lo que una cervecería, destilería, bodega o bar necesita para salir a
+          la calle con su producto.
         </p>
         <p style={{ color: "var(--muted)", lineHeight: 1.7 }}>
-          Trabajamos B2B con más de 1.600 clientes activos y un catálogo de
-          alrededor de 300 productos. Somos un proveedor industrial serio para
-          gente que ya sabe lo que necesita: stock real, precios claros para
-          mayoristas y atención directa por WhatsApp con un vendedor asignado.
+          Trabajamos con más de 1.600 clientes y un catálogo de alrededor de 300
+          productos, con stock real y precios claros. No vendemos por vender: te
+          asesoramos con un vendedor asignado por WhatsApp para que pidas justo
+          lo que necesitás, ni de más ni de menos.
         </p>
         <p style={{ color: "var(--muted)", lineHeight: 1.7 }}>
-          Nuestro diferencial es la logística del vidrio —algo que muchos
-          transportes no aceptan— y un servicio de decorado y serigrafía propio
-          que te permite poner tu marca en el producto sin intermediarios.
+          Nuestro diferencial es doble. Por un lado, la logística del vidrio
+          —esa que muchos transportes esquivan— la resolvemos nosotros: entrega
+          propia en CABA y GBA y red de transportes para todo el país. Por el
+          otro, un servicio de decorado y serigrafía propio que te deja poner tu
+          marca en el envase, sin intermediarios y con tiempos que cumplimos.
         </p>
       </div>
 
       <div className="grid grid-3" style={{ marginTop: "48px" }}>
-        <Value title="Confiable" body="Stock real y plazos que cumplimos. Lo que ves disponible, está." />
-        <Value title="Eficiente" body="Carga de pedido simple y cotización al instante por WhatsApp." />
-        <Value title="Conveniente" body="Precios mayoristas, mínimo accesible y factura A, B o E." />
+        <Value title="Confiable" body="Stock real y plazos que cumplimos: 24/48 h en insumos genéricos, 10 a 15 días hábiles en personalizados." />
+        <Value title="Cercano" body="Un vendedor asignado que te responde por WhatsApp y te ayuda a armar el pedido." />
+        <Value title="Completo" body="Del envase a la tapa, la caja y el decorado: resolvés todo con un solo proveedor." />
       </div>
 
       {/* CLIENTES QUE CONFÍAN — schema `client` (getClients). Sin clientes
