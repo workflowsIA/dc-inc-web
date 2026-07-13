@@ -41,7 +41,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
     notas: "",
   });
 
-  const t = totalsFor(items, wholesale);
+  const t = totalsFor(items, wholesale, info.cp);
   const set = (k: keyof CheckoutInfo) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setInfo((s) => ({ ...s, [k]: e.target.value }));
 
@@ -81,7 +81,9 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       qty: i.qty,
       name: i.name,
       deco: i.deco,
+      presentationSku: i.presentationSku,
     })),
+    cp: info.cp,
     notes: info.notas,
     origin: "web" as const,
   });
@@ -171,6 +173,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       qty: i.qty,
       name: i.name, // fallback de display si el server no lo encuentra
       deco: i.deco,
+      presentationSku: i.presentationSku, // reprecio server-side por presentación
     }));
     const payload = {
       customerName: info.nombre,
@@ -178,6 +181,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       customerCompany: info.empresa,
       customerPhone: info.telefono,
       items: orderItems,
+      cp: info.cp,
       notes: info.notas,
       origin: "web" as const,
     };

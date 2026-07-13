@@ -9,7 +9,8 @@ import {
   type OrderPricingProduct,
   type OrderPricingCombo,
 } from "@/lib/queries";
-import { IVA_RATE, ENVIO_ESTIMADO_CLIENTE_FINAL, isSaleActive } from "@/lib/pricing";
+import { IVA_RATE, isSaleActive } from "@/lib/pricing";
+import { shippingForCp } from "@/lib/shipping";
 
 /**
  * POST /api/orders — crea un pedido (`order`) en Sanity desde el checkout.
@@ -38,6 +39,9 @@ const ItemSchema = z.object({
   qty: z.number().int().positive().max(100000),
   name: z.string().trim().max(200).optional(),
   deco: z.boolean().optional(),
+  // SKU de la presentación elegida (caja/pallet). El server valida que
+  // pertenezca al producto y reprecia con SU precio; nunca confía en el cliente.
+  presentationSku: z.string().trim().max(64).optional(),
 });
 
 const OrderSchema = z.object({
@@ -46,16 +50,15 @@ const OrderSchema = z.object({
   customerCompany: z.string().trim().max(160).optional(),
   customerPhone: z.string().trim().max(40).optional(),
   items: z.array(ItemSchema).min(1).max(200),
+  cp: z.string().trim().max(12).optional(), // CP destino → banda de envío
   notes: z.string().trim().max(2000).optional(),
   origin: z.enum(["web", "whatsapp"]).optional(),
 });
 
-/** Descuento por volumen — placeholder hasta confirmar con Marce.
- *  Mantiene la misma regla que src/lib/whatsapp.ts (volumeRate). */
-function volumeRate(subtotal: number): number {
-  if (subtotal >= 1_000_000) return 0.15;
-  if (subtotal >= 500_000) return 0.1;
-  if (subtotal >= 300_000) return 0.05;
+/** Descuento por volumen — DESACTIVADO (13-jul). El descuento por volumen real
+ *  ahora viaja en el precio por presentación (caja/pallet), repreciado arriba.
+ *  Activarlo stackearía → doble descuento. Espeja src/lib/whatsapp.ts. */
+function volumeRate(_subtotal: number): number {
   return 0;
 }
 
@@ -137,13 +140,24 @@ export async function POST(req: Request) {
         name = prod.name;
         sku = prod.sku;
         const saleOn = isSaleActive(prod.isOnSale, prod.saleStartDate, prod.saleEndDate);
-        // Precio NETO (sin IVA), igual semántica que el checkout previo.
+        // Presentación elegida (caja/pallet): buscamos su fila en la planilla y
+        // usamos SU precio neto por unidad. Solo la aceptamos si el presentationSku
+        // pertenece realmente a este producto (validación server-side).
+        const pres =
+          it.presentationSku && prod.presentationPricing
+            ? prod.presentationPricing.find((pp) => pp.sku === it.presentationSku)
+            : undefined;
+        const basePub = pres?.pricePublic ?? prod.pricePublic;
+        const baseMay = pres?.priceWholesale ?? prod.priceWholesale;
+        // Precio NETO (sin IVA). Espeja al buy-box: la oferta (salePrice) mantiene
+        // prioridad sobre el precio de presentación para el cliente final.
         unitNet = wholesale
-          ? prod.priceWholesale
+          ? baseMay
           : saleOn && typeof prod.salePrice === "number"
             ? prod.salePrice
-            : prod.pricePublic;
-        const step = prod.unitsPerBulk > 0 ? prod.unitsPerBulk : 1;
+            : basePub;
+        const stepUnits = pres?.unitsPerBulk ?? prod.unitsPerBulk;
+        const step = stepUnits > 0 ? stepUnits : 1;
         bultos = Math.max(1, Math.round(it.qty / step));
       }
 
@@ -165,7 +179,8 @@ export async function POST(req: Request) {
     const rate = volumeRate(sub);
     const net = sub - sub * rate;
     const iva = net * IVA_RATE;
-    const shipping = wholesale ? 0 : ENVIO_ESTIMADO_CLIENTE_FINAL;
+    // Envío estimado server-side según la banda del CP (≤10 kg). Mayorista → 0.
+    const shipping = shippingForCp(body.cp, wholesale);
     const total = net + iva + shipping;
 
     const doc = {
@@ -181,6 +196,8 @@ export async function POST(req: Request) {
       items: lines,
       subtotal: sub,
       iva,
+      cpDestino: body.cp ?? "",
+      envioEstimado: shipping,
       total,
       paymentStatus: "no_pagado",
       fulfillmentStatus: "no_procesado",

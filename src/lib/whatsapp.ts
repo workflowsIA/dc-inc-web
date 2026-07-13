@@ -1,6 +1,6 @@
 import type { CartItem } from "./cart-store";
 import { ars } from "./format";
-import { ENVIO_ESTIMADO_CLIENTE_FINAL } from "./pricing";
+import { shippingForCp } from "./shipping";
 
 /** Numero de WhatsApp Business de DC Inc — del Wix actual. */
 export const WA_NUMBER = "5491161072310";
@@ -24,25 +24,24 @@ export function unitPrice(item: CartItem, wholesale: boolean): number {
   return wholesale ? item.may : item.pub;
 }
 
-/** Regla de descuento por volumen — PLACEHOLDER hasta confirmar con Marce.
- *  -5% sobre $300k, -10% sobre $500k, -15% sobre $1M. */
-export function volumeRate(subtotal: number): number {
-  if (subtotal >= 1_000_000) return 0.15;
-  if (subtotal >= 500_000) return 0.1;
-  if (subtotal >= 300_000) return 0.05;
+/** Descuento por volumen — DESACTIVADO (13-jul). El descuento por volumen real
+ *  ahora vive en el precio por presentación (caja/pallet) de la planilla, que se
+ *  reprecia server-side. Dejar este placeholder activo stackearía → doble
+ *  descuento. Tiers previos (por si se reactiva): -5% $300k, -10% $500k, -15% $1M. */
+export function volumeRate(_subtotal: number): number {
   return 0;
 }
 
-export function totalsFor(items: CartItem[], wholesale = false): Totals {
+export function totalsFor(items: CartItem[], wholesale = false, cp?: string): Totals {
   const sub = items.reduce((s, i) => s + unitPrice(i, wholesale) * i.qty, 0);
   const rate = volumeRate(sub);
   const disc = sub * rate;
   const net = sub - disc;
   const iva = net * 0.21;
-  // Cliente final (no mayorista): el total incluye el envío estimado (placeholder).
-  // Mayorista: el envío va "a cotizar", no se suma al total.
+  // Cliente final (no mayorista): el total incluye el envío estimado según la
+  // banda del CP (≤10 kg, a domicilio). Mayorista: "a cotizar", no se suma.
   const finalConsumer = !wholesale;
-  const shipping = finalConsumer ? ENVIO_ESTIMADO_CLIENTE_FINAL : 0;
+  const shipping = shippingForCp(cp, wholesale);
   const total = net + iva + shipping;
   return {
     sub,
@@ -62,8 +61,8 @@ export function waSimpleURL(message?: string): string {
   return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(txt)}`;
 }
 
-function orderBody(items: CartItem[], wholesale: boolean): string {
-  const t = totalsFor(items, wholesale);
+function orderBody(items: CartItem[], wholesale: boolean, cp?: string): string {
+  const t = totalsFor(items, wholesale, cp);
   let msg = "";
   for (const i of items) {
     const sub = unitPrice(i, wholesale) * i.qty;
@@ -92,10 +91,10 @@ function orderBody(items: CartItem[], wholesale: boolean): string {
   return msg;
 }
 
-export function waOrderURL(items: CartItem[], wholesale = false): string {
+export function waOrderURL(items: CartItem[], wholesale = false, cp?: string): string {
   const msg =
     "Hola DC Inc! Quiero cotizar este pedido:\n\n" +
-    orderBody(items, wholesale) +
+    orderBody(items, wholesale, cp) +
     "\n\n(Enviado desde el carrito web)";
   return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
 }
@@ -114,7 +113,7 @@ export function waCheckoutURL(
   wholesale: boolean,
   info: CheckoutInfo,
 ): string {
-  let msg = "Hola DC Inc! Quiero confirmar este pedido:\n\n" + orderBody(items, wholesale);
+  let msg = "Hola DC Inc! Quiero confirmar este pedido:\n\n" + orderBody(items, wholesale, info.cp);
   const datos: string[] = [];
   if (info.nombre) datos.push(`Nombre: ${info.nombre}`);
   if (info.empresa) datos.push(`Empresa: ${info.empresa}`);

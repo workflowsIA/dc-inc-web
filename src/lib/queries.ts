@@ -74,6 +74,7 @@ export const productsBySkusQuery = groq`
     pricePublic, priceWholesale,
     isOnSale, salePrice, saleStartDate, saleEndDate,
     unitsPerBulk, unitsPerPallet,
+    presentationPricing[]{ sku, label, unitsPerBulk, pricePublic, priceWholesale },
     "image": coalesce(images[0].asset->url, legacyImageUrl)
   }
 `;
@@ -341,6 +342,7 @@ export interface OrderPricingProduct {
   saleEndDate?: string;
   unitsPerBulk: number;
   unitsPerPallet?: number;
+  presentationPricing?: PresentationPricing[];
   image?: string;
 }
 

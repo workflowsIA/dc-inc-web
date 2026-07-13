@@ -5,6 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { useCart } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
 import { totalsFor, unitPrice, waOrderURL } from "@/lib/whatsapp";
+import { bandForCp, SHIPPING_BAND_LABEL } from "@/lib/shipping";
 
 export default function CarritoPage() {
   const items = useCart((s) => s.items);
@@ -16,7 +17,7 @@ export default function CarritoPage() {
   const [cp, setCp] = useState("");
   const [shipMsg, setShipMsg] = useState(false);
 
-  const t = totalsFor(items, wholesale);
+  const t = totalsFor(items, wholesale, cp);
 
   if (items.length === 0) {
     return (
@@ -219,12 +220,18 @@ export default function CarritoPage() {
                 Calcular
               </button>
             </div>
-            {shipMsg && (
-              <p style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
-                Coordinamos el costo de envío por WhatsApp al confirmar el pedido,
-                según destino y volumen.
-              </p>
-            )}
+            {shipMsg &&
+              (bandForCp(cp) ? (
+                <p style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
+                  Envío a domicilio a <strong>{SHIPPING_BAND_LABEL[bandForCp(cp)!]}</strong>:{" "}
+                  <strong>{ars(t.shipping)}</strong> (estimado, se confirma al cerrar).
+                </p>
+              ) : (
+                <p style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
+                  No reconocimos ese código postal. Verificá los 4 dígitos o coordinamos
+                  el envío por WhatsApp al confirmar.
+                </p>
+              ))}
           </div>
 
           <Link
@@ -237,7 +244,7 @@ export default function CarritoPage() {
           <a
             className="btn btn-wa btn-block"
             style={{ marginTop: "10px" }}
-            href={waOrderURL(items, wholesale)}
+            href={waOrderURL(items, wholesale, cp)}
             target="_blank"
             rel="noopener"
           >

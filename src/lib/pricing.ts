@@ -11,15 +11,8 @@
 /** Alícuota de IVA Argentina. */
 export const IVA_RATE = 0.21;
 
-/**
- * Costo de envío estimado para el cliente final (placeholder simulado).
- * No tenemos las tarifas reales de envío todavía, así que mostramos un
- * estimativo fijo y bien visible que se confirma al cerrar el pedido.
- * Valor en pesos (ARS).
- *
- * // TODO: pedir a Marce las tarifas reales de envío (por CP / volumen / transporte).
- */
-export const ENVIO_ESTIMADO_CLIENTE_FINAL = 12000;
+// El costo de envío estimado ahora vive en src/lib/shipping.ts (tarifas reales
+// de Andreani por banda de CP, ≤10 kg). Ver shippingForCp() / SHIPPING_FROM.
 
 /** Precio con IVA incluido (para la vista de cliente final). */
 export function withIva(price: number): number {

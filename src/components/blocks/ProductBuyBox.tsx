@@ -2,11 +2,8 @@
 import { useState } from "react";
 import { useCart, type ProductSnapshot } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
-import {
-  resolveDisplayPrice,
-  ENVIO_ESTIMADO_CLIENTE_FINAL,
-  type PricingInput,
-} from "@/lib/pricing";
+import { resolveDisplayPrice, type PricingInput } from "@/lib/pricing";
+import { SHIPPING_FROM } from "@/lib/shipping";
 import type { PresentationPricing } from "@/lib/queries";
 
 interface Props {
@@ -84,7 +81,21 @@ export default function ProductBuyBox({ product, pricing, wholesale, deli, prese
   const strikeUnit = dp.strike;
 
   function handleAdd() {
-    add({ ...product, bulto: unitsPerSel }, unitsTotal);
+    // Guardamos el precio NETO de la presentación elegida (selPricing.pub/may),
+    // no el base, para que el carrito/checkout muestren el descuento por volumen.
+    // presentationSku deja que /api/orders reprecie server-side con la misma
+    // presentación (nunca confía en el precio del cliente).
+    add(
+      {
+        ...product,
+        pub: selPricing.pub,
+        may: selPricing.may,
+        bulto: unitsPerSel,
+        presentationSku: presMatch?.sku,
+        presentationLabel: presMatch ? sel?.label : undefined,
+      },
+      unitsTotal,
+    );
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
   }
@@ -176,7 +187,7 @@ export default function ProductBuyBox({ product, pricing, wholesale, deli, prese
         {/* Envío: cliente final ve estimado; mayorista, a cotizar */}
         <div style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
           {finalConsumer
-            ? `Envío estimado: ${ars(ENVIO_ESTIMADO_CLIENTE_FINAL)} (se confirma al cerrar)`
+            ? `Envío desde ${ars(SHIPPING_FROM)} — según destino, lo calculás en el carrito`
             : "Envío a cotizar"}
         </div>
       </div>

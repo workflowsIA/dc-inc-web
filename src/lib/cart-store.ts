@@ -18,6 +18,11 @@ export interface CartItem {
   deco?: boolean;
   /** "combo" = ítem armado a precio cerrado (no se vende por bulto). */
   kind?: "combo";
+  /** SKU de la presentación elegida (caja/pallet) para reprecio server-side.
+   *  Si está, `pub`/`may` ya son el precio NETO por unidad de esa presentación. */
+  presentationSku?: string;
+  /** Etiqueta legible de la presentación (ej. "Caja x24"), solo display. */
+  presentationLabel?: string;
 }
 
 export type ProductSnapshot = Omit<CartItem, "qty" | "deco">;

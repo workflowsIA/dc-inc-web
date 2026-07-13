@@ -2,7 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Product, Badge } from "@/data/products";
 import { ars } from "@/lib/format";
-import { resolveDisplayPrice, ENVIO_ESTIMADO_CLIENTE_FINAL } from "@/lib/pricing";
+import { resolveDisplayPrice } from "@/lib/pricing";
+import { SHIPPING_FROM } from "@/lib/shipping";
 import { AddToCartIcon } from "./AddToCart";
 
 const BADGE_LABELS: Record<Badge, { cls: string; label: string }> = {
@@ -123,7 +124,7 @@ export default function ProductCard({ product, wholesale = false }: Props) {
           <p
             style={{ marginTop: "6px", fontSize: "11px", color: "var(--muted)" }}
           >
-            + Envío estimado: {ars(ENVIO_ESTIMADO_CLIENTE_FINAL)}
+            + Envío desde {ars(SHIPPING_FROM)}
           </p>
         ) : null}
       </div>
