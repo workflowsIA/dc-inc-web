@@ -102,16 +102,27 @@ export async function createPaymentIntention(
   const env = naveEnv();
   const token = await getAccessToken();
 
+  // Nave exige el monto como STRING con 2 decimales, y los products ANIDADOS
+  // dentro de cada transaction (con unit_price). Ver doc "Checkout con Nave".
+  const value = input.amount.toFixed(2);
   const body: Record<string, unknown> = {
     external_payment_id: input.externalPaymentId.slice(0, 36),
     seller: { pos_id: process.env.NAVE_POS_ID },
     transactions: [
-      { amount: { currency: "ARS", value: Number(input.amount.toFixed(2)) } },
+      {
+        amount: { currency: "ARS", value },
+        products: [
+          {
+            name: input.description || "Pedido DC Inc",
+            quantity: 1,
+            unit_price: { currency: "ARS", value },
+          },
+        ],
+      },
     ],
     additional_info: { callback_url: input.callbackUrl },
   };
-  if (input.description) body.products = [{ name: input.description, quantity: 1 }];
-  if (input.buyerEmail) body.buyer = { email: input.buyerEmail };
+  if (input.buyerEmail) body.buyer = { user_email: input.buyerEmail };
   if (input.durationTime) body.duration_time = input.durationTime;
 
   const res = await fetch(`${ENDPOINTS[env].api}/api/payment_request/ecommerce`, {
