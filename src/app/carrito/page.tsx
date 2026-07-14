@@ -5,7 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { useCart } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
 import { totalsFor, unitPrice, waOrderURL } from "@/lib/whatsapp";
-import { bandForCp, SHIPPING_BAND_LABEL } from "@/lib/shipping";
+import { bandForCp, SHIPPING_BAND_LABEL, BATU_ZONE_OPTIONS, type BatuZone } from "@/lib/shipping";
 
 export default function CarritoPage() {
   const items = useCart((s) => s.items);
@@ -15,9 +15,10 @@ export default function CarritoPage() {
   const role = user?.publicMetadata?.role as string | undefined;
   const wholesale = role === "wholesale" || role === "admin";
   const [cp, setCp] = useState("");
+  const [batuZone, setBatuZone] = useState<BatuZone | null>(null);
   const [shipMsg, setShipMsg] = useState(false);
 
-  const t = totalsFor(items, wholesale, cp);
+  const t = totalsFor(items, wholesale, cp, batuZone);
 
   if (items.length === 0) {
     return (
@@ -190,37 +191,68 @@ export default function CarritoPage() {
             </p>
           )}
 
-          {/* Envío — cálculo real llega en mes 2-3; por ahora deriva a WhatsApp */}
+          {/* Envío — Batu (CABA/GBA, envío propio) o CP (interior, estimado Andreani) */}
           <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid var(--line)" }}>
             <label style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
               Calcular envío
             </label>
-            <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-              <input
-                inputMode="numeric"
-                placeholder="Tu código postal"
-                value={cp}
-                onChange={(e) => {
-                  setCp(e.target.value);
-                  setShipMsg(false);
-                }}
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  padding: "10px 12px",
-                  border: "1px solid var(--line-2)",
-                  borderRadius: "var(--r-sm)",
-                  fontSize: "14px",
-                }}
-              />
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => setShipMsg(cp.trim().length > 0)}
-              >
-                Calcular
-              </button>
-            </div>
-            {shipMsg &&
+            <select
+              value={batuZone ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                setBatuZone(v ? (Number(v) as BatuZone) : null);
+                setShipMsg(true);
+              }}
+              style={{
+                width: "100%",
+                marginTop: "8px",
+                padding: "10px 12px",
+                border: "1px solid var(--line-2)",
+                borderRadius: "var(--r-sm)",
+                fontSize: "14px",
+              }}
+            >
+              <option value="">¿Enviás dentro de CABA/GBA? Elegí tu zona</option>
+              {BATU_ZONE_OPTIONS.map((z) => (
+                <option key={z.zone} value={z.zone}>
+                  {z.label}
+                </option>
+              ))}
+            </select>
+            {!batuZone && (
+              <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                <input
+                  inputMode="numeric"
+                  placeholder="…o tu código postal (interior)"
+                  value={cp}
+                  onChange={(e) => {
+                    setCp(e.target.value);
+                    setShipMsg(false);
+                  }}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    padding: "10px 12px",
+                    border: "1px solid var(--line-2)",
+                    borderRadius: "var(--r-sm)",
+                    fontSize: "14px",
+                  }}
+                />
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setShipMsg(cp.trim().length > 0)}
+                >
+                  Calcular
+                </button>
+              </div>
+            )}
+            {batuZone ? (
+              <p style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
+                Envío propio a <strong>Zona {batuZone}</strong> (CABA/GBA):{" "}
+                <strong>{ars(t.shipping)}</strong> (estimado, se confirma al cerrar).
+              </p>
+            ) : (
+              shipMsg &&
               (bandForCp(cp) ? (
                 <p style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
                   Envío a domicilio a <strong>{SHIPPING_BAND_LABEL[bandForCp(cp)!]}</strong>:{" "}
@@ -231,7 +263,8 @@ export default function CarritoPage() {
                   No reconocimos ese código postal. Verificá los 4 dígitos o coordinamos
                   el envío por WhatsApp al confirmar.
                 </p>
-              ))}
+              ))
+            )}
           </div>
 
           <Link
@@ -244,7 +277,7 @@ export default function CarritoPage() {
           <a
             className="btn btn-wa btn-block"
             style={{ marginTop: "10px" }}
-            href={waOrderURL(items, wholesale, cp)}
+            href={waOrderURL(items, wholesale, cp, batuZone)}
             target="_blank"
             rel="noopener"
           >

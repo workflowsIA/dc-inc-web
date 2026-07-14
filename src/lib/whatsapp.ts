@@ -1,6 +1,6 @@
 import type { CartItem } from "./cart-store";
 import { ars } from "./format";
-import { shippingForCp } from "./shipping";
+import { shippingEstimate, type BatuZone } from "./shipping";
 
 /** Numero de WhatsApp Business de DC Inc — del Wix actual. */
 export const WA_NUMBER = "5491161072310";
@@ -32,16 +32,33 @@ export function volumeRate(_subtotal: number): number {
   return 0;
 }
 
-export function totalsFor(items: CartItem[], wholesale = false, cp?: string): Totals {
+/** Cantidad de bultos del carrito (para el envío Batu por bultos). Cada línea
+ *  de caja cuenta sus cajas (qty / unidades por bulto); combos e individuales
+ *  cuentan como 1 bulto por línea. Mínimo 1. */
+export function totalBultos(items: CartItem[]): number {
+  const n = items.reduce((acc, i) => {
+    if (i.kind === "combo") return acc + i.qty;
+    const step = i.bulto > 0 ? i.bulto : 1;
+    return acc + (step > 1 ? Math.max(1, Math.round(i.qty / step)) : 1);
+  }, 0);
+  return Math.max(1, n);
+}
+
+export function totalsFor(
+  items: CartItem[],
+  wholesale = false,
+  cp?: string,
+  batuZone?: BatuZone | null,
+): Totals {
   const sub = items.reduce((s, i) => s + unitPrice(i, wholesale) * i.qty, 0);
   const rate = volumeRate(sub);
   const disc = sub * rate;
   const net = sub - disc;
   const iva = net * 0.21;
-  // Cliente final (no mayorista): el total incluye el envío estimado según la
-  // banda del CP (≤10 kg, a domicilio). Mayorista: "a cotizar", no se suma.
+  // Cliente final: envío estimado. Batu (zona × bultos) si eligió zona CABA/GBA;
+  // si no, banda de CP (interior). Mayorista: "a cotizar", no se suma.
   const finalConsumer = !wholesale;
-  const shipping = shippingForCp(cp, wholesale);
+  const shipping = shippingEstimate({ cp, batuZone, bultos: totalBultos(items), wholesale });
   const total = net + iva + shipping;
   return {
     sub,
@@ -61,8 +78,8 @@ export function waSimpleURL(message?: string): string {
   return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(txt)}`;
 }
 
-function orderBody(items: CartItem[], wholesale: boolean, cp?: string): string {
-  const t = totalsFor(items, wholesale, cp);
+function orderBody(items: CartItem[], wholesale: boolean, cp?: string, batuZone?: BatuZone | null): string {
+  const t = totalsFor(items, wholesale, cp, batuZone);
   let msg = "";
   for (const i of items) {
     const sub = unitPrice(i, wholesale) * i.qty;
@@ -91,10 +108,10 @@ function orderBody(items: CartItem[], wholesale: boolean, cp?: string): string {
   return msg;
 }
 
-export function waOrderURL(items: CartItem[], wholesale = false, cp?: string): string {
+export function waOrderURL(items: CartItem[], wholesale = false, cp?: string, batuZone?: BatuZone | null): string {
   const msg =
     "Hola DC Inc! Quiero cotizar este pedido:\n\n" +
-    orderBody(items, wholesale, cp) +
+    orderBody(items, wholesale, cp, batuZone) +
     "\n\n(Enviado desde el carrito web)";
   return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
 }
@@ -105,6 +122,7 @@ export interface CheckoutInfo {
   email?: string;
   telefono?: string;
   cp?: string;
+  batuZone?: BatuZone | null;
   notas?: string;
 }
 
@@ -113,7 +131,7 @@ export function waCheckoutURL(
   wholesale: boolean,
   info: CheckoutInfo,
 ): string {
-  let msg = "Hola DC Inc! Quiero confirmar este pedido:\n\n" + orderBody(items, wholesale, info.cp);
+  let msg = "Hola DC Inc! Quiero confirmar este pedido:\n\n" + orderBody(items, wholesale, info.cp, info.batuZone);
   const datos: string[] = [];
   if (info.nombre) datos.push(`Nombre: ${info.nombre}`);
   if (info.empresa) datos.push(`Empresa: ${info.empresa}`);

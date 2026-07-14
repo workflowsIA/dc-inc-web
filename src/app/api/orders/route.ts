@@ -10,7 +10,7 @@ import {
   type OrderPricingCombo,
 } from "@/lib/queries";
 import { IVA_RATE, isSaleActive } from "@/lib/pricing";
-import { shippingForCp } from "@/lib/shipping";
+import { shippingEstimate, type BatuZone } from "@/lib/shipping";
 
 /**
  * POST /api/orders — crea un pedido (`order`) en Sanity desde el checkout.
@@ -50,7 +50,8 @@ const OrderSchema = z.object({
   customerCompany: z.string().trim().max(160).optional(),
   customerPhone: z.string().trim().max(40).optional(),
   items: z.array(ItemSchema).min(1).max(200),
-  cp: z.string().trim().max(12).optional(), // CP destino → banda de envío
+  cp: z.string().trim().max(12).optional(), // CP destino → banda de envío (interior)
+  batuZone: z.number().int().min(1).max(4).optional(), // zona CABA/GBA (envío propio Batu)
   notes: z.string().trim().max(2000).optional(),
   origin: z.enum(["web", "whatsapp"]).optional(),
 });
@@ -121,6 +122,7 @@ export async function POST(req: Request) {
 
     const lines: Line[] = [];
     let sub = 0;
+    let totalBultos = 0; // para el envío Batu (zona × bultos)
 
     for (const it of body.items) {
       let name = it.name ?? "";
@@ -134,6 +136,7 @@ export async function POST(req: Request) {
         name = combo.name;
         sku = combo.slug;
         unitNet = typeof combo.pricePublicFrom === "number" ? combo.pricePublicFrom : 0;
+        totalBultos += it.qty; // 1 bulto por combo
       } else {
         const prod = it.sku ? productBySku.get(it.sku) : undefined;
         if (!prod) continue; // sku inexistente → se descarta
@@ -159,6 +162,7 @@ export async function POST(req: Request) {
         const stepUnits = pres?.unitsPerBulk ?? prod.unitsPerBulk;
         const step = stepUnits > 0 ? stepUnits : 1;
         bultos = Math.max(1, Math.round(it.qty / step));
+        totalBultos += bultos;
       }
 
       const lineSub = (unitNet ?? 0) * it.qty;
@@ -179,8 +183,14 @@ export async function POST(req: Request) {
     const rate = volumeRate(sub);
     const net = sub - sub * rate;
     const iva = net * IVA_RATE;
-    // Envío estimado server-side según la banda del CP (≤10 kg). Mayorista → 0.
-    const shipping = shippingForCp(body.cp, wholesale);
+    // Envío estimado server-side: Batu (zona × bultos) si el cliente eligió zona
+    // CABA/GBA; si no, banda de CP (interior). Mayorista → 0.
+    const shipping = shippingEstimate({
+      cp: body.cp,
+      batuZone: body.batuZone as BatuZone | undefined,
+      bultos: Math.max(1, totalBultos),
+      wholesale,
+    });
     const total = net + iva + shipping;
 
     const doc = {
@@ -197,6 +207,7 @@ export async function POST(req: Request) {
       subtotal: sub,
       iva,
       cpDestino: body.cp ?? "",
+      zonaBatu: body.batuZone ?? null,
       envioEstimado: shipping,
       total,
       paymentStatus: "no_pagado",

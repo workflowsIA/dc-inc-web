@@ -8,6 +8,7 @@ import { useCart } from "@/lib/cart-store";
 type ClerkUser = NonNullable<ReturnType<typeof useUser>["user"]>;
 import { ars } from "@/lib/format";
 import { totalsFor, unitPrice, waCheckoutURL, type CheckoutInfo } from "@/lib/whatsapp";
+import { BATU_ZONE_OPTIONS, type BatuZone } from "@/lib/shipping";
 
 export default function CheckoutPage() {
   // Esperamos a que Clerk cargue al usuario antes de montar el formulario, así
@@ -38,10 +39,11 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       "",
     telefono: md.telefono ?? user?.primaryPhoneNumber?.phoneNumber ?? "",
     cp: "",
+    batuZone: null,
     notas: "",
   });
 
-  const t = totalsFor(items, wholesale, info.cp);
+  const t = totalsFor(items, wholesale, info.cp, info.batuZone);
   const set = (k: keyof CheckoutInfo) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setInfo((s) => ({ ...s, [k]: e.target.value }));
 
@@ -84,6 +86,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       presentationSku: i.presentationSku,
     })),
     cp: info.cp,
+    batuZone: info.batuZone ?? undefined,
     notes: info.notas,
     origin: "web" as const,
   });
@@ -182,6 +185,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       customerPhone: info.telefono,
       items: orderItems,
       cp: info.cp,
+      batuZone: info.batuZone ?? undefined,
       notes: info.notas,
       origin: "web" as const,
     };
@@ -235,6 +239,33 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
             <In label="Email" value={info.email} onChange={set("email")} />
             <In label="Teléfono" value={info.telefono} onChange={set("telefono")} />
             <In label="Código postal (para estimar envío)" value={info.cp} onChange={set("cp")} />
+            <label style={{ display: "grid", gap: "6px" }}>
+              <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
+                Zona de envío (si es CABA/GBA — envío propio)
+              </span>
+              <select
+                value={info.batuZone ?? ""}
+                onChange={(e) =>
+                  setInfo((s) => ({
+                    ...s,
+                    batuZone: e.target.value ? (Number(e.target.value) as BatuZone) : null,
+                  }))
+                }
+                style={{
+                  padding: "10px 12px",
+                  border: "1px solid var(--line-2)",
+                  borderRadius: "var(--r-sm)",
+                  fontSize: "14px",
+                }}
+              >
+                <option value="">Al interior / otro (uso el código postal)</option>
+                {BATU_ZONE_OPTIONS.map((z) => (
+                  <option key={z.zone} value={z.zone}>
+                    {z.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label style={{ display: "grid", gap: "6px" }}>
               <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
                 Notas (opcional)

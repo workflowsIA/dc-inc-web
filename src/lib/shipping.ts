@@ -64,14 +64,62 @@ export function bandForCp(cp: string | undefined | null): ShippingBand | null {
 }
 
 /**
- * Costo de envío estimado para un destino.
+ * Costo de envío estimado por banda de CP (interior / fallback).
  *  - Mayorista → 0 (el envío se cotiza aparte, "a cotizar").
  *  - Cliente final → tarifa de la banda del CP.
- *  - CP desconocido/vacío → AMBA (la más barata) como default provisorio; el
- *    cliente ve "estimado" y se confirma al cerrar.
+ *  - CP desconocido/vacío → AMBA (la más barata) como default provisorio.
  */
 export function shippingForCp(cp: string | undefined | null, wholesale = false): number {
   if (wholesale) return 0;
   const band = bandForCp(cp);
   return band ? SHIPPING_RATES[band] : SHIPPING_RATES.AMBA;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * DESPACHO BATU — envío propio DC Inc dentro de CABA / GBA.
+ * Tarifa por ZONA (partido) × CANTIDAD DE BULTOS. Columna PÚBLICO
+ * del tarifario de Marce (13-jul-2026). Más barato que Andreani local.
+ * ───────────────────────────────────────────────────────────── */
+
+export type BatuZone = 1 | 2 | 3 | 4;
+
+/** Partidos de cada zona (para el selector del checkout). */
+export const BATU_ZONE_OPTIONS: { zone: BatuZone; label: string }[] = [
+  { zone: 1, label: "Zona 1 — CABA, Vicente López, San Isidro, San Martín, Tres de Febrero, Villa Adelina" },
+  { zone: 2, label: "Zona 2 — Lanús, Lomas, Avellaneda, Morón, Hurlingham, San Fernando, Ituzaingó, La Matanza (N)" },
+  { zone: 3, label: "Zona 3 — Quilmes, Tigre, Moreno, Merlo, San Miguel, Malvinas Argentinas, Berazategui, Florencio Varela, Almirante Brown, José C. Paz, La Matanza (S)" },
+  { zone: 4, label: "Zona 4 — La Plata, Pilar, Escobar, Ezeiza, Canning" },
+];
+
+/** Tarifa PÚBLICO por zona: tramos de cantidad de bultos (hasta N → precio). */
+const BATU_RATES: Record<BatuZone, { maxBultos: number; price: number }[]> = {
+  1: [{ maxBultos: 2, price: 9900 }, { maxBultos: 4, price: 13200 }, { maxBultos: 7, price: 19800 }, { maxBultos: 10, price: 26400 }, { maxBultos: 15, price: 35200 }, { maxBultos: 20, price: 41800 }],
+  2: [{ maxBultos: 2, price: 12100 }, { maxBultos: 4, price: 15400 }, { maxBultos: 7, price: 23100 }, { maxBultos: 10, price: 30800 }, { maxBultos: 15, price: 39600 }, { maxBultos: 20, price: 48400 }],
+  3: [{ maxBultos: 2, price: 14300 }, { maxBultos: 4, price: 20900 }, { maxBultos: 7, price: 27500 }, { maxBultos: 10, price: 33000 }, { maxBultos: 15, price: 44000 }, { maxBultos: 20, price: 52800 }],
+  4: [{ maxBultos: 2, price: 17600 }, { maxBultos: 4, price: 27500 }, { maxBultos: 7, price: 33000 }, { maxBultos: 10, price: 44000 }, { maxBultos: 15, price: 52800 }, { maxBultos: 20, price: 63800 }],
+};
+
+/** Precio Batu por zona + cantidad de bultos (usa el tramo cuyo tope ≥ bultos). */
+export function batuShipping(zone: BatuZone, bultos: number): number {
+  const rows = BATU_RATES[zone];
+  const b = Math.max(1, bultos);
+  return (rows.find((r) => b <= r.maxBultos) ?? rows[rows.length - 1]).price;
+}
+
+/**
+ * Estimador de envío unificado (cliente final).
+ *  - Mayorista → 0 ("a cotizar").
+ *  - Si eligió zona Batu (CABA/GBA) → tarifa propia por zona × bultos.
+ *  - Si no → banda de CP (interior / fallback).
+ */
+export function shippingEstimate(opts: {
+  cp?: string | null;
+  batuZone?: BatuZone | null;
+  bultos?: number;
+  wholesale?: boolean;
+}): number {
+  const { cp, batuZone, bultos = 1, wholesale = false } = opts;
+  if (wholesale) return 0;
+  if (batuZone) return batuShipping(batuZone, bultos);
+  return shippingForCp(cp, wholesale);
 }
