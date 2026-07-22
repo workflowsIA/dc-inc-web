@@ -177,6 +177,10 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       if (naveTab && !naveTab.closed) {
         // Pestaña nueva → Nave; esta pestaña → "Confirmando tu pago…" (polling).
         naveTab.location.href = checkoutUrl;
+        // Guardamos la referencia para que /checkout/gracias pueda CERRAR la
+        // pestaña de Nave cuando el pago confirme (navegación SPA: el contexto
+        // JS sobrevive al router.push).
+        (window as Window & { __naveTab?: Window | null }).__naveTab = naveTab;
         router.push(`/checkout/gracias?order=${encodeURIComponent(orderNumber)}&via=nave`);
       } else {
         // Popup bloqueado: caemos al flujo viejo en la misma pestaña.

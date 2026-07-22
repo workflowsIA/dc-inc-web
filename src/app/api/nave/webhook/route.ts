@@ -23,7 +23,7 @@ import {
   naveStatusName,
   type NavePayment,
 } from "@/lib/nave";
-import { stockSaleAfterPayment } from "@/lib/sheet-sync";
+import { finalizePaidOrder } from "@/lib/nave-finalize";
 import { orderByNaveExternalIdQuery, type SanityOrder } from "@/lib/queries";
 
 export const runtime = "nodejs";
@@ -74,17 +74,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, status, handled: true, idempotent: true });
     }
 
-    await sanityWriteClient
-      .patch(order._id)
-      .set({
-        paymentStatus: "pagado",
-        paymentProvider: "nave",
-        paymentId: String(payment?.id ?? body.payment_id ?? ""),
-      })
-      .commit();
-
-    // Descuento de stock en la planilla (gated + no destructivo, ver header).
-    await stockSaleAfterPayment(order, "/api/nave/webhook");
+    // Marca pagado + stock + tarjeta de venta en Monday.
+    await finalizePaidOrder(order, String(payment?.id ?? body.payment_id ?? ""), "/api/nave/webhook");
 
     return NextResponse.json({ ok: true, status, handled: true });
   } catch (err) {

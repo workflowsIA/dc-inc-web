@@ -187,3 +187,102 @@ export async function addSignupUpdate(itemId: string, n: SignupNotification): Pr
     { item: itemId, body: updateBody(n) },
   );
 }
+
+// --- Notificación de venta web pagada ---
+
+export interface OrderPaidNotification {
+  orderNumber?: string;
+  total?: number;
+  customerName?: string;
+  customerCompany?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  paymentId?: string;
+  items?: { name?: string; sku?: string; bultos?: number; unidades?: number; subtotal?: number }[];
+}
+
+function arsMonday(n: number | undefined): string {
+  if (typeof n !== "number") return "—";
+  return `$${Math.round(n).toLocaleString("es-AR")}`;
+}
+
+function orderUpdateBody(o: OrderPaidNotification): string {
+  const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
+  const lines = [
+    "💰 VENTA WEB — pago confirmado por Nave.",
+    "",
+    `Cliente: ${[o.customerName, o.customerCompany].filter(Boolean).join(" · ") || "—"}`,
+    `Email: ${o.customerEmail || "—"}`,
+    `Teléfono: ${o.customerPhone || "—"}`,
+    "",
+    "Detalle:",
+    ...(o.items ?? []).map(
+      (i) =>
+        `• ${i.bultos ?? "?"}× ${i.name || i.sku || "?"}${i.sku ? ` (${i.sku})` : ""}` +
+        (typeof i.subtotal === "number" ? ` — ${arsMonday(i.subtotal)}` : ""),
+    ),
+    "",
+    `TOTAL: ${arsMonday(o.total)}`,
+  ];
+  if (o.paymentId) lines.push(`Pago Nave: ${o.paymentId}`);
+  if (site) lines.push("", `Pedido en el panel: ${site}/admin/pedidos`);
+  return lines.join("\n");
+}
+
+/**
+ * Crea un item en el board CRM cuando un pedido web queda PAGADO (Nave).
+ * Va al mismo grupo que los registros ("A cotizar" por default). Best-effort
+ * en columnas y update; devuelve el itemId o null si Monday no está configurado.
+ */
+export async function notifyOrderPaid(o: OrderPaidNotification): Promise<string | null> {
+  if (!isMondayConfigured()) return null;
+  const boardId = process.env.MONDAY_BOARD_CRM_ID as string;
+  const groupId = process.env.MONDAY_CRM_GROUP_ID; // opcional; default: primer grupo
+
+  const who = o.customerCompany || o.customerName || o.customerEmail || "Cliente web";
+  const itemName = `${o.orderNumber ?? "Pedido"} — VENTA WEB pagada — ${who} — ${arsMonday(o.total)}`;
+
+  const created = await gql<{ create_item: { id: string } }>(
+    `mutation ($board: ID!, $group: String, $name: String!) {
+       create_item(board_id: $board, group_id: $group, item_name: $name) { id }
+     }`,
+    { board: boardId, group: groupId || undefined, name: itemName },
+  );
+  const itemId = created.create_item.id;
+
+  // Columnas best-effort: Venta (monto), Origen=Web, contacto.
+  try {
+    const cols = await getColumns(boardId);
+    const values: Record<string, unknown> = {};
+    const colVenta = findCol(cols, ["venta"], "numbers");
+    const colOrigen = findCol(cols, ["origen"], "status");
+    const colEmail = findCol(cols, ["email", "mail"], "email");
+    const colPhone = findCol(cols, ["telefono", "teléfono", "celular", "phone"], "phone");
+    if (colVenta && typeof o.total === "number") values[colVenta.id] = String(Math.round(o.total));
+    if (colOrigen) values[colOrigen.id] = { label: "Web" };
+    if (colEmail && o.customerEmail) values[colEmail.id] = { email: o.customerEmail, text: o.customerEmail };
+    if (colPhone && o.customerPhone)
+      values[colPhone.id] = { phone: o.customerPhone.replace(/[^\d+]/g, ""), countryShortName: "AR" };
+    if (Object.keys(values).length > 0) {
+      await gql(
+        `mutation ($board: ID!, $item: ID!, $values: JSON!) {
+           change_multiple_column_values(board_id: $board, item_id: $item, column_values: $values) { id }
+         }`,
+        { board: boardId, item: itemId, values: JSON.stringify(values) },
+      );
+    }
+  } catch (err) {
+    console.warn("[monday] venta: no se pudieron setear columnas (sigo igual):", err);
+  }
+
+  try {
+    await gql(
+      `mutation ($item: ID!, $body: String!) { create_update(item_id: $item, body: $body) { id } }`,
+      { item: itemId, body: orderUpdateBody(o) },
+    );
+  } catch (err) {
+    console.warn("[monday] venta: no se pudo crear el update:", err);
+  }
+
+  return itemId;
+}

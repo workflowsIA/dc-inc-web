@@ -1,0 +1,38 @@
+name: Conciliar pagos Nave pendientes
+
+# Barredora de pagos: le pega a /api/nave/reconcile-pending cada 30 min para
+# conciliar pedidos que quedaron "No pagado" pero cuyo pago SÍ entró en Nave
+# (ej: el cliente pagó y cerró la pestaña antes de la confirmación).
+#
+# Reusa el secret SYNC_CRON_SECRET (el mismo del sync de stock).
+# ⚠️ Al migrar el dominio, actualizar la URL acá (junto con SYNC_ENDPOINT_URL).
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: reconcile-nave
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger reconcile endpoint
+        env:
+          SYNC_CRON_SECRET: ${{ secrets.SYNC_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SYNC_CRON_SECRET:-}" ]; then
+            echo "❌ Falta el secret SYNC_CRON_SECRET."
+            exit 1
+          fi
+          code=$(curl -sS --max-time 120 -o /tmp/out.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${SYNC_CRON_SECRET}" \
+            "https://dc-inc-web-v3.vercel.app/api/nave/reconcile-pending")
+          echo "HTTP ${code}"
+          cat /tmp/out.json || true
+          [ "${code}" = "200" ]

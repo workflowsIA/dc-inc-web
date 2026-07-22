@@ -103,10 +103,24 @@ export const ordersByUserStatsQuery = groq`
 `;
 
 /** Pedido por su external_payment_id de Nave (para conciliar desde el webhook
- *  o desde /api/nave/status). Incluye items para el descuento de stock. */
+ *  o desde /api/nave/status). Incluye items (descuento de stock) y datos del
+ *  cliente (notificación de venta en Monday). */
 export const orderByNaveExternalIdQuery = groq`
   *[_type == "order" && naveExternalId == $eid][0]{
     _id, orderNumber, paymentStatus, total, navePaymentRequestId,
+    customerName, customerCompany, customerEmail, customerPhone,
+    items[]{ name, sku, bultos, unidades, precioUnitario, subtotal }
+  }
+`;
+
+/** Pedidos impagos con intención de Nave (últimas 72 h) — para la barredora
+ *  /api/nave/reconcile-pending (cierra el caso "pagó y cerró la pestaña"). */
+export const pendingNaveOrdersQuery = groq`
+  *[_type == "order" && paymentStatus == "no_pagado" && defined(navePaymentRequestId)
+    && dateTime(createdAt) > dateTime(now()) - 60*60*72]
+    | order(createdAt desc)[0...25]{
+    _id, orderNumber, paymentStatus, total, navePaymentRequestId,
+    customerName, customerCompany, customerEmail, customerPhone,
     items[]{ name, sku, bultos, unidades, precioUnitario, subtotal }
   }
 `;

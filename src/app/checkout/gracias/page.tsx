@@ -49,6 +49,15 @@ function Gracias() {
         if (data?.paid) {
           setNaveState("paid");
           clear();
+          // Si abrimos nosotros la pestaña de Nave (flujo nuevo del checkout),
+          // la cerramos: el cliente ya tiene la confirmación en esta pestaña.
+          try {
+            const w = window as Window & { __naveTab?: Window | null };
+            if (w.__naveTab && !w.__naveTab.closed) w.__naveTab.close();
+            w.__naveTab = null;
+          } catch {
+            /* noop */
+          }
           return;
         }
       } catch {
