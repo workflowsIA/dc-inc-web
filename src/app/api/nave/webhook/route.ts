@@ -20,6 +20,7 @@ import {
   isNaveConfigured,
   getPaymentByCheckUrl,
   getPaymentById,
+  naveStatusName,
   type NavePayment,
 } from "@/lib/nave";
 import { stockSaleAfterPayment } from "@/lib/sheet-sync";
@@ -54,7 +55,8 @@ export async function POST(req: Request) {
     } else if (body.payment_id != null) {
       payment = await getPaymentById(String(body.payment_id));
     }
-    const status = (payment?.status ?? body.status ?? "").toUpperCase();
+    // OJO: la API devuelve status como objeto { name: "APPROVED", ... }.
+    const status = naveStatusName(payment?.status ?? body.status);
     const eid = payment?.external_payment_id ?? body.external_payment_id;
 
     if (status !== "APPROVED" || !eid) {

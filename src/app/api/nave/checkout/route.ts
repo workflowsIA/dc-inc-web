@@ -70,9 +70,18 @@ export async function POST(req: Request) {
       externalPaymentId: eid,
       amount: total,
       description: `Pedido ${order.orderNumber ?? ""}`.trim() || "Pedido DC Inc",
-      callbackUrl: `${base}/checkout/gracias?order=${encodeURIComponent(order.orderNumber ?? "")}`,
+      callbackUrl: `${base}/checkout/gracias?order=${encodeURIComponent(order.orderNumber ?? "")}&via=nave`,
       buyerEmail: order.customerEmail || undefined,
     });
+
+    // Guardamos el id de la intención: permite conciliar por polling
+    // (/api/nave/status) sin depender del webhook de Nave.
+    if (intention.id) {
+      await sanityWriteClient
+        .patch(order._id)
+        .set({ navePaymentRequestId: intention.id })
+        .commit();
+    }
 
     return NextResponse.json({ ok: true, checkoutUrl: intention.checkoutUrl });
   } catch (err) {

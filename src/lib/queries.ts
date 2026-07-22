@@ -102,9 +102,13 @@ export const ordersByUserStatsQuery = groq`
   *[_type == "order" && defined(clerkUserId)]{ clerkUserId, total, paymentStatus, createdAt }
 `;
 
-/** Pedido por su external_payment_id de Nave (para conciliar desde el webhook). */
+/** Pedido por su external_payment_id de Nave (para conciliar desde el webhook
+ *  o desde /api/nave/status). Incluye items para el descuento de stock. */
 export const orderByNaveExternalIdQuery = groq`
-  *[_type == "order" && naveExternalId == $eid][0]{ _id, orderNumber, paymentStatus, total }
+  *[_type == "order" && naveExternalId == $eid][0]{
+    _id, orderNumber, paymentStatus, total, navePaymentRequestId,
+    items[]{ name, sku, bultos, unidades, precioUnitario, subtotal }
+  }
 `;
 
 /** Todos los pedidos (panel admin). */
@@ -325,6 +329,7 @@ export interface SanityOrder {
   paymentProvider?: string;
   paymentId?: string;
   naveExternalId?: string;
+  navePaymentRequestId?: string;
   notes?: string;
   items?: SanityOrderItem[];
 }

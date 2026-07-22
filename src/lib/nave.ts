@@ -154,9 +154,44 @@ export async function createPaymentIntention(
 
 // --- Consultar un pago (fuente de verdad del estado) ---
 export interface NavePayment {
-  status?: string; // PENDING | APPROVED | REJECTED | ...
+  /** La API lo devuelve como objeto { name, reason_code, ... }. */
+  status?: string | { name?: string };
   external_payment_id?: string;
   id?: string | number;
+}
+
+/** Normaliza el status de Nave (viene como string o como { name }). */
+export function naveStatusName(s: unknown): string {
+  if (!s) return "";
+  if (typeof s === "string") return s.toUpperCase();
+  if (typeof s === "object" && "name" in (s as Record<string, unknown>)) {
+    return String((s as { name?: string }).name ?? "").toUpperCase();
+  }
+  return "";
+}
+
+// --- Consultar una intención de pago (payment_request) ---
+// Doc: "alternativa cuando la notificación no se recibe o presenta fallas".
+// SUCCESS_PROCESSED = pago aprobado.
+export interface NavePaymentRequest {
+  id?: string;
+  status?: string | { name?: string };
+  external_payment_id?: string;
+  payment_attempts?: {
+    attempts?: number;
+    payments?: { payment_id?: string; status?: string }[];
+  };
+}
+
+export async function getPaymentRequest(requestId: string): Promise<NavePaymentRequest> {
+  const env = naveEnv();
+  const token = await getAccessToken();
+  const res = await fetch(
+    `${ENDPOINTS[env].api}/api/payment_requests/${encodeURIComponent(requestId)}`,
+    { headers: { Authorization: `Bearer ${token}`, "User-Agent": NAVE_UA } },
+  );
+  if (!res.ok) throw new Error(`Nave payment_request ${res.status}`);
+  return (await res.json()) as NavePaymentRequest;
 }
 
 /** Usa el payment_check_url que manda el webhook (preferido). */

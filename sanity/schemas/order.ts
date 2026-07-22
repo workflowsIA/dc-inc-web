@@ -132,6 +132,13 @@ export default defineType({
       readOnly: true,
     }),
     defineField({
+      name: "navePaymentRequestId",
+      title: "Intención de pago (Nave)",
+      type: "string",
+      description: "ID de la payment_request en Nave — usado para conciliar por polling sin webhook.",
+      readOnly: true,
+    }),
+    defineField({
       name: "fulfillmentStatus",
       title: "Estado de procesamiento",
       type: "string",
