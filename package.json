@@ -24,7 +24,8 @@
     "stock:check": "tsx --env-file=.env.local scripts/check-stock.ts",
     "csv:import": "tsx --env-file=.env.local scripts/import-products-csv.ts",
     "monday:test": "tsx --env-file=.env.local scripts/test-monday.ts",
-    "orders:cleanup": "tsx --env-file=.env.local scripts/cleanup-test-orders.ts"
+    "orders:cleanup": "tsx --env-file=.env.local scripts/cleanup-test-orders.ts",
+    "gsa:email": "tsx --env-file=.env.local scripts/print-service-account-email.ts"
   },
   "dependencies": {
     "@clerk/localizations": "^4.8.2",
