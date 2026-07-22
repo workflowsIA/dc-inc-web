@@ -17,7 +17,7 @@ import { useCart } from "@/lib/cart-store";
  */
 
 const POLL_MS = 4000;
-const MAX_POLLS = 30; // ~2 minutos
+const MAX_POLLS = 75; // ~5 minutos (pagar por QR desde el banco puede tardar)
 
 type NaveState = "checking" | "paid" | "timeout" | "error";
 
@@ -137,6 +137,15 @@ function Gracias() {
         </div>
       )}
       <div style={{ marginTop: 28, display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+        {viaNave && naveState === "timeout" && (
+          <button
+            type="button"
+            className="btn btn-primary btn-lg"
+            onClick={() => window.location.reload()}
+          >
+            Ya pagué — verificar de nuevo
+          </button>
+        )}
         <Link className="btn btn-primary btn-lg" href="/productos">
           Seguir comprando
         </Link>

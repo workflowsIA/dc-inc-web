@@ -121,12 +121,25 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
     }
   };
 
-  // "Pagar con Nave": crea el pedido (await) y redirige al checkout_url real de
-  // la pasarela. El cobro se confirma por webhook (/api/nave/webhook).
+  // "Pagar con Nave": crea el pedido (await), abre el checkout de Nave en una
+  // PESTAÑA NUEVA y lleva esta pestaña a /checkout/gracias?via=nave, que
+  // concilia por polling (/api/nave/status). Así la confirmación NO depende de
+  // que la página de Nave redirija (el flujo QR pagado desde el teléfono deja
+  // la página de Nave clavada — visto en producción 22-jul).
   const payWithNave = async () => {
     if (requireLogin()) return;
     setNaveError(null);
     setPayingNave(true);
+    // Abrimos la pestaña YA (gesto del usuario) para que el popup blocker no
+    // la mate; le seteamos la URL cuando el server nos la da.
+    const naveTab = typeof window !== "undefined" ? window.open("", "_blank") : null;
+    const closeTab = () => {
+      try {
+        naveTab?.close();
+      } catch {
+        /* noop */
+      }
+    };
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -138,11 +151,13 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
         const skus = Array.isArray(data.skus) ? data.skus.join(", ") : "";
         setNaveError(`Hay productos sin stock${skus ? `: ${skus}` : ""}. Quitalos del carrito para continuar.`);
         setPayingNave(false);
+        closeTab();
         return;
       }
       if (!res.ok || !data?.ok || !data.id) {
         setNaveError("No pudimos generar el pedido. Probá de nuevo o cerralo por WhatsApp.");
         setPayingNave(false);
+        closeTab();
         return;
       }
       const navRes = await fetch("/api/nave/checkout", {
@@ -154,12 +169,23 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       if (!navRes.ok || !navData?.ok || !navData.checkoutUrl) {
         setNaveError("No pudimos iniciar el pago. Probá de nuevo o cerralo por WhatsApp.");
         setPayingNave(false);
+        closeTab();
         return;
       }
-      window.location.href = navData.checkoutUrl as string;
+      const checkoutUrl = navData.checkoutUrl as string;
+      const orderNumber = (data.orderNumber as string | undefined) ?? "";
+      if (naveTab && !naveTab.closed) {
+        // Pestaña nueva → Nave; esta pestaña → "Confirmando tu pago…" (polling).
+        naveTab.location.href = checkoutUrl;
+        router.push(`/checkout/gracias?order=${encodeURIComponent(orderNumber)}&via=nave`);
+      } else {
+        // Popup bloqueado: caemos al flujo viejo en la misma pestaña.
+        window.location.href = checkoutUrl;
+      }
     } catch {
       setNaveError("Hubo un problema de conexión. Probá de nuevo o cerralo por WhatsApp.");
       setPayingNave(false);
+      closeTab();
     }
   };
 
