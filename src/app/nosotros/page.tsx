@@ -21,7 +21,7 @@ export const metadata = {
   },
 };
 
-/* NOTA: texto institucional revisado 13-jul-2026 — enviado a Marce para OK final. */
+/* NOTA: texto institucional FINAL — versión aprobada por Marce (mail 21-jul-2026). */
 export default async function NosotrosPage() {
   // Clientes de la vidriera (schema `client`). Si no hay, ocultamos la sección.
   let clients: SanityClient[] = [];
@@ -53,17 +53,23 @@ export default async function NosotrosPage() {
           la calle con su producto.
         </p>
         <p style={{ color: "var(--muted)", lineHeight: 1.7 }}>
-          Trabajamos con más de 1.600 clientes y un catálogo de alrededor de 300
-          productos, con stock real y precios claros. No vendemos por vender: te
-          asesoramos con un vendedor asignado por WhatsApp para que pidas justo
-          lo que necesitás, ni de más ni de menos.
+          Trabajamos con más de 1.600 clientes en todo el país y un catálogo de
+          alrededor de 300 productos —con sus distintas presentaciones y
+          medidas—, con stock real y precios claros. No vendemos por vender:
+          tenés un vendedor asignado que te atiende por WhatsApp y te ayuda a
+          pedir justo lo que necesitás, ni de más ni de menos.
         </p>
         <p style={{ color: "var(--muted)", lineHeight: 1.7 }}>
           Nuestro diferencial es doble. Por un lado, la logística del vidrio
           —esa que muchos transportes esquivan— la resolvemos nosotros: entrega
-          propia en CABA y GBA y red de transportes para todo el país. Por el
-          otro, un servicio de decorado y serigrafía propio que te deja poner tu
-          marca en el envase, sin intermediarios y con tiempos que cumplimos.
+          en CABA y GBA y red de transportes al interior. Por el otro, decorado
+          y serigrafía propios, para que pongas tu marca en el envase sin
+          intermediarios y con tiempos que cumplimos.
+        </p>
+        <p style={{ color: "var(--muted)", lineHeight: 1.7 }}>
+          Y si necesitás poco, también. Fraccionamos por caja: no hace falta que
+          te lleves un pallet entero para arrancar. Pedís lo que tu producción
+          necesita hoy y escalás cuando toque.
         </p>
       </div>
 
