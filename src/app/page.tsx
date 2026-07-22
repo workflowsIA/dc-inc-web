@@ -33,17 +33,23 @@ export const revalidate = 60;
 /**
  * Packshot local por nombre de categoría real (de Sanity). Fallback: placeholder.
  * Íconos "cat-*" son los ilustrados reales de DC Inc (extraídos del sitio Wix
- * vigente, 22-jul-2026) — reemplazan los placeholders genéricos originales.
- * Botellones y Tapas y precintos no tienen ícono ilustrado propio en el Wix
- * actual: Botellones sigue con el placeholder "growler"; Tapas y precintos
- * queda sin imagen (como estaba).
+ * vigente, 22-jul-2026), re-encuadrados todos al mismo tamaño/margen para que
+ * se vean parejos en la grilla. "Botellones" usaba el packshot viejo
+ * (growler.png) sin el mismo encuadre — quedaba desproporcionado al lado de
+ * los nuevos; re-encuadrado en cat-botellones.png.
+ *
+ * Categorías sin ícono propio (hoy: Tapas y precintos, Válvulas — y cualquier
+ * categoría nueva que se cree en Sanity sin entrada acá) caen en
+ * "cat-generic.png" (isotipo DC sobre fondo crema) en vez del placeholder a
+ * rayas — se ve prolijo/de marca en vez de "roto" mientras no tengamos un
+ * ilustrado propio para esa categoría.
  */
 const CAT_IMG: Record<string, string> = {
   Botellas: "cat-botellas",
   Latas: "cat-latas",
   "Copas y vasos": "cat-copas-vasos",
   "Cajas y estuches": "cat-cajas",
-  Botellones: "growler",
+  Botellones: "cat-botellones",
 };
 
 // Fallback si Sanity no responde.
@@ -53,7 +59,7 @@ const categoryDataFallback: { name: string; count: string; img?: string }[] = [
   { name: "Copas y vasos", count: "~170", img: "cat-copas-vasos" },
   { name: "Cajas y estuches", count: "~26", img: "cat-cajas" },
   { name: "Tapas y precintos", count: "~36" },
-  { name: "Botellones", count: "~7", img: "growler" },
+  { name: "Botellones", count: "~7", img: "cat-botellones" },
 ];
 
 const steps = [
@@ -218,17 +224,13 @@ export default async function Home() {
                 className={s.catTile}
                 href={`/categoria/${catSlug(c.name)}`}
               >
-                {c.img ? (
-                  <Image
-                    className="ph"
-                    src={`/img/${c.img}.png`}
-                    alt={c.name}
-                    width={300}
-                    height={300}
-                  />
-                ) : (
-                  <div className="ph" data-ph={c.name} />
-                )}
+                <Image
+                  className="ph"
+                  src={`/img/${c.img || "cat-generic"}.png`}
+                  alt={c.name}
+                  width={300}
+                  height={300}
+                />
                 <div className="lab">
                   <b>{c.name}</b>
                   <span>{c.count} SKU</span>
