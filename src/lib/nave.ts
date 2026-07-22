@@ -49,6 +49,11 @@ export function naveSiteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 }
 
+// El WAF de PRODUCCIÓN de Nave filtra por User-Agent (curl y el fetch de Node
+// sin UA devuelven 406 "CF-1013"). Confirmado por Nave (Martín Bucarey,
+// 22-jul-2026): mandar un UA aceptado, p.ej. "axios".
+const NAVE_UA = "axios/1.7.0";
+
 // --- Token OAuth M2M (cache en memoria del runtime) ---
 let tokenCache: { token: string; expiresAt: number } | null = null;
 
@@ -59,7 +64,7 @@ async function getAccessToken(): Promise<string> {
   const env = naveEnv();
   const res = await fetch(ENDPOINTS[env].auth, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "User-Agent": NAVE_UA },
     body: JSON.stringify({
       client_id: process.env.NAVE_CLIENT_ID,
       client_secret: process.env.NAVE_CLIENT_SECRET,
@@ -127,7 +132,7 @@ export async function createPaymentIntention(
 
   const res = await fetch(`${ENDPOINTS[env].api}/api/payment_request/ecommerce`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "User-Agent": NAVE_UA },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -157,7 +162,7 @@ export interface NavePayment {
 /** Usa el payment_check_url que manda el webhook (preferido). */
 export async function getPaymentByCheckUrl(checkUrl: string): Promise<NavePayment> {
   const token = await getAccessToken();
-  const res = await fetch(checkUrl, { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch(checkUrl, { headers: { Authorization: `Bearer ${token}`, "User-Agent": NAVE_UA } });
   if (!res.ok) throw new Error(`Nave payment check ${res.status}`);
   return (await res.json()) as NavePayment;
 }
@@ -168,7 +173,7 @@ export async function getPaymentById(paymentId: string): Promise<NavePayment> {
   const token = await getAccessToken();
   const res = await fetch(
     `${ENDPOINTS[env].api}/ranty-payments/payments/${encodeURIComponent(paymentId)}`,
-    { headers: { Authorization: `Bearer ${token}` } },
+    { headers: { Authorization: `Bearer ${token}`, "User-Agent": NAVE_UA } },
   );
   if (!res.ok) throw new Error(`Nave payment ${res.status}`);
   return (await res.json()) as NavePayment;
