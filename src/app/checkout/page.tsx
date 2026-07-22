@@ -252,6 +252,8 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
                   }))
                 }
                 style={{
+                  width: "100%",
+                  minWidth: 0,
                   padding: "10px 12px",
                   border: "1px solid var(--line-2)",
                   borderRadius: "var(--r-sm)",
@@ -275,6 +277,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
                 onChange={set("notas")}
                 rows={3}
                 style={{
+                  width: "100%",
                   padding: "10px 12px",
                   border: "1px solid var(--line-2)",
                   borderRadius: "var(--r-sm)",
@@ -286,15 +289,12 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
           </div>
         </div>
 
-        {/* RESUMEN */}
+        {/* RESUMEN — .summary colapsa a static en mobile (ds.css @860px) */}
         <aside
+          className="summary"
           style={{
             padding: "24px",
-            border: "1px solid var(--line)",
-            borderRadius: "var(--r-lg)",
             background: "var(--bg-2)",
-            position: "sticky",
-            top: "100px",
             height: "fit-content",
           }}
         >
@@ -397,6 +397,7 @@ function In({
         value={value}
         onChange={onChange}
         style={{
+          width: "100%",
           padding: "10px 12px",
           border: "1px solid var(--line-2)",
           borderRadius: "var(--r-sm)",

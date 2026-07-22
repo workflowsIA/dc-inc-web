@@ -169,6 +169,8 @@ function Select({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={{
+          width: "100%",
+          minWidth: 0,
           padding: "10px 12px",
           border: "1px solid var(--line-2)",
           borderRadius: "var(--r-sm)",

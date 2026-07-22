@@ -294,6 +294,10 @@ p{ margin:0; }
 .chip svg{ width:13px; height:13px; }
 
 /* ---------- forms ---------- */
+/* Red de seguridad responsive: un control de formulario nunca puede forzar
+   overflow horizontal (p.ej. un <select> con opciones largas impone su ancho
+   intrínseco y "corre" toda la página en mobile — bug del checkout 22-jul). */
+input, select, textarea{ max-width:100%; min-width:0; }
 .field{ display:flex; flex-direction:column; gap:7px; margin-bottom:16px; }
 .field label{ font-size:13.5px; font-weight:700; color:var(--ink); }
 .field .hint{ font-size:12px; color:var(--muted); font-weight:500; }
