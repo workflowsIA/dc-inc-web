@@ -168,27 +168,38 @@ export default async function Home() {
           </div>
           <div>
             <div className={s.collage}>
-              <Image
-                className="ph big"
-                src="/img/bottle-amber.png"
-                alt="Botella ámbar — packshot"
-                width={600}
-                height={600}
-              />
-              <Image
-                className="ph"
-                src="/img/can.png"
-                alt="Lata 473 — packshot"
-                width={300}
-                height={300}
-              />
-              <Image
-                className="ph"
-                src="/img/pint.png"
-                alt="Pinta cervecera"
-                width={300}
-                height={300}
-              />
+              {[
+                { fallbackSrc: "/img/bottle-amber.png", fallbackAlt: "Botella ámbar — packshot", big: true, size: 600 },
+                { fallbackSrc: "/img/can.png", fallbackAlt: "Lata 473 — packshot", big: false, size: 300 },
+                { fallbackSrc: "/img/pint.png", fallbackAlt: "Pinta cervecera", big: false, size: 300 },
+              ].map((slot, i) => {
+                const p = featured[i];
+                const real = p?.imageUrl;
+                const img = (
+                  <Image
+                    className={`ph${slot.big ? " big" : ""}`}
+                    src={real ? p.imageUrl! : slot.fallbackSrc}
+                    alt={real ? p.name : slot.fallbackAlt}
+                    width={slot.size}
+                    height={slot.size}
+                    unoptimized={!!real}
+                  />
+                );
+                return real ? (
+                  <Link
+                    key={p.id}
+                    href={`/productos/${p.id}`}
+                    style={{ position: "relative", display: "block", gridRow: slot.big ? "span 2" : undefined }}
+                  >
+                    {img}
+                    <span className={s.collageTag}>{p.name}</span>
+                  </Link>
+                ) : (
+                  <div key={i} style={{ position: "relative", gridRow: slot.big ? "span 2" : undefined }}>
+                    {img}
+                  </div>
+                );
+              })}
               <div className={s.collageFloat}>
                 <span className="ico">
                   <Layers />
