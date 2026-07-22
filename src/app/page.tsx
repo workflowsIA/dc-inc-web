@@ -30,21 +30,28 @@ import s from "./page.module.css";
 export const revalidate = 60;
 
 
-/** Packshot local por nombre de categoría real (de Sanity). Fallback: placeholder. */
+/**
+ * Packshot local por nombre de categoría real (de Sanity). Fallback: placeholder.
+ * Íconos "cat-*" son los ilustrados reales de DC Inc (extraídos del sitio Wix
+ * vigente, 22-jul-2026) — reemplazan los placeholders genéricos originales.
+ * Botellones y Tapas y precintos no tienen ícono ilustrado propio en el Wix
+ * actual: Botellones sigue con el placeholder "growler"; Tapas y precintos
+ * queda sin imagen (como estaba).
+ */
 const CAT_IMG: Record<string, string> = {
-  Botellas: "bottle-beer",
-  Latas: "can",
-  "Copas y vasos": "pint",
-  "Cajas y estuches": "box",
+  Botellas: "cat-botellas",
+  Latas: "cat-latas",
+  "Copas y vasos": "cat-copas-vasos",
+  "Cajas y estuches": "cat-cajas",
   Botellones: "growler",
 };
 
 // Fallback si Sanity no responde.
 const categoryDataFallback: { name: string; count: string; img?: string }[] = [
-  { name: "Botellas", count: "~140", img: "bottle-beer" },
-  { name: "Latas", count: "~38", img: "can" },
-  { name: "Copas y vasos", count: "~170", img: "pint" },
-  { name: "Cajas y estuches", count: "~26", img: "box" },
+  { name: "Botellas", count: "~140", img: "cat-botellas" },
+  { name: "Latas", count: "~38", img: "cat-latas" },
+  { name: "Copas y vasos", count: "~170", img: "cat-copas-vasos" },
+  { name: "Cajas y estuches", count: "~26", img: "cat-cajas" },
   { name: "Tapas y precintos", count: "~36" },
   { name: "Botellones", count: "~7", img: "growler" },
 ];
