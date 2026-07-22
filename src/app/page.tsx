@@ -231,9 +231,9 @@ export default async function Home() {
                   width={300}
                   height={300}
                 />
-                <div className="lab">
+                <div className={s.lab}>
                   <b>{c.name}</b>
-                  <span>{c.count} SKU</span>
+                  <span>{c.count} productos</span>
                 </div>
               </Link>
             ))}
