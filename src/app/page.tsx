@@ -96,14 +96,20 @@ export default async function Home() {
   }
 
   // Featured: badge "best" si hay, sino primeros 4, sino mock.
+  // Solo productos CON foto (el collage del hero muestra el packshot; un destacado
+  // sin imagen dejaba la tarjeta grande vacía). Si faltan, se completa con otros
+  // del catálogo que tengan foto.
   let featured: Product[] = [];
   try {
     const best = await getFeaturedProducts();
-    if (best.length > 0) featured = best.map((p) => toLegacyProduct(p, wholesale));
+    if (best.length > 0) featured = best.map((p) => toLegacyProduct(p, wholesale)).filter((p) => p.imageUrl);
   } catch (e) {
     console.error("[home] featured fetch failed:", (e as Error).message);
   }
-  if (featured.length === 0) featured = allLegacy.slice(0, 4);
+  if (featured.length < 3) {
+    const withPhoto = allLegacy.filter((p) => p.imageUrl && !featured.some((f) => f.id === p.id));
+    featured = [...featured, ...withPhoto].slice(0, 4);
+  }
 
   // Tiles de categoría: los 5 rubros sólidos del catálogo (top 5 por cantidad).
   // Mostramos 5 a propósito: son las categorías reales con volumen (Copas, Botellas,
