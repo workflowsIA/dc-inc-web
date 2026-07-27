@@ -105,16 +105,17 @@ export default async function Home() {
   }
   if (featured.length === 0) featured = allLegacy.slice(0, 4);
 
-  // Tiles de categoría: nombres y conteos reales del catálogo (top 6). Excluimos
-  // "Otros" y "Accesorios" (esta última agrupa válvulas y afines: es una categoría
-  // real del catálogo/filtro, pero no un rubro destacado del home).
+  // Tiles de categoría: los 5 rubros sólidos del catálogo (top 5 por cantidad).
+  // Mostramos 5 a propósito: son las categorías reales con volumen (Copas, Botellas,
+  // Tapas, Latas, Botellones). Así evitamos que un rubro de cola (ej. Válvulas con 1
+  // producto, o Accesorios) se cuele como 6º tile. Excluimos "Otros" y "Accesorios".
   const HIDE_FROM_HOME = new Set(["Otros", "Accesorios"]);
   const catCounts: Record<string, number> = {};
   for (const p of allLegacy) if (p.cat) catCounts[p.cat] = (catCounts[p.cat] ?? 0) + 1;
   let cats: { name: string; count: string; img?: string }[] = Object.entries(catCounts)
     .filter(([name]) => name && !HIDE_FROM_HOME.has(name))
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
+    .slice(0, 5)
     .map(([name, count]) => ({ name, count: String(count), img: CAT_IMG[name] }));
   if (cats.length === 0) cats = categoryDataFallback;
 
