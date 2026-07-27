@@ -13,6 +13,7 @@ import {
   norm,
   type ColumnDef,
 } from "./csv-columns";
+import { isWixFormat, wixToCanonical, type WixCreateInfo } from "./wix-adapter";
 
 /* ---------------- Parseo de CSV ---------------- */
 
@@ -347,21 +348,48 @@ export interface ProductDoc extends Record<string, unknown> {
   name?: string;
 }
 
+/** Alta de un producto nuevo (borrador) a crear desde la ingesta. */
+export interface CreatePlan {
+  sku: string;
+  name: string;
+  categoryName: string;
+  reason?: string; // por qué NO se puede crear (falta precio/categoría) → va a "no creables"
+  doc?: Record<string, unknown>; // doc borrador listo para createOrReplace
+}
+
 export interface Plan {
   rows: RowPlan[];
   toUpdate: RowPlan[];
   unchanged: RowPlan[];
   notFound: RowPlan[];
   withErrors: RowPlan[];
+  toCreate: CreatePlan[];
   totalFieldChanges: number;
+  wixMode: boolean;
+}
+
+function slugify(name: string): string {
+  return norm(name).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 96);
 }
 
 export function buildPlan(
   csvText: string,
   productsBySku: Map<string, ProductDoc[]>,
   refs: RefMaps,
+  opts?: { createMissing?: boolean },
 ): { plan: Plan | null; error?: string; matched: MatchedColumn[]; unknownHeaders: string[] } {
-  const { headers, rows } = parseCsv(csvText);
+  const parsed = parseCsv(csvText);
+  // Formato Wix → traducimos a filas canónicas (nuestros headers) antes de seguir.
+  const wixMode = isWixFormat(parsed.headers);
+  let createInfo = new Map<string, WixCreateInfo>();
+  let headers = parsed.headers;
+  let rows = parsed.rows;
+  if (wixMode) {
+    const conv = wixToCanonical(parsed.rows);
+    headers = conv.headers;
+    rows = conv.rows;
+    createInfo = conv.createInfo;
+  }
   if (rows.length === 0)
     return { plan: null, error: "El CSV está vacío o no tiene filas de datos.", matched: [], unknownHeaders: [] };
 
@@ -442,12 +470,66 @@ export function buildPlan(
 
   const toUpdate = rowPlans.filter((r) => r.found && r.changes.length > 0 && r.errors.length === 0);
   const unchanged = rowPlans.filter((r) => r.found && r.changes.length === 0 && r.errors.length === 0);
-  const notFound = rowPlans.filter((r) => !r.found);
   const withErrors = rowPlans.filter((r) => r.found && r.errors.length > 0);
   const totalFieldChanges = toUpdate.reduce((a, r) => a + r.changes.length, 0);
 
+  // Altas (borradores) para SKU nuevos — solo cuando se pide y hay datos (formato Wix
+  // trae precio para sembrar el borrador; nuestro formato no, así que ahí no se crea).
+  const createOn = !!opts?.createMissing && wixMode;
+  const badgeCol = COLUMNS.find((c) => c.field === "badges")!;
+  const toCreate: CreatePlan[] = [];
+  if (createOn) {
+    const seen = new Set<string>();
+    for (const row of rows) {
+      const sku = (row["sku"] ?? "").trim();
+      if (!sku) continue;
+      const k = norm(sku);
+      if (productsBySku.has(k) || seen.has(k)) continue;
+      seen.add(k);
+      const info = createInfo.get(k);
+      const name = (row["nombre"] ?? info?.name ?? "").trim();
+      const categoryName = (row["categoria"] ?? info?.categoryName ?? "").trim();
+      const cp: CreatePlan = { sku, name, categoryName };
+      const price = info?.pricePublic ?? null;
+      if (!name) { cp.reason = "sin nombre en el archivo"; toCreate.push(cp); continue; }
+      if (price == null || price <= 0) {
+        cp.reason = "sin precio en el archivo (el borrador necesita un precio inicial)";
+        toCreate.push(cp);
+        continue;
+      }
+      const catId = refs.category.get(norm(categoryName));
+      const description = (row["descripcion"] ?? "").trim();
+      let badges: string[] = [];
+      const braw = (row["destacados"] ?? "").trim();
+      if (braw) {
+        const bc = coerce(badgeCol, braw, refs);
+        if (bc.ok) badges = bc.value as string[];
+      }
+      const idSafe = sku.replace(/[^A-Za-z0-9._-]/g, "-");
+      cp.doc = {
+        _id: `drafts.product-csv-${idSafe}`,
+        _type: "product",
+        sku,
+        name,
+        slug: { _type: "slug", current: slugify(name) || idSafe.toLowerCase() },
+        pricePublic: price,
+        priceWholesale: Math.round(price * 0.82),
+        unitsPerBulk: 1,
+        deliveryTime: "24-48 hs",
+        decoAvailable: true,
+        fromSheet: true, // cae en la bandeja "Nuevos desde la planilla" del Studio
+        ...(catId ? { category: { _type: "reference", _ref: catId } } : {}),
+        ...(description ? { description } : {}),
+        ...(badges.length ? { badges } : {}),
+      };
+      toCreate.push(cp);
+    }
+  }
+  // Si estamos creando, los "no encontrados" se manejan como altas (no se re-reportan).
+  const notFound = createOn ? [] : rowPlans.filter((r) => !r.found);
+
   return {
-    plan: { rows: rowPlans, toUpdate, unchanged, notFound, withErrors, totalFieldChanges },
+    plan: { rows: rowPlans, toUpdate, unchanged, notFound, withErrors, toCreate, totalFieldChanges, wixMode },
     matched,
     unknownHeaders,
   };

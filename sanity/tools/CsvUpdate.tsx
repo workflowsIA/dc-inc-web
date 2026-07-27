@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Card,
+  Checkbox,
   Flex,
   Grid,
   Heading,
@@ -119,6 +120,7 @@ export function CsvUpdate() {
   const [csvText, setCsvText] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");
   const [applying, setApplying] = useState(false);
+  const [createNew, setCreateNew] = useState(false);
 
   // Fetch puro (sin setState) para poder reusarlo desde el efecto y tras aplicar.
   const fetchData = useCallback(async (): Promise<LoadedData> => {
@@ -166,10 +168,11 @@ export function CsvUpdate() {
 
   const analysis = useMemo(() => {
     if (!data || !csvText.trim()) return null;
-    return buildPlan(csvText, data.bySku, data.refs);
-  }, [data, csvText]);
+    return buildPlan(csvText, data.bySku, data.refs, { createMissing: createNew });
+  }, [data, csvText, createNew]);
 
   const plan: Plan | null = analysis?.plan ?? null;
+  const createdCount = plan?.toCreate.filter((c) => c.doc).length ?? 0;
 
   // Resuelve una imagen (CSV) a un array `images` listo para el patch.
   // - Sanity: referencia directa. - URL externa: baja el archivo y lo sube a Sanity.
@@ -220,18 +223,25 @@ export function CsvUpdate() {
         if (Object.keys(set).length > 0) rowSets.push({ ids: r.docIds, set });
       }
 
-      // 2) Un solo commit transaccional con todos los patches.
-      if (rowSets.length > 0) {
+      // 2) Un solo commit transaccional con todos los patches + altas (borradores).
+      const creatable = plan.toCreate.filter((c) => c.doc);
+      if (rowSets.length > 0 || creatable.length > 0) {
         const tx = client.transaction();
         for (const rs of rowSets) for (const id of rs.ids) tx.patch(id, (p) => p.set(rs.set));
+        for (const c of creatable) tx.createOrReplace(c.doc as { _id: string; _type: string });
         await tx.commit();
       }
 
-      if (rowSets.length > 0) {
+      if (rowSets.length > 0 || creatable.length > 0) {
         toast.push({
           status: "success",
           title: "Cambios aplicados",
-          description: `${rowSets.length} producto(s) actualizado(s).`,
+          description: [
+            rowSets.length > 0 ? `${rowSets.length} actualizado(s)` : "",
+            creatable.length > 0 ? `${creatable.length} borrador(es) nuevo(s)` : "",
+          ]
+            .filter(Boolean)
+            .join(" · "),
         });
       }
       if (imageErrors.length > 0) {
@@ -346,8 +356,8 @@ export function CsvUpdate() {
               2 · Subir el CSV
             </Text>
             <Text size={1} muted>
-              El archivo tiene que tener una columna <b>SKU</b>. Las demás columnas se reconocen por
-              nombre (Nombre, Descripción, Categoría, En oferta, Destacados, etc.).
+              Sirve tanto <b>nuestro formato</b> como el <b>export de Wix</b> — reconozco los nombres
+              de columna de los dos. Solo hace falta la columna <b>SKU</b>.
             </Text>
             <Flex align="center" gap={3}>
               <input
@@ -376,6 +386,19 @@ export function CsvUpdate() {
                   }}
                 />
               )}
+            </Flex>
+            <Flex
+              align="center"
+              gap={2}
+              as="button"
+              onClick={() => setCreateNew((v) => !v)}
+              style={{ cursor: "pointer", background: "none", border: "none", padding: 0 }}
+            >
+              <Checkbox checked={createNew} readOnly />
+              <Text size={1} muted>
+                Crear como <b>borrador</b> los SKU que no existan (altas). Si está apagado, se
+                reportan y saltean.
+              </Text>
             </Flex>
           </Stack>
         </Card>
@@ -406,12 +429,25 @@ export function CsvUpdate() {
       {/* Preview del plan */}
       {plan && (
         <Stack space={4} marginTop={5}>
+          {plan.wixMode && (
+            <Card padding={3} radius={3} tone="primary">
+              <Text size={1}>
+                Detecté <b>formato Wix</b> — traduje los nombres de columna a nuestros campos y omití
+                las filas de variantes (solo productos principales).
+              </Text>
+            </Card>
+          )}
+
           <ColumnsRecognized matched={analysis!.matched} unknown={analysis!.unknownHeaders} />
 
           <Grid columns={[2, 2, 4]} gap={3}>
             <Stat label="Se actualizan" value={plan.toUpdate.length} tone="positive" />
+            {createNew ? (
+              <Stat label="Nuevos (borrador)" value={createdCount} tone={createdCount ? "positive" : "default"} />
+            ) : (
+              <Stat label="SKU no encontrado" value={plan.notFound.length} tone={plan.notFound.length ? "caution" : "default"} />
+            )}
             <Stat label="Sin cambios" value={plan.unchanged.length} />
-            <Stat label="SKU no encontrado" value={plan.notFound.length} tone={plan.notFound.length ? "caution" : "default"} />
             <Stat label="Con errores" value={plan.withErrors.length} tone={plan.withErrors.length ? "critical" : "default"} />
           </Grid>
 
@@ -419,15 +455,22 @@ export function CsvUpdate() {
           <Card padding={3} radius={3} border tone="transparent">
             <Flex align="center" justify="space-between" wrap="wrap" gap={3}>
               <Text size={1} muted>
-                {plan.toUpdate.length > 0
-                  ? `Listos para aplicar ${plan.totalFieldChanges} cambio(s) en ${plan.toUpdate.length} producto(s).`
+                {plan.toUpdate.length > 0 || createdCount > 0
+                  ? [
+                      plan.toUpdate.length > 0
+                        ? `${plan.totalFieldChanges} cambio(s) en ${plan.toUpdate.length} producto(s)`
+                        : "",
+                      createdCount > 0 ? `${createdCount} alta(s) como borrador` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
                   : "No hay cambios para aplicar."}
               </Text>
               <Button
                 icon={CheckmarkCircleIcon}
                 text={applying ? "Aplicando…" : "Aplicar cambios"}
                 tone="positive"
-                disabled={plan.toUpdate.length === 0 || applying}
+                disabled={(plan.toUpdate.length === 0 && createdCount === 0) || applying}
                 onClick={applyChanges}
               />
             </Flex>
@@ -476,6 +519,34 @@ export function CsvUpdate() {
             </Stack>
           )}
 
+          {/* Altas (borradores nuevos) */}
+          {createNew && createdCount > 0 && (
+            <Stack space={3}>
+              <Text size={1} weight="semibold" muted>
+                ALTAS — SE CREAN COMO BORRADOR (completar foto y publicar en el Studio)
+              </Text>
+              <Stack space={2}>
+                {plan.toCreate
+                  .filter((c) => c.doc)
+                  .map((c) => (
+                    <Card key={c.sku} padding={3} radius={3} border>
+                      <Flex align="center" gap={2} wrap="wrap">
+                        <Badge tone="positive" fontSize={0}>
+                          {c.sku}
+                        </Badge>
+                        <Text size={1} weight="semibold">
+                          {c.name}
+                        </Text>
+                        <Text size={1} muted>
+                          · {c.categoryName || "sin categoría"}
+                        </Text>
+                      </Flex>
+                    </Card>
+                  ))}
+              </Stack>
+            </Stack>
+          )}
+
           {/* Con errores */}
           {plan.withErrors.length > 0 && (
             <IssueList
@@ -487,6 +558,18 @@ export function CsvUpdate() {
                 name: r.name,
                 lines: r.errors,
               }))}
+            />
+          )}
+
+          {/* Altas no creables (faltan datos) */}
+          {createNew && plan.toCreate.some((c) => !c.doc) && (
+            <IssueList
+              title="NO SE PUDIERON PREPARAR COMO ALTA"
+              tone="caution"
+              icon={<WarningOutlineIcon />}
+              items={plan.toCreate
+                .filter((c) => !c.doc)
+                .map((c) => ({ sku: c.sku, name: c.name || undefined, lines: [c.reason ?? "faltan datos"] }))}
             />
           )}
 
