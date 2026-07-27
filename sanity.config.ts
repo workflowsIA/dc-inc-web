@@ -1,5 +1,6 @@
 import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
+import { media } from "sanity-plugin-media";
 import { DocumentSheetIcon } from "@sanity/icons";
 import { schemaTypes } from "./sanity/schemas";
 import { structure } from "./sanity/structure";
@@ -28,7 +29,10 @@ export default defineConfig({
   basePath: "/admin",
   // Tema de marca DC (amber + charcoal). Ver sanity/theme.ts.
   theme: dcTheme,
-  plugins: [structureTool({ structure })],
+  // structureTool: navegación custom del catálogo. media: biblioteca de imágenes
+  // (el "banco de imágenes" estilo Wix) — agrega el ítem "Media" al navbar para
+  // ver/subir/administrar todas las fotos y copiar su URL (para el CSV).
+  plugins: [structureTool({ structure }), media()],
   schema: { types: schemaTypes },
   // Deshabilitamos "Releases" y "Scheduled Publishing/Drafts" (programación de
   // publicaciones) — no las usamos y solo agregan ruido para Marce.
