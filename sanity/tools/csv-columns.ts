@@ -21,7 +21,8 @@ export type ColumnKind =
   | "ref"
   | "stringArray"
   | "badges"
-  | "specs";
+  | "specs"
+  | "image";
 
 export interface ColumnDef {
   /** Campo en el schema de `product`. */
@@ -51,6 +52,18 @@ export const COLUMNS: ColumnDef[] = [
     label: "Descripción",
     kind: "text",
     headers: ["descripcion", "description", "detalle", "descripcion larga"],
+  },
+  {
+    // Imagen principal del producto por URL. Flujo pensado para Marce (estilo Wix):
+    // sube la foto al banco de imágenes de Sanity, copia la URL y la pega acá.
+    // - URL del CDN de Sanity → se convierte en referencia directa (sin re-subir).
+    // - URL externa → se intenta bajar y subir a Sanity; si el navegador la bloquea
+    //   (CORS), se informa y se le pide subirla primero al banco de Sanity.
+    // REEMPLAZA la imagen principal del producto por la indicada.
+    field: "images",
+    label: "Imagen (URL)",
+    kind: "image",
+    headers: ["imagen", "foto", "imagen url", "image", "imagen principal", "url imagen"],
   },
   {
     field: "category",

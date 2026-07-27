@@ -25,6 +25,7 @@ import { COLUMNS, norm } from "./csv-columns";
 import {
   buildPlan,
   display,
+  type ImageIntent,
   type MatchedColumn,
   type Plan,
   type ProductDoc,
@@ -40,7 +41,8 @@ const PRODUCT_FIELDS = `
   isOnSale, salePrice, saleStartDate, saleEndDate, pricePublicOld,
   badges, decoAvailable, presentations, seoTitle, seoDescription, specs,
   "categoryName": category->name, "categoryId": category._ref,
-  "subtypeName": subtype->name, "subtypeId": subtype._ref
+  "subtypeName": subtype->name, "subtypeId": subtype._ref,
+  "imageRef": images[0].asset._ref, "imageUrl": images[0].asset->url
 `;
 
 interface LoadedData {
@@ -79,6 +81,10 @@ function exportCell(field: string, doc: ProductDoc): string {
   const col = COLUMNS.find((c) => c.field === field)!;
   if (col.kind === "ref") {
     return String((col.refType === "subtype" ? doc.subtypeName : doc.categoryName) ?? "");
+  }
+  if (col.kind === "image") {
+    // Export: URL actual de la imagen principal (re-importable tal cual).
+    return String(doc.imageUrl ?? "");
   }
   const v = doc[field];
   if (v === undefined || v === null) return "";
@@ -165,22 +171,76 @@ export function CsvUpdate() {
 
   const plan: Plan | null = analysis?.plan ?? null;
 
+  // Resuelve una imagen (CSV) a un array `images` listo para el patch.
+  // - Sanity: referencia directa. - URL externa: baja el archivo y lo sube a Sanity.
+  const resolveImage = async (intent: ImageIntent): Promise<unknown[]> => {
+    let assetId: string;
+    if (intent.kind === "sanity") {
+      assetId = intent.assetId;
+    } else {
+      const res = await fetch(intent.url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      if (!blob.type.startsWith("image/")) throw new Error("la URL no devuelve una imagen");
+      const filename = intent.url.split("/").pop()?.split("?")[0] || "imagen";
+      const asset = await client.assets.upload("image", blob, { filename });
+      assetId = asset._id;
+    }
+    return [
+      {
+        _type: "image",
+        _key: Math.random().toString(36).slice(2, 10),
+        asset: { _type: "reference", _ref: assetId },
+      },
+    ];
+  };
+
   const applyChanges = async () => {
     if (!plan || plan.toUpdate.length === 0) return;
     setApplying(true);
     try {
-      const tx = client.transaction();
+      // 1) Armar el `set` de cada producto, resolviendo imágenes (subida async).
+      const imageErrors: string[] = [];
+      const rowSets: { ids: string[]; set: Record<string, unknown> }[] = [];
       for (const r of plan.toUpdate) {
         const set: Record<string, unknown> = {};
-        for (const c of r.changes) set[c.field] = c.nextValue;
-        for (const id of r.docIds) tx.patch(id, (p) => p.set(set));
+        for (const c of r.changes) {
+          if (c.field === "images") {
+            try {
+              set.images = await resolveImage(c.nextValue as ImageIntent);
+            } catch (e) {
+              imageErrors.push(
+                `${r.sku}: no pude cargar la imagen (${String((e as Error)?.message ?? e)}). Subila al banco de Sanity y pegá esa URL.`,
+              );
+            }
+          } else {
+            set[c.field] = c.nextValue;
+          }
+        }
+        if (Object.keys(set).length > 0) rowSets.push({ ids: r.docIds, set });
       }
-      await tx.commit();
-      toast.push({
-        status: "success",
-        title: "Cambios aplicados",
-        description: `${plan.toUpdate.length} producto(s) actualizado(s) · ${plan.totalFieldChanges} campo(s).`,
-      });
+
+      // 2) Un solo commit transaccional con todos los patches.
+      if (rowSets.length > 0) {
+        const tx = client.transaction();
+        for (const rs of rowSets) for (const id of rs.ids) tx.patch(id, (p) => p.set(rs.set));
+        await tx.commit();
+      }
+
+      if (rowSets.length > 0) {
+        toast.push({
+          status: "success",
+          title: "Cambios aplicados",
+          description: `${rowSets.length} producto(s) actualizado(s).`,
+        });
+      }
+      if (imageErrors.length > 0) {
+        toast.push({
+          status: "warning",
+          title: `${imageErrors.length} imagen(es) no se pudieron cargar`,
+          description: imageErrors.slice(0, 4).join("  ·  "),
+        });
+      }
       setCsvText("");
       setFileName("");
       if (fileRef.current) fileRef.current.value = "";
@@ -213,26 +273,19 @@ export function CsvUpdate() {
 
   const downloadTemplate = () => {
     const headers = ["SKU", ...COLUMNS.map((c) => c.label)];
-    const example = [
-      "EJEMPLO-SKU-001",
-      "Nombre de ejemplo",
-      "Descripción de ejemplo",
-      "Botellas",
-      "",
-      "",
-      "24-48 hs",
-      "24un en Caja; 2025un en Pallet",
-      "No",
-      "",
-      "",
-      "",
-      "",
-      "Más vendido; Nuevo",
-      "Sí",
-      "Material: Vidrio; Color: Ámbar",
-      "",
-      "",
-    ];
+    // Ejemplo por campo (así queda alineado aunque cambie el orden de columnas).
+    const sample: Record<string, string> = {
+      name: "Nombre de ejemplo",
+      description: "Descripción de ejemplo",
+      category: "Botellas",
+      deliveryTime: "24-48 hs",
+      presentations: "24un en Caja; 2025un en Pallet",
+      badges: "Más vendido; Nuevo",
+      decoAvailable: "Sí",
+      specs: "Material: Vidrio; Color: Ámbar",
+      images: "https://cdn.sanity.io/images/4sov2yyo/production/…-1200x1200.jpg",
+    };
+    const example = ["EJEMPLO-SKU-001", ...COLUMNS.map((c) => sample[c.field] ?? "")];
     downloadText("plantilla-actualizar-productos.csv", toCsv(headers, [example]));
   };
 
@@ -247,6 +300,12 @@ export function CsvUpdate() {
             Editá muchos productos de una. Matchea por <b>SKU</b> y actualiza solo los campos que
             pongas en el archivo. <b>No toca precio base ni stock</b> — esos siguen saliendo de la
             planilla de precios.
+          </Text>
+          <Text size={1} muted>
+            <b>Foto:</b> en la columna <b>Imagen (URL)</b> pegá el link de la imagen. Lo más simple
+            es subirla al banco de imágenes de Sanity (en cualquier producto, campo Imágenes →
+            Upload), copiar su URL y pegarla acá — igual que hacías en Wix. Reemplaza la foto
+            principal del producto.
           </Text>
         </Stack>
       </Flex>

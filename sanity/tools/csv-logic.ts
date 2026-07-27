@@ -78,7 +78,12 @@ export function matchColumns(headers: string[]): {
   if (skuHeader) usedHeaders.add(skuHeader);
 
   for (const col of COLUMNS) {
-    const header = col.headers.map(norm).find((h) => set.has(h));
+    // Aceptamos los alias definidos + el propio label normalizado. Esto último
+    // garantiza el round-trip export→import: el CSV exportado usa los labels como
+    // headers (ej. "Imagen (URL)", "Precio anterior (tachado)"), que de otro modo
+    // no matchearían ningún alias por los paréntesis/puntuación.
+    const candidates = [...col.headers.map(norm), norm(col.label)];
+    const header = candidates.find((h) => set.has(h));
     if (header) {
       matched.push({ col, header });
       usedHeaders.add(header);
@@ -104,6 +109,26 @@ export interface Spec {
 export type Coerced =
   | { ok: true; value: unknown }
   | { ok: false; error: string };
+
+/**
+ * Intención de imagen resuelta desde una URL del CSV.
+ * - "sanity": la URL ya es del CDN de Sanity → se arma la referencia sin re-subir.
+ * - "upload": URL externa → el apply la baja y la sube a Sanity.
+ */
+export type ImageIntent =
+  | { kind: "sanity"; assetId: string }
+  | { kind: "upload"; url: string };
+
+/**
+ * Extrae el asset _id de una URL del CDN de Sanity. Devuelve null si no lo es.
+ * Ej: https://cdn.sanity.io/images/4sov2yyo/production/ab12…f9-1200x800.jpg
+ *     → "image-ab12…f9-1200x800-jpg"
+ */
+export function sanityAssetIdFromUrl(url: string): string | null {
+  const m = /cdn\.sanity\.io\/images\/[^/]+\/[^/]+\/([a-f0-9]+)-(\d+x\d+)\.(\w+)/i.exec(url);
+  if (!m) return null;
+  return `image-${m[1]}-${m[2]}-${m[3].toLowerCase()}`;
+}
 
 function toNum(v: string): number | null {
   if (!v) return null;
@@ -228,6 +253,14 @@ export function coerce(col: ColumnDef, raw: string, refs: RefMaps): Coerced {
       return { ok: true, value: specs };
     }
 
+    case "image": {
+      if (!/^https?:\/\//i.test(v))
+        return { ok: false, error: `"${raw}" no parece una URL (tiene que empezar con http)` };
+      const assetId = sanityAssetIdFromUrl(v);
+      if (assetId) return { ok: true, value: { kind: "sanity", assetId } as ImageIntent };
+      return { ok: true, value: { kind: "upload", url: v } as ImageIntent };
+    }
+
     default:
       return { ok: false, error: "tipo de columna no soportado" };
   }
@@ -269,6 +302,10 @@ export function valuesEqual(col: ColumnDef, current: unknown, next: unknown): bo
 
 export function display(col: ColumnDef, value: unknown, doc?: Record<string, unknown>): string {
   if (value === undefined || value === null || value === "") return "—";
+  if (col.kind === "image") {
+    const i = value as ImageIntent;
+    return i?.kind === "sanity" ? "(imagen del banco de Sanity)" : "(subir desde URL)";
+  }
   if (col.kind === "ref") {
     // Para mostrar el nombre en vez del id.
     if (doc) return String(col.refType === "subtype" ? doc.subtypeName ?? "—" : doc.categoryName ?? "—");
@@ -370,6 +407,23 @@ export function buildPlan(
           rp.errors.push(`${col.label}: ${c.error}`);
           continue;
         }
+
+        // Imagen: caso especial. Guardamos la "intención" (ImageIntent); la subida
+        // real / armado de la referencia lo resuelve el apply (es asíncrono).
+        if (col.kind === "image") {
+          const intent = c.value as ImageIntent;
+          const curRef = (ref.imageRef as string | undefined) ?? null;
+          if (intent.kind === "sanity" && intent.assetId === curRef) continue; // misma imagen
+          rp.changes.push({
+            field: "images",
+            label: col.label,
+            fromText: ref.imageUrl ? "(imagen actual)" : "—",
+            toText: intent.kind === "sanity" ? "(imagen del banco de Sanity)" : "(bajar y subir desde URL)",
+            nextValue: intent,
+          });
+          continue;
+        }
+
         const cur = currentValue(col, ref);
         if (valuesEqual(col, cur, c.value)) continue; // sin cambio real
         rp.changes.push({
