@@ -38,17 +38,22 @@ export const revalidate = 60;
  * (growler.png) sin el mismo encuadre — quedaba desproporcionado al lado de
  * los nuevos; re-encuadrado en cat-botellones.png.
  *
- * Categorías sin ícono propio (hoy: Tapas y precintos, Válvulas — y cualquier
+ * Categorías sin ícono propio (hoy: Válvulas — y cualquier
  * categoría nueva que se cree en Sanity sin entrada acá) caen en
  * "cat-generic.png" (isotipo DC sobre fondo crema) en vez del placeholder a
  * rayas — se ve prolijo/de marca en vez de "roto" mientras no tengamos un
  * ilustrado propio para esa categoría.
+ *
+ * "Tapas y precintos" usa la chapa corona con marca DC (cat-tapas-precintos.png,
+ * ilustración pasada por Marce el 27-jul-2026), re-encuadrada al mismo tamaño/
+ * ocupación (~80%) que las demás.
  */
 const CAT_IMG: Record<string, string> = {
   Botellas: "cat-botellas",
   Latas: "cat-latas",
   "Copas y vasos": "cat-copas-vasos",
   "Cajas y estuches": "cat-cajas",
+  "Tapas y precintos": "cat-tapas-precintos",
   Botellones: "cat-botellones",
 };
 
@@ -58,7 +63,7 @@ const categoryDataFallback: { name: string; count: string; img?: string }[] = [
   { name: "Latas", count: "~38", img: "cat-latas" },
   { name: "Copas y vasos", count: "~170", img: "cat-copas-vasos" },
   { name: "Cajas y estuches", count: "~26", img: "cat-cajas" },
-  { name: "Tapas y precintos", count: "~36" },
+  { name: "Tapas y precintos", count: "~36", img: "cat-tapas-precintos" },
   { name: "Botellones", count: "~7", img: "cat-botellones" },
 ];
 
