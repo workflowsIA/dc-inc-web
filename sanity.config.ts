@@ -1,8 +1,10 @@
 import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
+import { DocumentSheetIcon } from "@sanity/icons";
 import { schemaTypes } from "./sanity/schemas";
 import { structure } from "./sanity/structure";
 import { Dashboard } from "./sanity/Dashboard";
+import { CsvUpdate } from "./sanity/tools/CsvUpdate";
 import { dcTheme } from "./sanity/theme";
 
 // Nota: el studio standalone (sanity deploy → dc-inc.sanity.studio) se buildea
@@ -34,6 +36,7 @@ export default defineConfig({
   scheduledPublishing: { enabled: false },
   tools: (prev) => [
     { name: "dashboard", title: "Dashboard", component: Dashboard },
+    { name: "csv-update", title: "Actualizar por CSV", icon: DocumentSheetIcon, component: CsvUpdate },
     // Filtramos cualquier tool de "scheduled drafts/publishing" del navbar.
     ...prev.filter((t) => !/schedul/i.test(t.name) && !/schedul/i.test(String(t.title ?? ""))),
   ],
