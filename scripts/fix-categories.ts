@@ -25,7 +25,8 @@ const CATS: Record<string, { name: string; order: number }> = {
   botellones: { name: "Botellones", order: 4 },
   cajas: { name: "Cajas y estuches", order: 5 },
   tapas: { name: "Tapas y precintos", order: 6 },
-  valvulas: { name: "Válvulas", order: 7 },
+  // Válvulas NO es categoría propia: es una subcategoría dentro de Accesorios.
+  accesorios: { name: "Accesorios", order: 7 },
   decorado: { name: "Decorado", order: 8 },
   otros: { name: "Otros", order: 99 },
 };
@@ -35,7 +36,7 @@ function inferCategory(name: string): string {
   const n = name.toLowerCase();
   if (n.includes("tapa") || n.includes("tapón") || n.includes("tapon")) return "tapas";
   if (n.includes("precinto")) return "tapas";
-  if (n.includes("válvula") || n.includes("valvula")) return "valvulas";
+  if (n.includes("válvula") || n.includes("valvula")) return "accesorios";
   if (n.includes("botellón") || n.includes("botellon") || n.includes("growler")) return "botellones";
   if (n.includes("botella")) return "botellas";
   if (n.includes("lata")) return "latas";

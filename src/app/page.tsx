@@ -105,11 +105,14 @@ export default async function Home() {
   }
   if (featured.length === 0) featured = allLegacy.slice(0, 4);
 
-  // Tiles de categoría: nombres y conteos reales del catálogo (top 6, sin "Otros").
+  // Tiles de categoría: nombres y conteos reales del catálogo (top 6). Excluimos
+  // "Otros" y "Accesorios" (esta última agrupa válvulas y afines: es una categoría
+  // real del catálogo/filtro, pero no un rubro destacado del home).
+  const HIDE_FROM_HOME = new Set(["Otros", "Accesorios"]);
   const catCounts: Record<string, number> = {};
   for (const p of allLegacy) if (p.cat) catCounts[p.cat] = (catCounts[p.cat] ?? 0) + 1;
   let cats: { name: string; count: string; img?: string }[] = Object.entries(catCounts)
-    .filter(([name]) => name && name !== "Otros")
+    .filter(([name]) => name && !HIDE_FROM_HOME.has(name))
     .sort((a, b) => b[1] - a[1])
     .slice(0, 6)
     .map(([name, count]) => ({ name, count: String(count), img: CAT_IMG[name] }));

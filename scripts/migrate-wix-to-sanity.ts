@@ -83,7 +83,7 @@ function inferCategory(name: string, collection: string): string {
   // Tapas / tapones primero (sino "tapón" matchea como botella por collection).
   if (n.includes("tapa") || n.includes("tapón") || n.includes("tapon")) return "tapas";
   if (n.includes("precinto")) return "tapas";
-  if (n.includes("válvula") || n.includes("valvula")) return "valvulas";
+  if (n.includes("válvula") || n.includes("valvula")) return "accesorios";
   if (n.includes("botellón") || n.includes("botellon") || n.includes("growler")) return "botellones";
   if (n.includes("botella")) return "botellas";
   if (n.includes("lata")) return "latas";
