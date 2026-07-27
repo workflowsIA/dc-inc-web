@@ -54,7 +54,9 @@
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
   gap: 14px;
-  aspect-ratio: 1 / 1;
+  /* Un poco más bajo que 1/1: la tarjeta grande no domina tanto y la "caja"
+     de packshots cierra prolija (evita que el chip flotante quede encimado). */
+  aspect-ratio: 1.28 / 1;
 }
 .collage :global(.ph) {
   border-radius: var(--r-lg);
@@ -86,21 +88,21 @@
 }
 .collageFloat {
   position: absolute;
-  bottom: -14px;
-  left: -14px;
+  bottom: -12px;
+  left: 8px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  padding: 14px 16px;
+  padding: 11px 14px;
   box-shadow: var(--shadow-2);
   display: flex;
   align-items: center;
-  gap: 12px;
-  max-width: 62%;
+  gap: 10px;
+  max-width: 52%;
 }
 .collageFloat .ico {
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   background: var(--amber);
   color: var(--charcoal);
@@ -110,13 +112,13 @@
   flex: none;
 }
 .collageFloat .ico svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 .collageFloat .t {
   font-family: var(--display);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.15;
 }
 .collageFloat .s {
@@ -339,10 +341,14 @@
   justify-content: center;
 }
 .brandLogo {
-  height: 74px;
+  height: 84px;
   min-width: 150px;
   flex: 1 1 150px;
   max-width: 190px;
+  /* Padding horizontal: los logos apaisados (Eternal, Sur del Sur) dejan de
+     tocar el borde; junto con el max-width del <img> quedan parejos con los
+     cuadrados (Dimmena, Strange), que ahora aprovechan más alto. */
+  padding: 0 22px;
   border: 1px solid var(--line);
   border-radius: var(--r);
   display: flex;

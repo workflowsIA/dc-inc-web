@@ -425,7 +425,7 @@ export default async function Home() {
                       width={150}
                       height={60}
                       unoptimized
-                      style={{ objectFit: "contain", maxHeight: "54px", width: "auto" }}
+                      style={{ objectFit: "contain", maxHeight: "58px", maxWidth: "100%", width: "auto", height: "auto" }}
                     />
                   ) : (
                     c.name
