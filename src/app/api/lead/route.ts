@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sanityWriteClient } from "@/lib/sanity";
+import { guard, LIMITS } from "@/lib/rate-limit";
 
 /**
  * POST /api/lead — guarda un lead (`lead`) en Sanity desde el formulario web.
@@ -28,6 +29,11 @@ const LeadSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  // Formulario público sin login: el más fácil de spamear. 5/min por IP alcanza
+  // de sobra para una persona real cargando una consulta.
+  const limited = await guard(req, LIMITS.lead);
+  if (limited) return limited;
+
   if (!process.env.SANITY_API_WRITE_TOKEN) {
     return NextResponse.json(
       { ok: false, error: "missing_write_token" },

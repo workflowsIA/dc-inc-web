@@ -11,6 +11,7 @@ import {
 } from "@/lib/queries";
 import { IVA_RATE, isSaleActive } from "@/lib/pricing";
 import { shippingEstimate, type BatuZone } from "@/lib/shipping";
+import { guard, LIMITS } from "@/lib/rate-limit";
 
 /**
  * POST /api/orders — crea un pedido (`order`) en Sanity desde el checkout.
@@ -71,6 +72,11 @@ function makeOrderNumber(): string {
 }
 
 export async function POST(req: Request) {
+  // Rate limit por IP antes de tocar nada: este endpoint escribe en Sanity y
+  // dispara una tarjeta en Monday, así que un flood sale caro en los dos lados.
+  const limited = await guard(req, LIMITS.orders);
+  if (limited) return limited;
+
   if (!process.env.SANITY_API_WRITE_TOKEN) {
     return NextResponse.json({ ok: false, error: "missing_write_token" }, { status: 500 });
   }

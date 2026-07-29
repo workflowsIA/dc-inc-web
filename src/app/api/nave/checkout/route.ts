@@ -21,6 +21,7 @@ import {
   naveSiteUrl,
 } from "@/lib/nave";
 import type { SanityOrder } from "@/lib/queries";
+import { guard, LIMITS } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -34,6 +35,11 @@ export async function POST(req: Request) {
   if (!userId) {
     return NextResponse.json({ ok: false, error: "auth_required" }, { status: 401 });
   }
+
+  // Por usuario y no por IP: crear intenciones de pago pega contra Nave, y
+  // varios clientes pueden compartir IP (oficina, NAT móvil).
+  const limited = await guard(req, { ...LIMITS.naveCheckout, identifier: userId });
+  if (limited) return limited;
 
   let raw: unknown;
   try {

@@ -22,6 +22,7 @@ import { sanityWriteClient } from "@/lib/sanity";
 import { isNaveConfigured, getPaymentRequest, naveStatusName } from "@/lib/nave";
 import { finalizePaidOrder } from "@/lib/nave-finalize";
 import { orderByNaveExternalIdQuery, type SanityOrder } from "@/lib/queries";
+import { guard, LIMITS } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,6 +37,11 @@ export async function POST(req: Request) {
   if (!userId) {
     return NextResponse.json({ ok: false, error: "auth_required" }, { status: 401 });
   }
+
+  // Tope alto y por usuario: /checkout/gracias hace polling a propósito. Esto
+  // no está para frenar el flujo normal sino un loop desbocado.
+  const limited = await guard(req, { ...LIMITS.naveStatus, identifier: userId });
+  if (limited) return limited;
 
   let raw: unknown;
   try {
