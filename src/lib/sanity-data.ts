@@ -26,6 +26,7 @@ import {
   type SanityBrand,
   type SanityClient,
   type SanityBlogPost,
+  type SanityHero,
 } from "./queries";
 import type { Product, Badge, StockLevel } from "@/data/products";
 
@@ -141,6 +142,25 @@ export async function getAllBlogPostSlugs(): Promise<string[]> {
   return await sanityClient.fetch(blogPostSlugsQuery);
 }
 
-export async function getHero(placement: "home" | "home-promo" | "catalog-inline") {
-  return await sanityClient.fetch(heroQuery, { placement }, { next: { revalidate: 60 } });
+/** Hero/banner activo para un placement. Devuelve `null` si no hay ninguno
+ *  cargado (o si esta despublicado) — el consumidor cae en su contenido por
+ *  defecto en vez de renderizar un hueco. */
+/** _id fijo de cada banner. Tienen que coincidir con los documentId de
+ *  sanity/structure.ts — si cambian ahí, cambian acá. */
+const HERO_IDS = {
+  home: "hero-home",
+  "home-promo": "hero-home-promo",
+} as const;
+
+/** Banner activo para un lugar de la home. Devuelve `null` si nunca se cargó o
+ *  si está apagado — el consumidor cae en su contenido por defecto en vez de
+ *  renderizar un hueco. */
+export async function getHero(
+  placement: keyof typeof HERO_IDS,
+): Promise<SanityHero | null> {
+  return await sanityClient.fetch(
+    heroQuery,
+    { id: HERO_IDS[placement] },
+    { next: { revalidate: 60 } },
+  );
 }

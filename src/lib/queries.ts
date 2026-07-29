@@ -212,9 +212,13 @@ export const blogPostBySlugQuery = groq`
 /** Slugs de todos los artículos — para generateStaticParams. */
 export const blogPostSlugsQuery = groq`*[_type == "blogPost" && defined(slug.current)][].slug.current`;
 
-/** Hero/banner por placement. */
+/** Hero/banner por id fijo (singleton). Los banners viven con _id conocido
+ *  —`hero-home` y `hero-home-promo`— y se editan como dos entradas fijas del
+ *  Studio, así que se buscan por _id y no por un campo `placement` que Marce
+ *  tendría que setear a mano. `active == false` devuelve null a propósito: la
+ *  home cae en su contenido por defecto. */
 export const heroQuery = groq`
-  *[_type == "hero" && active == true && placement == $placement] | order(order asc)[0] {
+  *[_type == "hero" && _id == $id && active != false][0] {
     _id, title, subtitle, ctaLabel, ctaHref, "image": image.asset->url
   }
 `;
@@ -300,6 +304,19 @@ export interface SanityClient {
   name: string;
   website?: string;
   logo?: string;
+}
+
+/** Hero/banner editable desde el Studio (ver `heroQuery` + schema `hero`).
+ *  Solo `title` es obligatorio en el schema; el resto puede faltar, y cada
+ *  consumidor decide con que caer si no viene. */
+export interface SanityHero {
+  _id: string;
+  title: string;
+  subtitle?: string;
+  ctaLabel?: string;
+  ctaHref?: string;
+  /** URL del asset ya resuelta por el query (`image.asset->url`). */
+  image?: string;
 }
 
 import type { PortableTextBlock } from "@portabletext/react";

@@ -220,7 +220,29 @@ export const structure: StructureResolver = (S) =>
           S.list()
             .title("Contenido del sitio")
             .items([
-              S.documentTypeListItem("hero").title("Home / Hero").icon(HomeIcon),
+              // Dos banners fijos, editables como una pantalla cada uno. Sin
+              // "crear documento" ni elegir placement: el destino lo define el
+              // _id (hero-home / hero-home-promo). Ver sanity/schemas/hero.ts.
+              S.listItem()
+                .id("hero-home")
+                .title("Banner principal de la home")
+                .icon(HomeIcon)
+                .child(
+                  S.document()
+                    .schemaType("hero")
+                    .documentId("hero-home")
+                    .title("Banner principal de la home"),
+                ),
+              S.listItem()
+                .id("hero-home-promo")
+                .title("Banner de promo de la home")
+                .icon(BoltIcon)
+                .child(
+                  S.document()
+                    .schemaType("hero")
+                    .documentId("hero-home-promo")
+                    .title("Banner de promo de la home"),
+                ),
               S.documentTypeListItem("blogPost").title("Blog").icon(DocumentsIcon),
               S.documentTypeListItem("client").title("Marcas con las que trabajamos").icon(StarIcon),
             ]),

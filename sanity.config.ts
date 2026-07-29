@@ -34,6 +34,18 @@ export default defineConfig({
   // ver/subir/administrar todas las fotos y copiar su URL (para el CSV).
   plugins: [structureTool({ structure }), media()],
   schema: { types: schemaTypes },
+  // Los banners son singletons (hero-home / hero-home-promo): se editan desde
+  // "Contenido del sitio". Sacamos "hero" del botón de crear documento y le
+  // quitamos borrar/duplicar/despublicar para que no queden banners huérfanos
+  // que nadie sabe si están en uso. Para desactivarlo está el switch "Mostrar
+  // este banner" adentro del documento.
+  document: {
+    newDocumentOptions: (prev) => prev.filter((t) => t.templateId !== "hero"),
+    actions: (prev, { schemaType }) =>
+      schemaType === "hero"
+        ? prev.filter((a) => !["delete", "duplicate", "unpublish"].includes(String(a.action)))
+        : prev,
+  },
   // Deshabilitamos "Releases" y "Scheduled Publishing/Drafts" (programación de
   // publicaciones) — no las usamos y solo agregan ruido para Marce.
   releases: { enabled: false },

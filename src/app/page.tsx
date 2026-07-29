@@ -22,9 +22,10 @@ import {
   getProductCount,
   getClients,
   getCombos,
+  getHero,
   toLegacyProduct,
 } from "@/lib/sanity-data";
-import type { SanityClient, SanityCombo } from "@/lib/queries";
+import type { SanityClient, SanityCombo, SanityHero } from "@/lib/queries";
 import s from "./page.module.css";
 
 export const revalidate = 60;
@@ -141,6 +142,26 @@ export default async function Home() {
   } catch (e) {
     console.error("[home] combos fetch failed:", (e as Error).message);
   }
+
+  // Banner promo editable desde el Studio (Hero / Banner -> placement
+  // "home-promo"). A diferencia de clientes y combos, esta seccion NO se oculta
+  // si no hay documento: cae en el contenido por defecto de abajo. Si Marce
+  // despublica la promo del mes queremos el banner de siempre, no un hueco.
+  let promo: SanityHero | null = null;
+  try {
+    promo = await getHero("home-promo");
+  } catch (e) {
+    console.error("[home] promo hero fetch failed:", (e as Error).message);
+  }
+
+  const promoTitle =
+    promo?.title ?? "Decorado bonificado en tu primer pedido de cristaler\u00eda";
+  const promoSubtitle =
+    promo?.subtitle ??
+    "Serigraf\u00eda 1 color sin cargo en compras desde $500.000 + IVA. Llev\u00e1 tu logo a la pinta, el chopp o la copa de tu marca.";
+  const promoCtaLabel = promo?.ctaLabel ?? "Cotizar decorado";
+  const promoCtaHref = promo?.ctaHref ?? "/personaliza";
+  const promoImage = promo?.image ?? "/img/promo-cristaleria.jpg";
 
   return (
     <>
@@ -356,20 +377,32 @@ export default async function Home() {
               <span className="badge badge-new" style={{ marginBottom: "14px" }}>
                 Promo del mes
               </span>
-              <h3>Decorado bonificado en tu primer pedido de cristalería</h3>
-              <p>
-                Serigrafía 1 color sin cargo en compras desde $500.000 + IVA.
-                Llevá tu logo a la pinta, el chopp o la copa de tu marca.
-              </p>
-              <Link className="btn btn-primary btn-lg" href="/personaliza">
-                Cotizar decorado
+              <h3>{promoTitle}</h3>
+              <p>{promoSubtitle}</p>
+              <Link className="btn btn-primary btn-lg" href={promoCtaHref}>
+                {promoCtaLabel}
               </Link>
             </div>
             <div className={s.pright}>
+              {/* Wrapper relative + fill: la imagen estira la columna entera del
+                  banner sin tocar page.module.css. */}
               <div
-                className="ph ph-dark"
-                data-ph="Lifestyle · cristalería decorada en bar"
-              />
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  height: "100%",
+                  minHeight: "240px",
+                }}
+              >
+                <Image
+                  src={promoImage}
+                  alt={promoTitle}
+                  fill
+                  sizes="(max-width: 900px) 100vw, 40vw"
+                  style={{ objectFit: "cover" }}
+                  unoptimized={promoImage.startsWith("http")}
+                />
+              </div>
             </div>
           </div>
         </div>
