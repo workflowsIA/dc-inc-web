@@ -366,25 +366,10 @@ export default async function Home() {
               </Link>
             </div>
             <div className={s.pright}>
-              {/* Foto real de un trabajo de serigrafía DC (pintas de El Fruto).
-                  Wrapper relative + fill para que la imagen estire la columna
-                  entera del banner sin tocar page.module.css. */}
               <div
-                style={{
-                  position: "relative",
-                  width: "100%",
-                  height: "100%",
-                  minHeight: "240px",
-                }}
-              >
-                <Image
-                  src="/img/promo-cristaleria.jpg"
-                  alt="Pintas de cerveza con el logo de El Fruto serigrafiado, sobre una mesa de bar"
-                  fill
-                  sizes="(max-width: 900px) 100vw, 40vw"
-                  style={{ objectFit: "cover" }}
-                />
-              </div>
+                className="ph ph-dark"
+                data-ph="Lifestyle · cristalería decorada en bar"
+              />
             </div>
           </div>
         </div>
@@ -437,7 +422,11 @@ export default async function Home() {
               eligen DC Inc para su packaging y su cristalería.
             </p>
             <div className={s.brandRow}>
-              {clients.slice(0, 8).map((c) => (
+              {/* Se renderizan TODOS los clientes. En mobile, page.module.css
+                  esconde del 9no en adelante (.brandLogo:nth-child(n+9)) para
+                  no dejar una pared de tarjetas; en desktop se ven todos.
+                  Se hace por CSS y no por JS para no romper el SSR. */}
+              {clients.map((c) => (
                 <div key={c._id} className={s.brandLogo} title={c.name}>
                   {c.logo ? (
                     <Image

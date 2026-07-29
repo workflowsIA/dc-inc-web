@@ -385,6 +385,11 @@
 }
 
 @media (max-width: 860px) {
+  /* Vidriera de marcas: en desktop se ven todos los clientes; en mobile
+     cortamos en 8 para que la sección no se coma media pantalla. */
+  .brandRow > .brandLogo:nth-child(n + 9) {
+    display: none;
+  }
   .heroA :global(.wrap) {
     grid-template-columns: 1fr;
     gap: 34px;
