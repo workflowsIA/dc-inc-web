@@ -366,10 +366,25 @@ export default async function Home() {
               </Link>
             </div>
             <div className={s.pright}>
+              {/* Foto real de un trabajo de serigrafía DC (pintas de El Fruto).
+                  Wrapper relative + fill para que la imagen estire la columna
+                  entera del banner sin tocar page.module.css. */}
               <div
-                className="ph ph-dark"
-                data-ph="Lifestyle · cristalería decorada en bar"
-              />
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  height: "100%",
+                  minHeight: "240px",
+                }}
+              >
+                <Image
+                  src="/img/promo-cristaleria.jpg"
+                  alt="Pintas de cerveza con el logo de El Fruto serigrafiado, sobre una mesa de bar"
+                  fill
+                  sizes="(max-width: 900px) 100vw, 40vw"
+                  style={{ objectFit: "cover" }}
+                />
+              </div>
             </div>
           </div>
         </div>
