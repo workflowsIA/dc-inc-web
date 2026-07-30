@@ -79,7 +79,7 @@ export default async function CategoryPage({ params }: Props) {
             {inCat.length} {inCat.length === 1 ? "producto" : "productos"} · mayorista, bulto cerrado
           </p>
         </div>
-        <Link className="btn btn-ghost" href="/productos" style={{ color: "#fff", borderColor: "rgba(255,255,255,.3)" }}>
+        <Link prefetch={false} className="btn btn-ghost" href="/productos" style={{ color: "#fff", borderColor: "rgba(255,255,255,.3)" }}>
           Ver todo el catálogo
         </Link>
       </div>

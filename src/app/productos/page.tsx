@@ -160,7 +160,7 @@ export default async function CatalogPage({
             {q ? `Resultados para "${q}"` : "Todo nuestro packaging y cristalería"}
           </h1>
         </div>
-        <Link className="btn btn-ghost" href="/">
+        <Link prefetch={false} className="btn btn-ghost" href="/">
           ← Volver al inicio
         </Link>
       </div>
@@ -177,7 +177,7 @@ export default async function CatalogPage({
             }}
           >
             {hasFilter && (
-              <Link
+              <Link prefetch={false}
                 href="/productos"
                 className="btn btn-ghost btn-sm"
                 style={{ marginBottom: "16px", width: "100%" }}
@@ -192,7 +192,7 @@ export default async function CatalogPage({
             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "6px" }}>
               {cats.map((c) => (
                 <li key={c}>
-                  <Link
+                  <Link prefetch={false}
                     href={`/productos?cat=${encodeURIComponent(c)}`}
                     style={{
                       fontSize: "14px",
@@ -216,7 +216,7 @@ export default async function CatalogPage({
                     const on = subSet.has(g);
                     return (
                       <li key={g}>
-                        <Link
+                        <Link prefetch={false}
                           href={urlToggleSub(g)}
                           aria-pressed={on}
                           style={{
@@ -322,27 +322,27 @@ export default async function CatalogPage({
           {hasFilter && (
             <div className="chips" style={{ marginBottom: "20px" }}>
               {q && (
-                <Link className="chip on" href={urlWithout("q")}>
+                <Link prefetch={false} className="chip on" href={urlWithout("q")}>
                   “{q}” <span className="chip-x"><X /></span>
                 </Link>
               )}
               {cat && (
-                <Link className="chip on" href={urlWithout("cat")}>
+                <Link prefetch={false} className="chip on" href={urlWithout("cat")}>
                   {cat} <span className="chip-x"><X /></span>
                 </Link>
               )}
               {selectedSubs.map((s) => (
-                <Link key={s} className="chip on" href={urlToggleSub(s)}>
+                <Link prefetch={false} key={s} className="chip on" href={urlToggleSub(s)}>
                   {s} <span className="chip-x"><X /></span>
                 </Link>
               ))}
               {(hasMin || hasMax) && (
-                <Link className="chip on" href={urlWithout("price")}>
+                <Link prefetch={false} className="chip on" href={urlWithout("price")}>
                   {hasMin ? ars(minNum!) : ars(priceFloor)} – {hasMax ? ars(maxNum!) : ars(priceCeil)}{" "}
                   <span className="chip-x"><X /></span>
                 </Link>
               )}
-              <Link className="chip" href="/productos">
+              <Link prefetch={false} className="chip" href="/productos">
                 Limpiar todo
               </Link>
             </div>
@@ -368,7 +368,7 @@ export default async function CatalogPage({
                   }}
                 >
                   {page > 1 && (
-                    <Link className="btn btn-ghost btn-sm" href={urlForPage(page - 1)}>
+                    <Link prefetch={false} className="btn btn-ghost btn-sm" href={urlForPage(page - 1)}>
                       ← Anterior
                     </Link>
                   )}
@@ -376,7 +376,7 @@ export default async function CatalogPage({
                     Página {page} de {totalPages}
                   </span>
                   {page < totalPages && (
-                    <Link className="btn btn-ghost btn-sm" href={urlForPage(page + 1)}>
+                    <Link prefetch={false} className="btn btn-ghost btn-sm" href={urlForPage(page + 1)}>
                       Siguiente →
                     </Link>
                   )}
@@ -396,7 +396,7 @@ export default async function CatalogPage({
               <p style={{ fontWeight: 600, marginBottom: "8px" }}>
                 No encontramos productos con ese filtro.
               </p>
-              <Link href="/productos" className="btn btn-ghost btn-sm" style={{ marginTop: "8px" }}>
+              <Link prefetch={false} href="/productos" className="btn btn-ghost btn-sm" style={{ marginTop: "8px" }}>
                 Ver todo el catálogo
               </Link>
             </div>
