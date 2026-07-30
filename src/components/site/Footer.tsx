@@ -9,7 +9,7 @@ export default function Footer() {
       <div className="wrap">
         <div className="ftr-grid">
           <div>
-            <Link href="/">
+            <Link href="/" prefetch={false}>
               <span className="logo">
                 <Image
                   className="logo-img"
@@ -46,21 +46,21 @@ export default function Footer() {
             <h5>Productos</h5>
             <ul>
               <li>
-                <Link href="/categoria/botellas">Botellas</Link>
+                <Link href="/categoria/botellas" prefetch={false}>Botellas</Link>
               </li>
               <li>
-                <Link href="/categoria/latas">Latas</Link>
+                <Link href="/categoria/latas" prefetch={false}>Latas</Link>
               </li>
               <li>
-                <Link href="/categoria/copas-y-vasos">Cristalería</Link>
+                <Link href="/categoria/copas-y-vasos" prefetch={false}>Cristalería</Link>
               </li>
               {/* "Cajas y estuches" no existe como categoría en el catálogo
                   → linkeamos al catálogo completo en vez de a un slug roto. */}
               <li>
-                <Link href="/productos">Cajas y estuches</Link>
+                <Link href="/productos" prefetch={false}>Cajas y estuches</Link>
               </li>
               <li>
-                <Link href="/categoria/tapas-y-precintos">Tapas y accesorios</Link>
+                <Link href="/categoria/tapas-y-precintos" prefetch={false}>Tapas y accesorios</Link>
               </li>
             </ul>
           </div>
@@ -68,19 +68,19 @@ export default function Footer() {
             <h5>Empresa</h5>
             <ul>
               <li>
-                <Link href="/nosotros">Nosotros</Link>
+                <Link href="/nosotros" prefetch={false}>Nosotros</Link>
               </li>
               <li>
-                <Link href="/logistica">Logística</Link>
+                <Link href="/logistica" prefetch={false}>Logística</Link>
               </li>
               <li>
-                <Link href="/personaliza">Decorado</Link>
+                <Link href="/personaliza" prefetch={false}>Decorado</Link>
               </li>
               <li>
-                <Link href="/blog">Blog</Link>
+                <Link href="/blog" prefetch={false}>Blog</Link>
               </li>
               <li>
-                <Link href="/faq">Preguntas frecuentes</Link>
+                <Link href="/faq" prefetch={false}>Preguntas frecuentes</Link>
               </li>
             </ul>
           </div>
@@ -106,9 +106,9 @@ export default function Footer() {
             reservados
           </span>
           <span className="tag-row">
-            <Link href="/legales/terminos">Términos</Link> ·{" "}
-            <Link href="/legales/privacidad">Privacidad</Link> ·{" "}
-            <Link href="/legales/defensa">Defensa al consumidor</Link>
+            <Link href="/legales/terminos" prefetch={false}>Términos</Link> ·{" "}
+            <Link href="/legales/privacidad" prefetch={false}>Privacidad</Link> ·{" "}
+            <Link href="/legales/defensa" prefetch={false}>Defensa al consumidor</Link>
           </span>
         </div>
       </div>

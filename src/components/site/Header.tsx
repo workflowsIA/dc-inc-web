@@ -2,20 +2,17 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ShoppingCart,
-  User,
   Shield,
   Truck,
   Receipt,
   Brush,
   CheckCircle2,
 } from "lucide-react";
-import { UserButton } from "@clerk/nextjs";
-import { auth } from "@clerk/nextjs/server";
 import { waSimpleURL, WA_NUMBER } from "@/lib/whatsapp";
-import { getProducts } from "@/lib/sanity-data";
 import CartCount from "./CartCount";
+import HeaderAuth from "./HeaderAuth";
 import MobileMenu from "./MobileMenu";
-import SearchBox, { type SearchItem } from "./SearchBox";
+import SearchBox from "./SearchBox";
 
 const NAV = [
   { href: "/productos", label: "Productos" },
@@ -25,21 +22,20 @@ const NAV = [
   { href: "/blog", label: "Blog" },
 ];
 
-export default async function Header() {
-  const { userId } = await auth();
-  const signedIn = !!userId;
-
-  // Índice liviano para el autocomplete (query cacheada, compartida con catálogo/home).
-  let searchItems: SearchItem[] = [];
-  try {
-    searchItems = (await getProducts()).map((p) => ({
-      name: p.name,
-      slug: p.slug || p._id,
-      cat: p.category ?? "",
-    }));
-  } catch {
-    // sin índice, el buscador igual envía a /productos?q=
-  }
+/**
+ * Header 100% estático a propósito.
+ *
+ * NO llamar a `auth()` ni a ninguna API dinámica (cookies/headers) acá dentro:
+ * el Header vive en el layout raíz, así que una sola llamada dinámica convierte
+ * TODAS las rutas del sitio en dinámicas y anula los `export const revalidate`
+ * de la home, el catálogo, las categorías y las fichas. El estado de sesión se
+ * resuelve en el cliente con <SignedIn>/<SignedOut>.
+ *
+ * El índice del buscador tampoco se serializa acá: se pide on-demand a
+ * /api/search-index la primera vez que el usuario toca el buscador. Antes se
+ * mandaban los ~305 productos en el payload RSC de cada página.
+ */
+export default function Header() {
   return (
     <header className="hdr">
       <div className="wrap hdr-top">
@@ -64,7 +60,7 @@ export default async function Header() {
           ))}
         </nav>
         <div className="hdr-actions">
-          <SearchBox items={searchItems} className="desktop-only" />
+          <SearchBox className="desktop-only" />
           <a
             className="btn btn-wa btn-sm desktop-only"
             href={waSimpleURL()}
@@ -73,14 +69,13 @@ export default async function Header() {
           >
             WhatsApp
           </a>
-          {signedIn ? (
-            <UserButton userProfileMode="navigation" userProfileUrl="/mi-cuenta" />
-          ) : (
-            <Link className="icon-btn" href="/cuenta" aria-label="Ingresar">
-              <User />
-            </Link>
-          )}
-          <Link className="icon-btn" href="/carrito" aria-label="Carrito">
+          <HeaderAuth />
+          <Link
+            className="icon-btn"
+            href="/carrito"
+            aria-label="Carrito"
+            prefetch={false}
+          >
             <ShoppingCart />
             <CartCount />
           </Link>

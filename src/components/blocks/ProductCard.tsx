@@ -39,12 +39,12 @@ export default function ProductCard({ product, wholesale = false }: Props) {
       {/* overlay: toda la card lleva a la ficha */}
       <Link
         className="pcard-link"
-        href={`/productos/${product.id}`}
+        href={`/productos/${product.id}`} prefetch={false}
         aria-label={product.name}
         tabIndex={-1}
         aria-hidden="true"
       />
-      <Link className="pcard-media" href={`/productos/${product.id}`}>
+      <Link className="pcard-media" href={`/productos/${product.id}`} prefetch={false}>
         {product.imageUrl ? (
           <Image
             className="pcard-img"
@@ -81,7 +81,7 @@ export default function ProductCard({ product, wholesale = false }: Props) {
           {product.sub ? ` · ${product.sub}` : ""}
         </span>
         <h3 className="pcard-title">
-          <Link href={`/productos/${product.id}`}>{product.name}</Link>
+          <Link href={`/productos/${product.id}`} prefetch={false}>{product.name}</Link>
         </h3>
         <div className="pcard-specs">
           {product.presentations?.length ? (
