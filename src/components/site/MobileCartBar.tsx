@@ -3,8 +3,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ShoppingCart } from "lucide-react";
-import { useCart } from "@/lib/cart-store";
+import { useUser } from "@clerk/nextjs";
+import { cartItemCount, useCart } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
+import { unitPrice } from "@/lib/whatsapp";
 
 /** Barra de carrito sticky en mobile (bottom). El CSS (.mcart / body.has-mcart)
  *  ya existe en ds.css y solo se muestra en viewport ≤860px. */
@@ -16,8 +18,14 @@ export default function MobileCartBar() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
-  const count = items.reduce((s, i) => s + i.qty, 0);
-  const subtotal = items.reduce((s, i) => s + i.pub * i.qty, 0);
+  // Mismo criterio de rol que /carrito y /checkout: si no, un mayorista veia
+  // el estimado a precio publico en la barra y el neto al entrar al carrito.
+  const { user } = useUser();
+  const role = user?.publicMetadata?.role as string | undefined;
+  const wholesale = role === "wholesale" || role === "admin";
+
+  const count = cartItemCount(items);
+  const subtotal = items.reduce((s, i) => s + unitPrice(i, wholesale) * i.qty, 0);
   const hide = pathname === "/carrito";
 
   useEffect(() => {
