@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import ProductCard from "@/components/blocks/ProductCard";
 import type { Product } from "@/data/products";
 import { getProducts, toLegacyProduct } from "@/lib/sanity-data";
-import { isWholesale } from "@/lib/user";
 import { catSlug } from "@/lib/slug";
 
 export const revalidate = 60;
@@ -15,16 +14,33 @@ interface Props {
 
 async function load(
   slug: string,
-  wholesale = false,
 ): Promise<{ inCat: Product[]; name: string | null }> {
   let products: Product[] = [];
   try {
-    products = (await getProducts()).map((p) => toLegacyProduct(p, wholesale));
+    products = (await getProducts()).map((p) => toLegacyProduct(p));
   } catch {
     // sin Sanity
   }
   const inCat = products.filter((p) => p.cat && p.cat !== "Otros" && catSlug(p.cat) === slug);
   return { inCat, name: inCat[0]?.cat ?? null };
+}
+
+/**
+ * Sin esto la ruta queda dinamica: son 6 categorias fijas que salen del propio
+ * catalogo, asi que se prerenderizan en el build y despues revalidan cada 60s.
+ */
+export async function generateStaticParams() {
+  try {
+    const products = await getProducts();
+    const slugs = new Set<string>();
+    for (const p of products) {
+      const cat = p.category;
+      if (cat && cat !== "Otros") slugs.add(catSlug(cat));
+    }
+    return [...slugs].map((slug) => ({ slug }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -47,8 +63,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CategoryPage({ params }: Props) {
   const { slug } = await params;
-  const wholesale = await isWholesale();
-  const { inCat, name } = await load(slug, wholesale);
+  const { inCat, name } = await load(slug);
   if (!name) notFound();
 
   return (
@@ -86,7 +101,7 @@ export default async function CategoryPage({ params }: Props) {
 
       <div className="grid grid-4">
         {inCat.map((p) => (
-          <ProductCard key={p.id} product={p} wholesale={wholesale} />
+          <ProductCard key={p.id} product={p} />
         ))}
       </div>
     </div>

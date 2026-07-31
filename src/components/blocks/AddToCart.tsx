@@ -4,13 +4,21 @@ import { Plus, Check } from "lucide-react";
 import { useCart, type ProductSnapshot } from "@/lib/cart-store";
 
 /** Botón ícono para las cards del catálogo (.pcard-add). */
-export function AddToCartIcon({ product }: { product: ProductSnapshot }) {
+export function AddToCartIcon({
+  product,
+  disabled = false,
+}: {
+  product: ProductSnapshot;
+  /** true mientras faltan los precios mayoristas (ver CardFoot) */
+  disabled?: boolean;
+}) {
   const add = useCart((s) => s.add);
   const [added, setAdded] = useState(false);
   return (
     <button
       type="button"
       className="pcard-add"
+      disabled={disabled}
       aria-label={`Agregar ${product.name} al carrito`}
       onClick={(e) => {
         e.preventDefault();
@@ -30,7 +38,13 @@ export function AddToCartIcon({ product }: { product: ProductSnapshot }) {
 /** Selector de cantidad + botón para la ficha de producto.
  *  Venta por bulto cerrado: `qty` cuenta BULTOS; al agregar se manda
  *  qty × bulto unidades al carrito. */
-export function AddToCartBox({ product }: { product: ProductSnapshot }) {
+export function AddToCartBox({
+  product,
+  disabled = false,
+}: {
+  product: ProductSnapshot;
+  disabled?: boolean;
+}) {
   const add = useCart((s) => s.add);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
@@ -55,6 +69,7 @@ export function AddToCartBox({ product }: { product: ProductSnapshot }) {
       <button
         type="button"
         className="btn btn-primary btn-lg"
+        disabled={disabled}
         onClick={() => {
           add(product, qty * step);
           setAdded(true);

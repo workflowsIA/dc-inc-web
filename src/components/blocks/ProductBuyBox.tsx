@@ -5,12 +5,12 @@ import { ars } from "@/lib/format";
 import { resolveDisplayPrice, type PricingInput } from "@/lib/pricing";
 import { SHIPPING_FROM } from "@/lib/shipping";
 import type { PresentationPricing } from "@/lib/queries";
+import { useWholesaleEntry } from "@/lib/wholesale-prices";
 
 interface Props {
   product: ProductSnapshot;
   /** datos de precio crudos para resolver la vista (cliente final vs mayorista + oferta) */
   pricing: PricingInput;
-  wholesale: boolean;
   deli: string;
   presentations?: string[];
   /** precio real por presentación (caja/pallet) para reflejar el descuento por volumen */
@@ -28,8 +28,30 @@ function parsePres(s: string): Pres {
   return { label: s, units: m ? parseInt(m[1], 10) : 1 };
 }
 
-export default function ProductBuyBox({ product, pricing, wholesale, deli, presentations, presentationPricing }: Props) {
+export default function ProductBuyBox({
+  product,
+  pricing: pricingProp,
+  deli,
+  presentations,
+  presentationPricing: presentationPricingProp,
+}: Props) {
   const add = useCart((s) => s.add);
+  // El rol y los precios mayoristas se resuelven en el cliente (ver
+  // src/lib/wholesale-prices.tsx). Asi la ficha se prerenderiza estatica.
+  const { ready, wholesale: isWholesaleUser, entry } = useWholesaleEntry(product.id);
+  const wholesale = !!entry;
+  // Ver CardFoot: sin precios mayoristas el snapshot iria con may: 0.
+  const pricesPending = isWholesaleUser && !ready;
+  const pricing: PricingInput = entry ? { ...pricingProp, may: entry.may } : pricingProp;
+  const presentationPricing: PresentationPricing[] | undefined = entry?.pres
+    ? (presentationPricingProp ?? []).map((pp) => ({
+        ...pp,
+        priceWholesale:
+          pp.unitsPerBulk && entry.pres?.[String(pp.unitsPerBulk)] != null
+            ? entry.pres[String(pp.unitsPerBulk)]
+            : pp.priceWholesale,
+      }))
+    : presentationPricingProp;
   // Precio de vista: cliente final ve IVA incluido + envío estimado; mayorista
   // ve neto + IVA y "envío a cotizar". La oferta (salePrice) aplica acá si vige.
   // `finalConsumer` sólo depende del rol (no del precio de presentación), así que
@@ -222,7 +244,13 @@ export default function ProductBuyBox({ product, pricing, wholesale, deli, prese
         </div>
       </div>
 
-      <button type="button" className="btn btn-primary btn-lg btn-block" style={{ marginTop: "16px" }} onClick={handleAdd}>
+      <button
+        type="button"
+        className="btn btn-primary btn-lg btn-block"
+        style={{ marginTop: "16px" }}
+        disabled={pricesPending}
+        onClick={handleAdd}
+      >
         {added ? "✓ Agregado al carrito" : "Agregar al carrito"}
       </button>
 

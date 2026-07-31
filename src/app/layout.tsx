@@ -5,6 +5,7 @@ import { esES } from "@clerk/localizations";
 import Header from "@/components/site/Header";
 import Footer from "@/components/site/Footer";
 import ChromeWrapper from "@/components/site/ChromeWrapper";
+import { WholesalePricesProvider } from "@/lib/wholesale-prices";
 import MobileCartBar from "@/components/site/MobileCartBar";
 import "./globals.css";
 
@@ -109,10 +110,12 @@ export default function RootLayout({
         className={`${display.variable} ${body.variable} ${mono.variable}`}
       >
         <body>
-          <ChromeWrapper header={<Header />} footer={<Footer />}>
-            {children}
-          </ChromeWrapper>
-          <MobileCartBar />
+          <WholesalePricesProvider>
+            <ChromeWrapper header={<Header />} footer={<Footer />}>
+              {children}
+            </ChromeWrapper>
+            <MobileCartBar />
+          </WholesalePricesProvider>
         </body>
       </html>
     </ClerkProvider>

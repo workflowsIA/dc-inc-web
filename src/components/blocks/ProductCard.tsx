@@ -1,10 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Product, Badge } from "@/data/products";
-import { ars } from "@/lib/format";
-import { resolveDisplayPrice } from "@/lib/pricing";
-import { SHIPPING_FROM } from "@/lib/shipping";
-import { AddToCartIcon } from "./AddToCart";
+import CardFoot from "./CardFoot";
 
 const BADGE_LABELS: Record<Badge, { cls: string; label: string }> = {
   best: { cls: "badge-best", label: "Más vendido" },
@@ -15,12 +12,9 @@ const BADGE_LABELS: Record<Badge, { cls: string; label: string }> = {
 
 interface Props {
   product: Product;
-  /** si true, el precio mayorista pisa al público (usuario logueado como mayorista) */
-  wholesale?: boolean;
 }
 
-export default function ProductCard({ product, wholesale = false }: Props) {
-  const dp = resolveDisplayPrice(product, wholesale);
+export default function ProductCard({ product }: Props) {
   const stockClass =
     product.stock === "ok"
       ? "stock-ok"
@@ -95,38 +89,7 @@ export default function ProductCard({ product, wholesale = false }: Props) {
           <span>{product.deli}</span>
           <span className={`stock ${stockClass}`}>{stockLabel}</span>
         </div>
-        <div className="pcard-foot">
-          <div className="pcard-price">
-            <span className="price-from">Desde</span>
-            {dp.strike && (
-              <span className="price-old">{ars(dp.strike)}</span>
-            )}
-            <span className="price">{ars(dp.display)}</span>
-            {/* Cliente final ve IVA incluido; mayorista ve neto + IVA */}
-            <span className="price-unit">
-              {dp.finalConsumer ? "IVA incl." : "+ IVA"}
-            </span>
-          </div>
-          <AddToCartIcon
-            product={{
-              id: product.id,
-              name: product.name,
-              sku: product.sku,
-              pub: product.pub,
-              may: product.may,
-              bulto: product.bulto,
-              pallet: product.pallet,
-              imageUrl: product.imageUrl,
-            }}
-          />
-        </div>
-        {dp.finalConsumer ? (
-          <p
-            style={{ marginTop: "6px", fontSize: "11px", color: "var(--muted)" }}
-          >
-            + Envío desde {ars(SHIPPING_FROM)}
-          </p>
-        ) : null}
+        <CardFoot product={product} />
       </div>
     </article>
   );
