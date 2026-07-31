@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useCart } from "@/lib/cart-store";
+import { cartItemCount, useCart } from "@/lib/cart-store";
 
 /** Client-only cart counter — avoids SSR hydration mismatch. */
 export default function CartCount() {
@@ -10,7 +10,8 @@ export default function CartCount() {
   // en cliente, para evitar mismatch con el HTML del servidor.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
-  const count = mounted ? items.reduce((s, i) => s + i.qty, 0) : 0;
+  // Bultos, no unidades sueltas (ver cartItemCount).
+  const count = mounted ? cartItemCount(items) : 0;
   if (count <= 0) return null;
   return <span className="cart-count">{count}</span>;
 }
