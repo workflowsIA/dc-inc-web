@@ -11,7 +11,6 @@ import {
 import ProductCard from "@/components/blocks/ProductCard";
 import { plainText } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
-import { isWholesale } from "@/lib/user";
 import ProductBuyBox from "@/components/blocks/ProductBuyBox";
 
 export const revalidate = 60;
@@ -50,12 +49,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductPage({ params }: Props) {
   const { id } = await params;
-  const wholesale = await isWholesale();
   // 1. Intentar Sanity por slug
   let product = null;
   try {
     const sanity = await getProductBySlug(id);
-    if (sanity) product = toLegacyProduct(sanity, wholesale);
+    if (sanity) product = toLegacyProduct(sanity);
   } catch (e) {
     console.error("[product page] Sanity fetch failed:", (e as Error).message);
   }
@@ -65,7 +63,7 @@ export default async function ProductPage({ params }: Props) {
   // getProducts() es una sola query cacheada → sin costo extra en el build.
   let related: typeof product[] = [];
   try {
-    const all = (await getProducts()).map((p) => toLegacyProduct(p, wholesale));
+    const all = (await getProducts()).map((p) => toLegacyProduct(p));
     related = all
       .filter((p) => p.id !== product!.id && p.cat === product!.cat && p.cat !== "Otros")
       .slice(0, 4);
@@ -128,7 +126,6 @@ export default async function ProductPage({ params }: Props) {
 
           <div style={{ marginTop: "24px" }}>
             <ProductBuyBox
-              wholesale={wholesale}
               deli={product.deli}
               presentations={product.presentations}
               presentationPricing={product.presentationPricing}
@@ -232,7 +229,7 @@ export default async function ProductPage({ params }: Props) {
           </h2>
           <div className="grid grid-4">
             {related.map((p) => (
-              <ProductCard key={p.id} product={p} wholesale={wholesale} />
+              <ProductCard key={p.id} product={p} />
             ))}
           </div>
         </section>

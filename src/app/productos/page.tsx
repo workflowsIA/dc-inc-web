@@ -3,7 +3,6 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import ProductCard from "@/components/blocks/ProductCard";
 import type { Product } from "@/data/products";
-import { isWholesale } from "@/lib/user";
 import { getProducts, toLegacyProduct } from "@/lib/sanity-data";
 import { resolveDisplayPrice } from "@/lib/pricing";
 import { ars } from "@/lib/format";
@@ -57,7 +56,10 @@ export default async function CatalogPage({
   searchParams: Promise<SearchParams>;
 }) {
   const { q, cat, sub, min: minParam, max: maxParam, page: pageParam } = await searchParams;
-  const wholesale = await isWholesale();
+  // Filtros y orden siempre sobre precio publico: la pagina no resuelve rol
+  // server-side (eso la volvia dinamica y disparaba una llamada a Clerk por
+  // request). El precio que ve el mayorista lo pone CardFoot en el cliente.
+  const wholesale = false;
 
   // Subtipos seleccionados (multi-select). Acepta ?sub=X&sub=Y o un único ?sub=X.
   const selectedSubs = (Array.isArray(sub) ? sub : sub ? [sub] : []).filter(Boolean);
@@ -352,7 +354,7 @@ export default async function CatalogPage({
             <>
               <div className="grid grid-3">
                 {paged.map((p) => (
-                  <ProductCard key={p.id} product={p} wholesale={wholesale} />
+                  <ProductCard key={p.id} product={p} />
                 ))}
               </div>
 

@@ -14,7 +14,6 @@ import ProductCard from "@/components/blocks/ProductCard";
 import ComboCard from "@/components/blocks/ComboCard";
 import type { Product } from "@/data/products";
 import { waSimpleURL } from "@/lib/whatsapp";
-import { isWholesale } from "@/lib/user";
 import { catSlug } from "@/lib/slug";
 import {
   getFeaturedProducts,
@@ -84,14 +83,13 @@ const diffs = [
 ];
 
 export default async function Home() {
-  const wholesale = await isWholesale();
   const totalSkus = await getProductCount();
 
   // Una sola lectura del catálogo, reusada para featured + conteos de categoría.
   let allLegacy: Product[] = [];
   try {
     const all = await getProducts();
-    allLegacy = all.map((p) => toLegacyProduct(p, wholesale));
+    allLegacy = all.map((p) => toLegacyProduct(p));
   } catch (e) {
     console.error("[home] Sanity fetch failed:", (e as Error).message);
   }
@@ -103,7 +101,7 @@ export default async function Home() {
   let featured: Product[] = [];
   try {
     const best = await getFeaturedProducts();
-    if (best.length > 0) featured = best.map((p) => toLegacyProduct(p, wholesale)).filter((p) => p.imageUrl);
+    if (best.length > 0) featured = best.map((p) => toLegacyProduct(p)).filter((p) => p.imageUrl);
   } catch (e) {
     console.error("[home] featured fetch failed:", (e as Error).message);
   }
@@ -336,7 +334,7 @@ export default async function Home() {
           </div>
           <div className="grid grid-4">
             {featured.map((p) => (
-              <ProductCard key={p!.id} product={p!} wholesale={wholesale} />
+              <ProductCard key={p!.id} product={p!} />
             ))}
           </div>
         </div>
