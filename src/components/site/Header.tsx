@@ -84,7 +84,7 @@ export default function Header() {
       <div className="benefits">
         <div className="wrap">
           <span className="benefit">
-            <Shield /> Mínimo $150k + IVA
+            <Shield /> Mayorista y minorista
           </span>
           <span className="benefit-sep" />
           <span className="benefit">

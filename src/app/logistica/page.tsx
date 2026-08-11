@@ -4,13 +4,13 @@ import { waSimpleURL } from "@/lib/whatsapp";
 export const metadata = {
   title: "Cómo trabajamos · Logística y condiciones",
   description:
-    "Envíos a todo el país con transportes con convenio que se hacen cargo del vidrio. Mínimo $150.000 + IVA, factura A/B/E, stock real y plazos 24-48 hs.",
+    "Envíos a todo el país con transportes con convenio que se hacen cargo del vidrio. Factura A/B/E, stock real y plazos 24-48 hs.",
 };
 
 const DIFERENCIALES = [
   {
-    title: "Mínimo de compra accesible",
-    body: "Pedido mínimo de $150.000 + IVA. Pensado para que puedas reponer seguido sin inmovilizar capital.",
+    title: "Mayorista y minorista",
+    body: "Atendemos pedidos por mayor y por menor. Coordinamos las condiciones según tu operación.",
   },
   {
     title: "Factura A, B o E",

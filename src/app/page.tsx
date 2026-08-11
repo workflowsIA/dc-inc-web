@@ -74,7 +74,7 @@ const steps = [
 ];
 
 const diffs = [
-  { Icon: Shield, title: "Mínimo $150k + IVA", body: "Pedido mayorista por bulto cerrado. Sabés el mínimo antes de armar el carrito." },
+  { Icon: Shield, title: "Mayorista y minorista", body: "Atendemos pedidos por mayor y por menor. Consultá las condiciones de tu cuenta." },
   { Icon: Receipt, title: "Factura A, B o E", body: "Comprás con la factura que tu empresa necesita, sin trámites raros." },
   { Icon: Truck, title: "Envíos con convenio", body: "Transportes que sí se hacen cargo del vidrio. Cobertura en todo el país." },
   { Icon: CheckCircle2, title: "Stock real", body: "Lo que ves disponible está en depósito. Sincronizado con nuestro sistema." },
@@ -110,18 +110,18 @@ export default async function Home() {
     featured = [...featured, ...withPhoto].slice(0, 4);
   }
 
-  // Tiles de categoría: los 5 rubros sólidos del catálogo (top 5 por cantidad).
-  // Mostramos 5 a propósito: son las categorías reales con volumen (Copas, Botellas,
-  // Tapas, Latas, Botellones). Así evitamos que un rubro de cola (ej. Válvulas con 1
-  // producto, o Accesorios) se cuele como 6º tile. Excluimos "Otros" y "Accesorios".
-  const HIDE_FROM_HOME = new Set(["Otros", "Accesorios"]);
+  // Tiles de categoría: los 6 rubros canónicos de DC Inc (los que tienen ícono
+  // propio en CAT_IMG), ordenados por cantidad real de productos. Seleccionando
+  // solo las categorías canónicas evitamos que un rubro de cola (Válvulas,
+  // Accesorios, Otros) se cuele en la grilla, y garantizamos que aparezcan las 6
+  // (incluida "Cajas y estuches") mientras tengan al menos un producto.
   const catCounts: Record<string, number> = {};
   for (const p of allLegacy) if (p.cat) catCounts[p.cat] = (catCounts[p.cat] ?? 0) + 1;
-  let cats: { name: string; count: string; img?: string }[] = Object.entries(catCounts)
-    .filter(([name]) => name && !HIDE_FROM_HOME.has(name))
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name, count]) => ({ name, count: String(count), img: CAT_IMG[name] }));
+  let cats: { name: string; count: string; img?: string }[] = Object.keys(CAT_IMG)
+    .map((name) => ({ name, n: catCounts[name] ?? 0 }))
+    .filter((c) => c.n > 0)
+    .sort((a, b) => b.n - a.n)
+    .map((c) => ({ name: c.name, count: String(c.n), img: CAT_IMG[c.name] }));
   if (cats.length === 0) cats = categoryDataFallback;
 
   // Clientes de la vidriera "confían en nosotros" (schema `client` en Sanity).
@@ -234,14 +234,14 @@ export default async function Home() {
                   </div>
                 );
               })}
-              <div className={s.collageFloat}>
-                <span className="ico">
-                  <Layers />
-                </span>
-                <div>
-                  <div className="t">Armá tu pedido</div>
-                  <div className="s">3 pasos · cotizás al instante</div>
-                </div>
+            </div>
+            <div className={s.collageFloat}>
+              <span className="ico">
+                <Layers />
+              </span>
+              <div>
+                <div className="t">Armá tu pedido</div>
+                <div className="s">3 pasos · cotizás al instante</div>
               </div>
             </div>
           </div>
@@ -491,7 +491,7 @@ export default async function Home() {
           <div className={s.ctaband}>
             <div>
               <h3>¿Listo para tu próximo pedido?</h3>
-              <p>Mínimo $150.000 + IVA · Factura A / B / E · Despacho 24-48 hs</p>
+              <p>Factura A / B / E · Despacho 24-48 hs</p>
             </div>
             <div className="tag-row">
               <Link className="btn btn-dark btn-lg" href="/productos">
