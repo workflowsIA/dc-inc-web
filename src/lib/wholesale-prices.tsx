@@ -82,6 +82,30 @@ export function useWholesaleCtx(): WholesaleCtx {
   return useContext(Ctx);
 }
 
+/**
+ * Reprecia los items del carrito con el precio mayorista fresco del mapa de
+ * /api/precios. Arregla el bug de "$0": si el carrito se armo anonimo (o antes
+ * de que llegaran los precios), el snapshot quedo con may:0, y al loguearse como
+ * mayorista la linea mostraba $0. Para no-mayoristas, o mientras cargan los
+ * precios, devuelve los items sin tocar. Reprecia por presentacion (bulto) si
+ * corresponde, igual que ProductBuyBox.
+ */
+export function useRepricedItems<T extends { id: string; bulto?: number; may: number }>(
+  items: T[],
+): T[] {
+  const { ready, wholesale, prices } = useWholesaleCtx();
+  return useMemo(() => {
+    if (!wholesale || !ready) return items;
+    return items.map((i) => {
+      const e = prices[i.id];
+      if (!e) return i;
+      const may =
+        i.bulto && e.pres?.[String(i.bulto)] != null ? e.pres[String(i.bulto)] : e.may;
+      return typeof may === "number" ? { ...i, may } : i;
+    });
+  }, [items, ready, wholesale, prices]);
+}
+
 /** Precio mayorista de un producto puntual (undefined si no aplica o no llego aun). */
 export function useWholesaleEntry(slug: string) {
   const { ready, wholesale, prices } = useWholesaleCtx();

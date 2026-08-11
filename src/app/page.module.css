@@ -146,6 +146,8 @@
   border: none;
   border-radius: 0;
   aspect-ratio: 1 / 1;
+  width: 100%;
+  object-fit: cover;
 }
 .catTile .lab {
   padding: 14px 16px 16px;

@@ -9,6 +9,7 @@ type ClerkUser = NonNullable<ReturnType<typeof useUser>["user"]>;
 import { ars } from "@/lib/format";
 import { totalsFor, unitPrice, waCheckoutURL, type CheckoutInfo } from "@/lib/whatsapp";
 import { BATU_ZONE_OPTIONS, type BatuZone } from "@/lib/shipping";
+import { useWholesaleCtx, useRepricedItems } from "@/lib/wholesale-prices";
 
 export default function CheckoutPage() {
   // Esperamos a que Clerk cargue al usuario antes de montar el formulario, así
@@ -21,9 +22,15 @@ export default function CheckoutPage() {
 }
 
 function CheckoutForm({ user }: { user: ClerkUser | null }) {
-  const items = useCart((s) => s.items);
+  const rawItems = useCart((s) => s.items);
   const role = user?.publicMetadata?.role as string | undefined;
   const wholesale = role === "wholesale" || role === "admin";
+  // Reprecio mayorista fresco (mismo fix que el carrito): evita el total en $0
+  // cuando el carrito se armo anonimo y luego se logueo como mayorista.
+  const items = useRepricedItems(rawItems);
+  const { ready: pricesReady } = useWholesaleCtx();
+  const pricePending = wholesale && !pricesReady;
+  const money = (n: number) => (pricePending ? "—" : ars(n));
   const md = (user?.unsafeMetadata ?? {}) as Record<string, string>;
 
   // Logueado → prefilleamos con los datos del perfil (editables). Nombre y email
@@ -337,20 +344,20 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
                 <span style={{ color: "var(--muted)" }}>
                   {i.qty}× {i.name}
                 </span>
-                <strong>{ars(unitPrice(i, wholesale) * i.qty * (wholesale ? 1 : 1.21))}</strong>
+                <strong>{money(unitPrice(i, wholesale) * i.qty * (wholesale ? 1 : 1.21))}</strong>
               </div>
             ))}
           </div>
           <div style={{ height: "1px", background: "var(--line)", margin: "14px 0" }} />
-          <Row label="Subtotal (neto)" value={ars(t.sub)} />
-          {t.rate > 0 && <Row label={`Descuento (${t.rate * 100}%)`} value={`-${ars(t.disc)}`} muted />}
-          <Row label="IVA 21%" value={ars(t.iva)} muted />
+          <Row label="Subtotal (neto)" value={money(t.sub)} />
+          {t.rate > 0 && <Row label={`Descuento (${t.rate * 100}%)`} value={`-${money(t.disc)}`} muted />}
+          <Row label="IVA 21%" value={money(t.iva)} muted />
           {t.finalConsumer ? (
             <Row label="Envío estimado" value={ars(t.shipping)} muted />
           ) : (
             <Row label="Envío" value="a cotizar" muted />
           )}
-          <Row label="Total estimado" value={ars(t.total)} strong />
+          <Row label="Total estimado" value={money(t.total)} strong />
 
           {naveEnabled && (
             <>

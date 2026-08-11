@@ -1,19 +1,22 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { useUser } from "@clerk/nextjs";
 import { useCart } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
 import { totalsFor, unitPrice, waOrderURL } from "@/lib/whatsapp";
 import { bandForCp, SHIPPING_BAND_LABEL, BATU_ZONE_OPTIONS, type BatuZone } from "@/lib/shipping";
+import { useWholesaleCtx, useRepricedItems } from "@/lib/wholesale-prices";
 
 export default function CarritoPage() {
-  const items = useCart((s) => s.items);
+  const rawItems = useCart((s) => s.items);
   const setQty = useCart((s) => s.setQty);
   const remove = useCart((s) => s.remove);
-  const { user } = useUser();
-  const role = user?.publicMetadata?.role as string | undefined;
-  const wholesale = role === "wholesale" || role === "admin";
+  const { ready, wholesale } = useWholesaleCtx();
+  // Reprecio mayorista fresco: evita mostrar $0 cuando el carrito se armo anonimo
+  // (snapshot con may:0) y luego se logueo como mayorista. Ver useRepricedItems.
+  const items = useRepricedItems(rawItems);
+  const pricePending = wholesale && !ready;
+  const money = (n: number) => (pricePending ? "—" : ars(n));
   const [cp, setCp] = useState("");
   const [batuZone, setBatuZone] = useState<BatuZone | null>(null);
   const [shipMsg, setShipMsg] = useState(false);
@@ -123,7 +126,7 @@ export default function CarritoPage() {
                 <div style={{ textAlign: "right" }}>
                   {/* Cliente final ve el precio con IVA incluido; mayorista, neto */}
                   <strong>
-                    {ars(unitPrice(i, wholesale) * i.qty * (wholesale ? 1 : 1.21))}
+                    {money(unitPrice(i, wholesale) * i.qty * (wholesale ? 1 : 1.21))}
                   </strong>
                   {(() => {
                     const step = i.bulto > 0 ? i.bulto : 1;
@@ -163,22 +166,24 @@ export default function CarritoPage() {
             Resumen
           </h3>
           <p style={{ marginTop: "6px", fontSize: "12px", color: "var(--amber-deep)", fontWeight: 700 }}>
-            {wholesale
-              ? "Precios mayoristas aplicados (neto + IVA)"
-              : "Precios con IVA incluido"}
+            {pricePending
+              ? "Actualizando precios mayoristas…"
+              : wholesale
+                ? "Precios mayoristas aplicados (neto + IVA)"
+                : "Precios con IVA incluido"}
           </p>
           <dl style={{ marginTop: "16px", display: "grid", gap: "8px", fontSize: "14px" }}>
-            <Row label="Subtotal (neto)" value={ars(t.sub)} />
+            <Row label="Subtotal (neto)" value={money(t.sub)} />
             {t.rate > 0 && (
-              <Row label={`Descuento volumen (${t.rate * 100}%)`} value={`-${ars(t.disc)}`} muted />
+              <Row label={`Descuento volumen (${t.rate * 100}%)`} value={`-${money(t.disc)}`} muted />
             )}
-            <Row label="IVA 21%" value={ars(t.iva)} muted />
+            <Row label="IVA 21%" value={money(t.iva)} muted />
             {t.finalConsumer ? (
               <Row label="Envío estimado" value={ars(t.shipping)} muted />
             ) : (
               <Row label="Envío" value="a cotizar" muted />
             )}
-            <Row label="Total estimado" value={ars(t.total)} strong />
+            <Row label="Total estimado" value={money(t.total)} strong />
           </dl>
           {t.finalConsumer && (
             <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--muted)" }}>

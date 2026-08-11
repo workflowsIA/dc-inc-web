@@ -19,6 +19,7 @@ import {
   getFeaturedProducts,
   getProducts,
   getProductCount,
+  getCategories,
   getClients,
   getCombos,
   getHero,
@@ -117,11 +118,23 @@ export default async function Home() {
   // (incluida "Cajas y estuches") mientras tengan al menos un producto.
   const catCounts: Record<string, number> = {};
   for (const p of allLegacy) if (p.cat) catCounts[p.cat] = (catCounts[p.cat] ?? 0) + 1;
-  let cats: { name: string; count: string; img?: string }[] = Object.keys(CAT_IMG)
+  // Imagenes de categoria editables desde Sanity (campo `image` del doc `category`).
+  // Si la categoria tiene imagen cargada, se usa; si no, cae al packshot local
+  // (CAT_IMG). Asi Marce puede cambiar el icono de cada rubro desde el Studio.
+  let catImageByName: Record<string, string> = {};
+  try {
+    const categories = await getCategories();
+    catImageByName = Object.fromEntries(
+      categories.filter((c) => c.image).map((c) => [c.name, c.image as string]),
+    );
+  } catch (e) {
+    console.error("[home] categories fetch failed:", (e as Error).message);
+  }
+  let cats: { name: string; count: string; img?: string; imageUrl?: string }[] = Object.keys(CAT_IMG)
     .map((name) => ({ name, n: catCounts[name] ?? 0 }))
     .filter((c) => c.n > 0)
     .sort((a, b) => b.n - a.n)
-    .map((c) => ({ name: c.name, count: String(c.n), img: CAT_IMG[c.name] }));
+    .map((c) => ({ name: c.name, count: String(c.n), img: CAT_IMG[c.name], imageUrl: catImageByName[c.name] }));
   if (cats.length === 0) cats = categoryDataFallback;
 
   // Clientes de la vidriera "confían en nosotros" (schema `client` en Sanity).
@@ -271,10 +284,11 @@ export default async function Home() {
               >
                 <Image
                   className="ph"
-                  src={`/img/${c.img || "cat-generic"}.png`}
+                  src={c.imageUrl || `/img/${c.img || "cat-generic"}.png`}
                   alt={c.name}
                   width={300}
                   height={300}
+                  unoptimized={!!c.imageUrl}
                 />
                 <div className={s.lab}>
                   <b>{c.name}</b>
