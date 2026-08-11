@@ -95,19 +95,30 @@ function WholesaleFoot({
   // que /api/orders reprecie server-side por presentacion). El precio por unidad
   // de cada presentacion sale del mapa mayorista fresco (entry.pres, por unidades
   // por bulto); si falta, cae al precio unitario base (may).
+  const pp = product.presentationPricing ?? [];
+  const parsePresUnits = (s: string): number => {
+    const m = s.replace(/\./g, "").match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : 1;
+  };
   const byUnits = new Map<number, PresOpt>();
   byUnits.set(1, { units: 1, label: "Unidad", perUnit: may });
-  const addOpt = (n: number, sku?: string) => {
+  // Todas las presentaciones reales del producto (misma fuente que la ficha y la
+  // linea de specs). Para cada una buscamos su fila de precio (presentationPricing,
+  // por unidades) para el SKU (reprecio server-side) y el precio mayorista por
+  // unidad (entry.pres); si no hay fila, cae al unitario base.
+  const presUnits = (product.presentations ?? []).length
+    ? (product.presentations ?? []).map(parsePresUnits)
+    : [product.bulto, product.pallet];
+  for (const n of presUnits) {
     if (n > 1 && !byUnits.has(n)) {
-      byUnits.set(n, { units: n, label: presLabel(n, product.pallet), perUnit: entry.pres?.[String(n)] ?? may, sku });
+      const match = pp.find((p) => p.unitsPerBulk === n);
+      byUnits.set(n, {
+        units: n,
+        label: presLabel(n, product.pallet),
+        perUnit: entry.pres?.[String(n)] ?? may,
+        sku: match?.sku,
+      });
     }
-  };
-  const pp = product.presentationPricing ?? [];
-  if (pp.length) {
-    for (const p of pp) if (p.unitsPerBulk) addOpt(p.unitsPerBulk, p.sku);
-  } else {
-    if (product.bulto > 1) addOpt(product.bulto);
-    if (product.pallet > 1) addOpt(product.pallet);
   }
   const opts = [...byUnits.values()].sort((a, b) => a.units - b.units);
   const minPerUnit = Math.min(...opts.map((o) => o.perUnit));

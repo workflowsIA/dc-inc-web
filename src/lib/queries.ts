@@ -142,7 +142,7 @@ export const featuredProductsQuery = groq`
     _id, sku, name, "slug": slug.current,
     pricePublic, priceWholesale, pricePublicOld,
     isOnSale, salePrice, saleStartDate, saleEndDate,
-    unitsPerBulk, unitsPerPallet, presentationPricing[]{ sku, label, unitsPerBulk }, deliveryTime, stockLevel, badges,
+    presentations, unitsPerBulk, unitsPerPallet, presentationPricing[]{ sku, label, unitsPerBulk }, deliveryTime, stockLevel, badges,
     "image": coalesce(images[0].asset->url, legacyImageUrl),
     "category": category->name
   }
