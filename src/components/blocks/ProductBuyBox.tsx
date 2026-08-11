@@ -61,11 +61,13 @@ export default function ProductBuyBox({
   const bultoPres = (presentations ?? []).map(parsePres).sort((a, b) => a.units - b.units);
   // Minorista (cliente final) puede comprar de a UNA unidad: anteponemos la opción
   // Individual (units:1) y queda como default. Mayorista compra solo por bulto cerrado.
-  const presList: Pres[] = finalConsumer
-    ? [{ label: "Individual", units: 1 }, ...bultoPres]
-    : bultoPres;
+  // Unidad disponible para todos: DC habilitó comprar por unidad también al por
+  // mayor. Antes el mayorista solo veía bultos cerrados (sin "Individual").
+  const presList: Pres[] = [{ label: "Individual", units: 1 }, ...bultoPres];
   const hasPres = presList.length > 0;
-  const [idx, setIdx] = useState(0);
+  // Mayorista abre en el primer bulto (compra típica); minorista, en Individual.
+  const firstBultoIdx = presList.findIndex((p) => p.units > 1);
+  const [idx, setIdx] = useState(wholesale && firstBultoIdx > 0 ? firstBultoIdx : 0);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
 

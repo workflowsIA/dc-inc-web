@@ -142,7 +142,7 @@ function WholesaleFoot({
         />
       </div>
       {opts.length > 1 && (
-        <div style={{ position: "relative", zIndex: 2, marginTop: "8px" }}>
+        <div className="pcard-pres" style={{ position: "relative", zIndex: 2, marginTop: "8px" }}>
           <div className="chips">
             {opts.map((o, i) => (
               <button

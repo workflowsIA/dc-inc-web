@@ -292,6 +292,9 @@ p{ margin:0; }
 .chip-x{ display:inline-flex; color:var(--muted); }
 .chip.on .chip-x{ color:rgba(255,255,255,.7); }
 .chip svg{ width:13px; height:13px; }
+/* Chips de presentación en la card mayorista: más chicos que los del catálogo. */
+.pcard-pres .chips{ gap:6px; }
+.pcard-pres .chip{ padding:4px 9px; font-size:11.5px; gap:5px; }
 
 /* ---------- forms ---------- */
 /* Red de seguridad responsive: un control de formulario nunca puede forzar
