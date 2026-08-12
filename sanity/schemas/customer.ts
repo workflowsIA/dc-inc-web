@@ -30,7 +30,8 @@ export default defineType({
         "Cambialo para aprobar/rechazar. 'Mayorista' habilita precios mayoristas en la web (actualiza Clerk solo).",
       options: {
         list: [
-          { title: "En revisión", value: "en_revision" },
+          { title: "Cliente final", value: "cliente_final" },
+          { title: "En revisión (pidió alta mayorista)", value: "en_revision" },
           { title: "Mayorista (aprobado)", value: "mayorista" },
           { title: "Rechazado", value: "rechazado" },
           { title: "Visitante", value: "visitante" },
@@ -79,6 +80,7 @@ export default defineType({
     select: { empresa: "empresa", nombre: "nombre", email: "email", estado: "estado" },
     prepare({ empresa, nombre, email, estado }) {
       const ESTADO: Record<string, string> = {
+        cliente_final: "Cliente final",
         en_revision: "En revisión",
         mayorista: "Mayorista",
         rechazado: "Rechazado",

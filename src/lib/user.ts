@@ -1,6 +1,8 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 
-export type UserRole = "visitor" | "pending" | "wholesale" | "admin";
+// "customer" = cliente final normal (registro sin pedir alta mayorista).
+// "pending" = pidió alta mayorista y está EN REVISIÓN (igual compra como final).
+export type UserRole = "visitor" | "customer" | "pending" | "wholesale" | "admin";
 
 /** Devuelve el role del usuario actual. visitor = no logueado. */
 export async function getUserRole(): Promise<UserRole> {
@@ -15,7 +17,9 @@ export async function getUserRole(): Promise<UserRole> {
   //    siga mostrando precios cliente final tras aprobar un mayorista).
   const user = await currentUser();
   const pubRole = (user?.publicMetadata as { role?: UserRole } | undefined)?.role;
-  return pubRole ?? "pending";
+  // Un usuario logueado SIN rol explícito es un cliente final normal, no un
+  // pendiente de aprobación. "pending" queda solo para quien pidió alta mayorista.
+  return pubRole ?? "customer";
 }
 
 /** True si el usuario es mayorista aprobado (ve precio wholesale). */

@@ -46,7 +46,9 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       "",
     telefono: md.telefono ?? user?.primaryPhoneNumber?.phoneNumber ?? "",
     cp: "",
-    batuZone: null,
+    // Default a Batu Zona 1 (CABA, la más barata) en vez de caer a Andreani AMBA
+    // ($23k). El cliente del interior cambia a "Al interior / uso CP".
+    batuZone: 1,
     notas: "",
   });
 
@@ -102,6 +104,11 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   // simulada, que hace de stand-in de la pasarela externa (futuro Nave).
   const buyNow = async () => {
     if (requireLogin()) return;
+    const invalid = validateCheckout(info);
+    if (invalid) {
+      setBuyError(invalid);
+      return;
+    }
     setBuyError(null);
     setBuying(true);
     try {
@@ -135,18 +142,13 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   // la página de Nave clavada — visto en producción 22-jul).
   const payWithNave = async () => {
     if (requireLogin()) return;
+    const invalid = validateCheckout(info);
+    if (invalid) {
+      setNaveError(invalid);
+      return;
+    }
     setNaveError(null);
     setPayingNave(true);
-    // Abrimos la pestaña YA (gesto del usuario) para que el popup blocker no
-    // la mate; le seteamos la URL cuando el server nos la da.
-    const naveTab = typeof window !== "undefined" ? window.open("", "_blank") : null;
-    const closeTab = () => {
-      try {
-        naveTab?.close();
-      } catch {
-        /* noop */
-      }
-    };
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -158,13 +160,11 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
         const skus = Array.isArray(data.skus) ? data.skus.join(", ") : "";
         setNaveError(`Hay productos sin stock${skus ? `: ${skus}` : ""}. Quitalos del carrito para continuar.`);
         setPayingNave(false);
-        closeTab();
         return;
       }
       if (!res.ok || !data?.ok || !data.id) {
         setNaveError("No pudimos generar el pedido. Probá de nuevo o cerralo por WhatsApp.");
         setPayingNave(false);
-        closeTab();
         return;
       }
       const navRes = await fetch("/api/nave/checkout", {
@@ -176,27 +176,18 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       if (!navRes.ok || !navData?.ok || !navData.checkoutUrl) {
         setNaveError("No pudimos iniciar el pago. Probá de nuevo o cerralo por WhatsApp.");
         setPayingNave(false);
-        closeTab();
         return;
       }
       const checkoutUrl = navData.checkoutUrl as string;
-      const orderNumber = (data.orderNumber as string | undefined) ?? "";
-      if (naveTab && !naveTab.closed) {
-        // Pestaña nueva → Nave; esta pestaña → "Confirmando tu pago…" (polling).
-        naveTab.location.href = checkoutUrl;
-        // Guardamos la referencia para que /checkout/gracias pueda CERRAR la
-        // pestaña de Nave cuando el pago confirme (navegación SPA: el contexto
-        // JS sobrevive al router.push).
-        (window as Window & { __naveTab?: Window | null }).__naveTab = naveTab;
-        router.push(`/checkout/gracias?order=${encodeURIComponent(orderNumber)}&via=nave`);
-      } else {
-        // Popup bloqueado: caemos al flujo viejo en la misma pestaña.
-        window.location.href = checkoutUrl;
-      }
+      // UN SOLO TAB: redirigimos ESTA pestaña a Nave. Al terminar, Nave vuelve
+      // solo por su callback_url a /checkout/gracias?via=nave (lo setea
+      // /api/nave/checkout), que concilia por polling; y el webhook confirma
+      // server-side aunque el retorno falle (caso QR desde el celu). Redirigir
+      // la misma pestaña no lo frena ningún bloqueador de popups.
+      window.location.assign(checkoutUrl);
     } catch {
       setNaveError("Hubo un problema de conexión. Probá de nuevo o cerralo por WhatsApp.");
       setPayingNave(false);
-      closeTab();
     }
   };
 
@@ -271,10 +262,10 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
                 : "Coordinamos el cierre, el pago y el envío por WhatsApp. No se cobra nada online."}
           </p>
           <div style={{ display: "grid", gap: "14px" }}>
-            <In label="Nombre" value={info.nombre} onChange={set("nombre")} />
+            <In label="Nombre" value={info.nombre} onChange={set("nombre")} required />
             <In label="Empresa" value={info.empresa} onChange={set("empresa")} />
-            <In label="Email" value={info.email} onChange={set("email")} />
-            <In label="Teléfono" value={info.telefono} onChange={set("telefono")} />
+            <In label="Email" value={info.email} onChange={set("email")} required type="email" />
+            <In label="Teléfono" value={info.telefono} onChange={set("telefono")} required type="tel" />
             <In label="Código postal (para estimar envío)" value={info.cp} onChange={set("cp")} />
             <label style={{ display: "grid", gap: "6px" }}>
               <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
@@ -418,21 +409,40 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   );
 }
 
+/** Valida los datos obligatorios del checkout antes de crear un pedido/pago. */
+function validateCheckout(info: CheckoutInfo): string | null {
+  if (!info.nombre?.trim()) return "Completá tu nombre para continuar.";
+  const email = (info.email ?? "").trim();
+  if (!email) return "Completá tu email para continuar.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Revisá el email: no parece válido.";
+  if (!info.telefono?.trim()) return "Completá tu teléfono para continuar.";
+  return null;
+}
+
 function In({
   label,
   value,
   onChange,
+  required,
+  type,
 }: {
   label: string;
   value?: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  required?: boolean;
+  type?: string;
 }) {
   return (
     <label style={{ display: "grid", gap: "6px" }}>
-      <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>{label}</span>
+      <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
+        {label}
+        {required ? <span style={{ color: "var(--amber-deep)" }}> *</span> : null}
+      </span>
       <input
         value={value}
         onChange={onChange}
+        type={type ?? "text"}
+        required={required}
         style={{
           width: "100%",
           padding: "10px 12px",

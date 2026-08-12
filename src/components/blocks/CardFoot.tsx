@@ -51,7 +51,10 @@ export default function CardFoot({ product }: { product: Product }) {
             sku: product.sku,
             pub: product.pub,
             may,
-            bulto: product.bulto,
+            // Minorista/cliente final: el "+" de la card agrega 1 UNIDAD, no un
+            // bulto. Si quiere una caja/pallet, lo elige en la ficha. bulto:1 →
+            // el carrito lo trata por unidad (sin snapping a múltiplos de bulto).
+            bulto: 1,
             pallet: product.pallet,
             imageUrl: product.imageUrl,
           }}

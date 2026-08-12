@@ -105,6 +105,9 @@ export default defineType({
         list: [
           { title: "No pagado", value: "no_pagado" },
           { title: "Pagado", value: "pagado" },
+          // "Expirado": pedido que inició pago y nunca lo terminó; lo marca la
+          // barredora /api/orders/expire-pending tras > EXPIRE_PENDING_HOURS.
+          { title: "Expirado", value: "expirado" },
         ],
         layout: "radio",
       },
@@ -192,8 +195,10 @@ export default defineType({
         ? new Date(createdAt).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })
         : "";
       const totalLabel = typeof total === "number" ? `$${total.toLocaleString("es-AR")}` : "";
+      const pagoLabel =
+        paymentStatus === "pagado" ? "Pagado" : paymentStatus === "expirado" ? "Expirado" : "No pagado";
       const estado = [
-        paymentStatus === "pagado" ? "Pagado" : "No pagado",
+        pagoLabel,
         fulfillmentStatus === "enviado" ? "Enviado" : fulfillmentStatus === "procesado" ? "Procesado" : "No procesado",
       ].join(" · ");
       return {

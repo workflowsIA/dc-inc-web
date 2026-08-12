@@ -6,12 +6,18 @@
  * (/api/clerk/webhook) y por el backfill (scripts/backfill-customers.ts).
  *
  * Mapeo role(Clerk) ↔ estado(Sanity):
- *   pending → en_revision · wholesale → mayorista · visitor → visitante
- *   admin → admin · rejected → rechazado
+ *   customer → cliente_final · pending → en_revision · wholesale → mayorista
+ *   visitor → visitante · admin → admin · rejected → rechazado
  */
 import { sanityWriteClient } from "./sanity";
 
-export type Estado = "en_revision" | "mayorista" | "rechazado" | "visitante" | "admin";
+export type Estado =
+  | "cliente_final"
+  | "en_revision"
+  | "mayorista"
+  | "rechazado"
+  | "visitante"
+  | "admin";
 
 export function roleToEstado(role?: string): Estado {
   switch (role) {
@@ -23,9 +29,14 @@ export function roleToEstado(role?: string): Estado {
       return "visitante";
     case "rejected":
       return "rechazado";
+    case "customer":
+      return "cliente_final";
     case "pending":
-    default:
       return "en_revision";
+    default:
+      // Sin rol conocido = cliente final normal (NO "en revisión": eso queda
+      // solo para quien pidió alta mayorista, ver customerFieldsFromWebhook).
+      return "cliente_final";
   }
 }
 
@@ -38,9 +49,12 @@ export function estadoToRole(estado?: string): string {
     case "rechazado":
     case "visitante":
       return "visitor";
+    case "cliente_final":
+      return "customer";
     case "en_revision":
-    default:
       return "pending";
+    default:
+      return "customer";
   }
 }
 
@@ -120,6 +134,8 @@ export interface ClerkWebhookUser {
 export function customerFieldsFromWebhook(u: ClerkWebhookUser): CustomerFields {
   const md = (u.unsafe_metadata ?? {}) as Record<string, string>;
   const role = (u.public_metadata as { role?: string } | undefined)?.role;
+  // ¿Pidió alta mayorista? Se detecta por haber completado empresa o CUIT.
+  const hasCompanyData = !!(md.empresa || md.cuit);
   const primaryEmail =
     u.email_addresses?.find((e) => e.id === u.primary_email_address_id)?.email_address ??
     u.email_addresses?.[0]?.email_address;
@@ -130,7 +146,10 @@ export function customerFieldsFromWebhook(u: ClerkWebhookUser): CustomerFields {
     email: primaryEmail ?? "",
     cuit: md.cuit ?? "",
     telefono: md.telefono ?? "",
-    estado: roleToEstado(role),
+    // Si ya tiene rol asignado (aprobado/rechazado), lo respetamos. Si es un
+    // registro sin rol: "en revisión" SOLO si pidió alta mayorista (dio empresa/
+    // CUIT); de lo contrario es un cliente final normal.
+    estado: role ? roleToEstado(role) : hasCompanyData ? "en_revision" : "cliente_final",
     registeredAt: u.created_at ? new Date(u.created_at).toISOString() : undefined,
   };
 }

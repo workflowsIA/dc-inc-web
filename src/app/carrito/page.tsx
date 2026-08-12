@@ -18,7 +18,9 @@ export default function CarritoPage() {
   const pricePending = wholesale && !ready;
   const money = (n: number) => (pricePending ? "—" : ars(n));
   const [cp, setCp] = useState("");
-  const [batuZone, setBatuZone] = useState<BatuZone | null>(null);
+  // Default a Batu Zona 1 (CABA, la más barata) en vez de caer a Andreani AMBA
+  // ($23k). El cliente del interior cambia a "Al interior / uso CP".
+  const [batuZone, setBatuZone] = useState<BatuZone | null>(1);
   const [shipMsg, setShipMsg] = useState(false);
 
   const t = totalsFor(items, wholesale, cp, batuZone);
@@ -217,7 +219,7 @@ export default function CarritoPage() {
                 fontSize: "14px",
               }}
             >
-              <option value="">¿Enviás dentro de CABA/GBA? Elegí tu zona</option>
+              <option value="">Al interior / otro (uso el código postal)</option>
               {BATU_ZONE_OPTIONS.map((z) => (
                 <option key={z.zone} value={z.zone}>
                   {z.label}
