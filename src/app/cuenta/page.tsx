@@ -25,7 +25,7 @@ export default async function CuentaPage({
         </h1>
         <p className="lead" style={{ marginTop: "10px" }}>
           Los mayoristas aprobados ven precios diferenciados y pueden repetir
-          pedidos al toque.
+          pedidos enseguida.
         </p>
       </div>
 

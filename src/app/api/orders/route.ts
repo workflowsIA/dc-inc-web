@@ -188,7 +188,6 @@ export async function POST(req: Request) {
     // Totales (misma fórmula que totalsFor de whatsapp.ts).
     const rate = volumeRate(sub);
     const net = sub - sub * rate;
-    const iva = net * IVA_RATE;
     // Envío estimado server-side: Batu (zona × bultos) si el cliente eligió zona
     // CABA/GBA; si no, banda de CP (interior). Mayorista → 0.
     const shipping = shippingEstimate({
@@ -197,7 +196,8 @@ export async function POST(req: Request) {
       bultos: Math.max(1, totalBultos),
       wholesale,
     });
-    const total = net + iva + shipping;
+    const iva = (net + shipping) * IVA_RATE;
+    const total = net + shipping + iva;
 
     const doc = {
       _type: "order",

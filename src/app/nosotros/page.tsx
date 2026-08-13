@@ -69,12 +69,12 @@ export default async function NosotrosPage() {
         <p style={{ color: "var(--muted)", lineHeight: 1.7 }}>
           Y si necesitás poco, también. Fraccionamos por caja: no hace falta que
           te lleves un pallet entero para arrancar. Pedís lo que tu producción
-          necesita hoy y escalás cuando toque.
+          necesita hoy y escalás cuando lo necesites.
         </p>
       </div>
 
       <div className="grid grid-3" style={{ marginTop: "48px" }}>
-        <Value title="Confiable" body="Stock real y plazos que cumplimos: 24/48 h en insumos genéricos, 10 a 15 días hábiles en personalizados." />
+        <Value title="Confiable" body="Stock real y plazos que cumplimos: 24/48 h en insumos genéricos, 20 a 30 días hábiles en personalizados." />
         <Value title="Cercano" body="Un vendedor asignado que te responde por WhatsApp y te ayuda a armar el pedido." />
         <Value title="Completo" body="Del envase a la tapa, la caja y el decorado: resolvés todo con un solo proveedor." />
       </div>

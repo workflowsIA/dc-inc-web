@@ -14,7 +14,7 @@ const DIFERENCIALES = [
   },
   {
     title: "Factura A, B o E",
-    body: "Emitimos el comprobante que tu operación necesite. Trabajamos en blanco con todos los clientes.",
+    body: "Emitimos el comprobante que tu operación necesite.",
   },
   {
     title: "Stock real",
@@ -30,13 +30,13 @@ const DIFERENCIALES = [
   },
   {
     title: "Atención directa",
-    body: "Un vendedor asignado por WhatsApp que conoce tu operación y te responde rápido.",
+    body: "Un vendedor asignado por WhatsApp que está atento a lo que comprás, cómo lo recibís y cómo lo pagás.",
   },
 ];
 
 const PLAZOS = [
   { label: "Insumos genéricos", value: "24 – 48 hs" },
-  { label: "Personalizados", value: "10 – 15 días" },
+  { label: "Personalizados", value: "20 – 30 días" },
 ];
 
 const TRANSPORTES =

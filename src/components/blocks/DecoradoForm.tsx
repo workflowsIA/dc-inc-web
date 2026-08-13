@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { WA_NUMBER } from "@/lib/whatsapp";
 
-const PRODUCTOS = ["Botella", "Lata", "Copa", "Vaso / pinta", "Botellón", "Otro"];
+const PRODUCTOS = ["Botella", "Caja para distribución", "Copa", "Vaso / pinta", "Botellón", "Otro"];
 const TECNICAS = [
   "Serigrafía 1 color",
   "Serigrafía 2 colores",

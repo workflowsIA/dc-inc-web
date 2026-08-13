@@ -18,15 +18,15 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "¿Qué tipo de factura emiten?",
-    a: "Emitimos factura A, B o E según tu condición fiscal y tu operación. Trabajamos en blanco con todos los clientes.",
+    a: "Emitimos factura A, B o E según tu condición fiscal y tu operación.",
   },
   {
     q: "¿Hacen decorado o serigrafía?",
-    a: "Sí, tenemos servicio de decorado propio: serigrafía (1 color, 2 colores o full color), calcos y grabado. Coordinamos el arte, te enviamos una muestra y producimos. El plazo típico de decorado es de alrededor de un mes.",
+    a: "Sí, tenemos servicio de decorado propio: serigrafía (1 color, 2 colores o full color), calcos y grabado. Coordinamos el arte, te enviamos una muestra y producimos. El plazo típico de decorado es de 20 a 30 días hábiles.",
   },
   {
     q: "¿Cuáles son los plazos de entrega?",
-    a: "Los envases en stock se despachan en 24 a 48 hs. Los pedidos con decorado tardan alrededor de un mes. Al confirmar el pedido coordinamos la fecha exacta por WhatsApp.",
+    a: "Los envases en stock se despachan en 24 a 48 hs. Los pedidos con decorado tardan de 20 a 30 días hábiles. Al confirmar el pedido coordinamos la fecha exacta por WhatsApp.",
   },
   {
     q: "¿Cómo son los envíos?",
@@ -34,7 +34,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "¿Qué formas de pago aceptan?",
-    a: "Coordinamos el pago por WhatsApp junto con la confirmación del pedido. Por ahora el cierre de la compra es asistido (no hay pago online en el sitio).",
+    a: "Aceptamos tarjeta de crédito, cheques electrónicos, transferencia, depósito y efectivo. El pago se coordina por WhatsApp al confirmar el pedido.",
   },
   {
     q: "¿Cómo me registro como mayorista?",
@@ -107,7 +107,7 @@ export default function FaqPage() {
             ¿No encontraste tu respuesta?
           </h3>
           <p style={{ color: "var(--muted)", fontSize: "14px" }}>
-            Escribinos y te respondemos al toque.
+            Escribinos y te respondemos enseguida.
           </p>
         </div>
         <a

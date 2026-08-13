@@ -54,12 +54,13 @@ export function totalsFor(
   const rate = volumeRate(sub);
   const disc = sub * rate;
   const net = sub - disc;
-  const iva = net * 0.21;
   // Cliente final: envío estimado. Batu (zona × bultos) si eligió zona CABA/GBA;
   // si no, banda de CP (interior). Mayorista: "a cotizar", no se suma.
   const finalConsumer = !wholesale;
   const shipping = shippingEstimate({ cp, batuZone, bultos: totalBultos(items), wholesale });
-  const total = net + iva + shipping;
+  // IVA 21% sobre productos + envío (el flete también tributa IVA).
+  const iva = (net + shipping) * 0.21;
+  const total = net + shipping + iva;
   return {
     sub,
     rate,

@@ -121,7 +121,7 @@ export default function PersonalizaPage() {
           ))}
         </div>
         <p style={{ marginTop: "16px", fontSize: "14px", color: "var(--muted)" }}>
-          Plazo típico de un trabajo con decorado: alrededor de un mes desde la
+          Plazo típico de un trabajo con decorado: de 20 a 30 días hábiles desde la
           aprobación del arte.
         </p>
       </div>
