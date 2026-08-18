@@ -9,6 +9,7 @@ import order from "./order";
 import hero from "./hero";
 import blogPost from "./blogPost";
 import lead from "./lead";
+import testimonial from "./testimonial";
 
 export const schemaTypes = [
   product,
@@ -22,4 +23,5 @@ export const schemaTypes = [
   hero,
   blogPost,
   lead,
+  testimonial,
 ];

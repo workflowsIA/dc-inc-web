@@ -21,6 +21,7 @@ import {
   getProductCount,
   getCategories,
   getClients,
+  getTestimonials,
   getCombos,
   getHero,
   toLegacyProduct,
@@ -84,12 +85,13 @@ const diffs = [
 ];
 
 /**
- * Testimonios de clientes (texto). Estáticos: pasados por Marce el 17-ago-2026.
- * Livianamente editados para lectura web. Si más adelante Marce quiere
- * autogestionarlos, se migran a un schema `testimonial` en Sanity (mismo
- * patrón que `client` / `combo`).
+ * Testimonios de FALLBACK. La home lee los testimonios de Sanity (schema
+ * `testimonial`, editable por Marce desde el Studio → Contenido del sitio →
+ * Testimonios de clientes). Estos 5 solo se usan si Sanity no devuelve ninguno
+ * (o si la lectura falla), para que la sección nunca quede vacía. Textos
+ * pasados por Marce el 17-ago-2026, livianamente editados para lectura web.
  */
-const testimonials = [
+const testimonialsFallback = [
   {
     quote:
       "Trabajamos con DC Inc desde hace varios años y siempre recibimos una atención excelente. Destacamos el compromiso del equipo, la calidad de los productos y el cumplimiento en los tiempos de entrega. Es un proveedor confiable, que da respuestas rápidas y nos acompaña con soluciones cuando las necesitamos.",
@@ -183,6 +185,18 @@ export default async function Home() {
     clients = await getClients();
   } catch (e) {
     console.error("[home] clients fetch failed:", (e as Error).message);
+  }
+
+  // Testimonios: se leen de Sanity (editables desde el Studio). Si no hay
+  // ninguno cargado o la lectura falla, se cae a testimonialsFallback para que
+  // la sección nunca quede vacía.
+  let testimonials: { quote: string; name: string; location?: string }[] =
+    testimonialsFallback;
+  try {
+    const t = await getTestimonials();
+    if (t.length > 0) testimonials = t;
+  } catch (e) {
+    console.error("[home] testimonials fetch failed:", (e as Error).message);
   }
 
   // Combos activos desde Sanity. Si no hay (o falla), la sección se oculta.

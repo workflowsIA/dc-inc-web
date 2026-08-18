@@ -193,6 +193,14 @@ export const clientsQuery = groq`
   }
 `;
 
+/** Testimonios de clientes (home). Solo los activos, ordenados por `order`
+ *  y después por nombre. */
+export const testimonialsQuery = groq`
+  *[_type == "testimonial" && active == true] | order(order asc, name asc) {
+    _id, quote, name, location
+  }
+`;
+
 /** Artículos del blog (index) — ordenados por fecha de publicación. */
 export const blogPostsQuery = groq`
   *[_type == "blogPost" && defined(slug.current)] | order(publishedAt desc) {
@@ -305,6 +313,13 @@ export interface SanityClient {
   name: string;
   website?: string;
   logo?: string;
+}
+
+export interface SanityTestimonial {
+  _id: string;
+  quote: string;
+  name: string;
+  location?: string;
 }
 
 /** Hero/banner editable desde el Studio (ver `heroQuery` + schema `hero`).

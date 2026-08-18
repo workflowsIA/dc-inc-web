@@ -13,6 +13,7 @@ import {
   BillIcon,
   ClockIcon,
   CheckmarkCircleIcon,
+  CommentIcon,
 } from "@sanity/icons";
 
 /**
@@ -245,6 +246,7 @@ export const structure: StructureResolver = (S) =>
                 ),
               S.documentTypeListItem("blogPost").title("Blog").icon(DocumentsIcon),
               S.documentTypeListItem("client").title("Marcas con las que trabajamos").icon(StarIcon),
+              S.documentTypeListItem("testimonial").title("Testimonios de clientes").icon(CommentIcon),
             ]),
         ),
     ]);

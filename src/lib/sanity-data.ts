@@ -16,6 +16,7 @@ import {
   comboSlugsQuery,
   brandsQuery,
   clientsQuery,
+  testimonialsQuery,
   blogPostsQuery,
   blogPostBySlugQuery,
   blogPostSlugsQuery,
@@ -25,6 +26,7 @@ import {
   type SanityCombo,
   type SanityBrand,
   type SanityClient,
+  type SanityTestimonial,
   type SanityBlogPost,
   type SanityHero,
 } from "./queries";
@@ -125,6 +127,13 @@ export async function getBrands(): Promise<SanityBrand[]> {
  *  arme la sección — debe leer CLIENTES (no marcas de producto). */
 export async function getClients(): Promise<SanityClient[]> {
   return await sanityClient.fetch(clientsQuery, {}, { next: { revalidate: 300 } });
+}
+
+/** Testimonios de clientes para la home (schema `testimonial`, editable desde
+ *  el Studio). Devuelve solo los activos; si no hay ninguno cargado, la home
+ *  cae en su lista de fallback. */
+export async function getTestimonials(): Promise<SanityTestimonial[]> {
+  return await sanityClient.fetch(testimonialsQuery, {}, { next: { revalidate: 300 } });
 }
 
 /** Artículos del blog (index). */
