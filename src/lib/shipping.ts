@@ -69,10 +69,16 @@ export function bandForCp(cp: string | undefined | null): ShippingBand | null {
  *  - Cliente final → tarifa de la banda del CP.
  *  - CP desconocido/vacío → AMBA (la más barata) como default provisorio.
  */
-export function shippingForCp(cp: string | undefined | null, wholesale = false): number {
+export function shippingForCp(
+  cp: string | undefined | null,
+  wholesale = false,
+  cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
+): number {
   if (wholesale) return 0;
+  // Modo "cotizar": el interior no muestra tarifa estimada, va "a cotizar".
+  if (cfg.andreaniMode === "cotizar") return 0;
   const band = bandForCp(cp);
-  return band ? SHIPPING_RATES[band] : SHIPPING_RATES.AMBA;
+  return band ? cfg.andreani[band] : cfg.andreani.AMBA;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -92,16 +98,47 @@ export const BATU_ZONE_OPTIONS: { zone: BatuZone; label: string }[] = [
 ];
 
 /** Tarifa PÚBLICO por zona: tramos de cantidad de bultos (hasta N → precio). */
-const BATU_RATES: Record<BatuZone, { maxBultos: number; price: number }[]> = {
+export const BATU_RATES: Record<BatuZone, { maxBultos: number; price: number }[]> = {
   1: [{ maxBultos: 2, price: 9900 }, { maxBultos: 4, price: 13200 }, { maxBultos: 7, price: 19800 }, { maxBultos: 10, price: 26400 }, { maxBultos: 15, price: 35200 }, { maxBultos: 20, price: 41800 }],
   2: [{ maxBultos: 2, price: 12100 }, { maxBultos: 4, price: 15400 }, { maxBultos: 7, price: 23100 }, { maxBultos: 10, price: 30800 }, { maxBultos: 15, price: 39600 }, { maxBultos: 20, price: 48400 }],
   3: [{ maxBultos: 2, price: 14300 }, { maxBultos: 4, price: 20900 }, { maxBultos: 7, price: 27500 }, { maxBultos: 10, price: 33000 }, { maxBultos: 15, price: 44000 }, { maxBultos: 20, price: 52800 }],
   4: [{ maxBultos: 2, price: 17600 }, { maxBultos: 4, price: 27500 }, { maxBultos: 7, price: 33000 }, { maxBultos: 10, price: 44000 }, { maxBultos: 15, price: 52800 }, { maxBultos: 20, price: 63800 }],
 };
 
+/* ─────────────────────────────────────────────────────────────
+ * CONFIG DE ENVÍOS EDITABLE (Sanity, singleton `shippingConfig`).
+ * Las tarifas de arriba (SHIPPING_RATES / BATU_RATES) son los DEFAULTS.
+ * Marce puede pisarlas desde el Studio; getShippingConfig() arma este
+ * objeto (con fallback por campo a los defaults). Todo el cálculo de
+ * envío toma un ShippingConfig, así el carrito, el checkout, el mensaje
+ * de WhatsApp y el pedido server-side leen SIEMPRE los mismos valores.
+ * ───────────────────────────────────────────────────────────── */
+
+export interface ShippingConfig {
+  /** Tramos de Batu por zona (CABA/GBA, envío propio). */
+  batu: Record<BatuZone, { maxBultos: number; price: number }[]>;
+  /** Tarifa de Andreani por banda (interior). */
+  andreani: Record<ShippingBand, number>;
+  /** "estimado" = el interior muestra la tarifa de banda; "cotizar" = el
+   *  interior va "a cotizar" (no se suma monto, se coordina por WhatsApp). */
+  andreaniMode: "estimado" | "cotizar";
+}
+
+/** Config por defecto = las tarifas hardcodeadas actuales. Es el fallback si
+ *  Sanity no tiene el documento o algún campo es inválido. */
+export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
+  batu: BATU_RATES,
+  andreani: SHIPPING_RATES,
+  andreaniMode: "estimado",
+};
+
 /** Precio Batu por zona + cantidad de bultos (usa el tramo cuyo tope ≥ bultos). */
-export function batuShipping(zone: BatuZone, bultos: number): number {
-  const rows = BATU_RATES[zone];
+export function batuShipping(
+  zone: BatuZone,
+  bultos: number,
+  cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
+): number {
+  const rows = cfg.batu[zone] ?? DEFAULT_SHIPPING_CONFIG.batu[zone];
   const b = Math.max(1, bultos);
   return (rows.find((r) => b <= r.maxBultos) ?? rows[rows.length - 1]).price;
 }
@@ -112,14 +149,17 @@ export function batuShipping(zone: BatuZone, bultos: number): number {
  *  - Si eligió zona Batu (CABA/GBA) → tarifa propia por zona × bultos.
  *  - Si no → banda de CP (interior / fallback).
  */
-export function shippingEstimate(opts: {
-  cp?: string | null;
-  batuZone?: BatuZone | null;
-  bultos?: number;
-  wholesale?: boolean;
-}): number {
+export function shippingEstimate(
+  opts: {
+    cp?: string | null;
+    batuZone?: BatuZone | null;
+    bultos?: number;
+    wholesale?: boolean;
+  },
+  cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
+): number {
   const { cp, batuZone, bultos = 1, wholesale = false } = opts;
   if (wholesale) return 0;
-  if (batuZone) return batuShipping(batuZone, bultos);
-  return shippingForCp(cp, wholesale);
+  if (batuZone) return batuShipping(batuZone, bultos, cfg);
+  return shippingForCp(cp, wholesale, cfg);
 }

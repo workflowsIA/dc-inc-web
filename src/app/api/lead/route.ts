@@ -25,6 +25,7 @@ const LeadSchema = z.object({
   tecnica: z.string().trim().min(1).max(120),
   marca: z.string().trim().max(120).optional(),
   comentarios: z.string().trim().max(2000).optional(),
+  logoUrl: z.string().trim().url().max(500).optional(),
   origen: z.string().trim().max(60).optional(),
 });
 
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
       marca: body.marca ?? "",
       comentarios: body.comentarios ?? "",
       origen: body.origen ?? "decorado-web",
+      ...(body.logoUrl ? { logoUrl: body.logoUrl } : {}),
     };
 
     const created = await sanityWriteClient.create(doc);

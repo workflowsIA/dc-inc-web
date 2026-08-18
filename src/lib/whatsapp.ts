@@ -1,6 +1,11 @@
 import type { CartItem } from "./cart-store";
 import { ars } from "./format";
-import { shippingEstimate, type BatuZone } from "./shipping";
+import {
+  shippingEstimate,
+  DEFAULT_SHIPPING_CONFIG,
+  type BatuZone,
+  type ShippingConfig,
+} from "./shipping";
 
 /** Numero de WhatsApp Business de DC Inc — del Wix actual. */
 export const WA_NUMBER = "5491161072310";
@@ -49,6 +54,7 @@ export function totalsFor(
   wholesale = false,
   cp?: string,
   batuZone?: BatuZone | null,
+  cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
 ): Totals {
   const sub = items.reduce((s, i) => s + unitPrice(i, wholesale) * i.qty, 0);
   const rate = volumeRate(sub);
@@ -57,7 +63,7 @@ export function totalsFor(
   // Cliente final: envío estimado. Batu (zona × bultos) si eligió zona CABA/GBA;
   // si no, banda de CP (interior). Mayorista: "a cotizar", no se suma.
   const finalConsumer = !wholesale;
-  const shipping = shippingEstimate({ cp, batuZone, bultos: totalBultos(items), wholesale });
+  const shipping = shippingEstimate({ cp, batuZone, bultos: totalBultos(items), wholesale }, cfg);
   // IVA 21% sobre productos + envío (el flete también tributa IVA).
   const iva = (net + shipping) * 0.21;
   const total = net + shipping + iva;
@@ -79,8 +85,14 @@ export function waSimpleURL(message?: string): string {
   return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(txt)}`;
 }
 
-function orderBody(items: CartItem[], wholesale: boolean, cp?: string, batuZone?: BatuZone | null): string {
-  const t = totalsFor(items, wholesale, cp, batuZone);
+function orderBody(
+  items: CartItem[],
+  wholesale: boolean,
+  cp?: string,
+  batuZone?: BatuZone | null,
+  cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
+): string {
+  const t = totalsFor(items, wholesale, cp, batuZone, cfg);
   let msg = "";
   for (const i of items) {
     const sub = unitPrice(i, wholesale) * i.qty;
@@ -109,10 +121,16 @@ function orderBody(items: CartItem[], wholesale: boolean, cp?: string, batuZone?
   return msg;
 }
 
-export function waOrderURL(items: CartItem[], wholesale = false, cp?: string, batuZone?: BatuZone | null): string {
+export function waOrderURL(
+  items: CartItem[],
+  wholesale = false,
+  cp?: string,
+  batuZone?: BatuZone | null,
+  cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
+): string {
   const msg =
     "Hola DC Inc! Quiero cotizar este pedido:\n\n" +
-    orderBody(items, wholesale, cp, batuZone) +
+    orderBody(items, wholesale, cp, batuZone, cfg) +
     "\n\n(Enviado desde el carrito web)";
   return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
 }
@@ -131,8 +149,9 @@ export function waCheckoutURL(
   items: CartItem[],
   wholesale: boolean,
   info: CheckoutInfo,
+  cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
 ): string {
-  let msg = "Hola DC Inc! Quiero confirmar este pedido:\n\n" + orderBody(items, wholesale, info.cp, info.batuZone);
+  let msg = "Hola DC Inc! Quiero confirmar este pedido:\n\n" + orderBody(items, wholesale, info.cp, info.batuZone, cfg);
   const datos: string[] = [];
   if (info.nombre) datos.push(`Nombre: ${info.nombre}`);
   if (info.empresa) datos.push(`Empresa: ${info.empresa}`);

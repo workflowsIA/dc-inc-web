@@ -5,6 +5,12 @@
  */
 import { sanityClient } from "./sanity";
 import {
+  DEFAULT_SHIPPING_CONFIG,
+  type ShippingConfig,
+  type ShippingBand,
+  type BatuZone,
+} from "./shipping";
+import {
   productsQuery,
   productBySlugQuery,
   productSlugsQuery,
@@ -17,6 +23,7 @@ import {
   brandsQuery,
   clientsQuery,
   testimonialsQuery,
+  shippingConfigQuery,
   blogPostsQuery,
   blogPostBySlugQuery,
   blogPostSlugsQuery,
@@ -27,6 +34,7 @@ import {
   type SanityBrand,
   type SanityClient,
   type SanityTestimonial,
+  type SanityShippingConfigDoc,
   type SanityBlogPost,
   type SanityHero,
 } from "./queries";
@@ -134,6 +142,54 @@ export async function getClients(): Promise<SanityClient[]> {
  *  cae en su lista de fallback. */
 export async function getTestimonials(): Promise<SanityTestimonial[]> {
   return await sanityClient.fetch(testimonialsQuery, {}, { next: { revalidate: 300 } });
+}
+
+/** Config de envíos resuelta: lee el singleton de Sanity y lo mapea a
+ *  ShippingConfig, cayendo al DEFAULT (tarifas hardcodeadas) por cada campo
+ *  faltante o inválido. Nunca tira: ante cualquier error devuelve el default. */
+export async function getShippingConfig(): Promise<ShippingConfig> {
+  try {
+    const doc = await sanityClient.fetch<SanityShippingConfigDoc | null>(
+      shippingConfigQuery,
+      {},
+      { next: { revalidate: 300 } },
+    );
+    if (!doc) return DEFAULT_SHIPPING_CONFIG;
+
+    const andreani = { ...DEFAULT_SHIPPING_CONFIG.andreani };
+    for (const b of doc.andreaniBands ?? []) {
+      if (
+        b &&
+        (b.band === "AMBA" || b.band === "B2" || b.band === "B3" || b.band === "B4") &&
+        typeof b.price === "number" &&
+        b.price >= 0
+      ) {
+        andreani[b.band as ShippingBand] = b.price;
+      }
+    }
+
+    const batu = {
+      1: [...DEFAULT_SHIPPING_CONFIG.batu[1]],
+      2: [...DEFAULT_SHIPPING_CONFIG.batu[2]],
+      3: [...DEFAULT_SHIPPING_CONFIG.batu[3]],
+      4: [...DEFAULT_SHIPPING_CONFIG.batu[4]],
+    } as ShippingConfig["batu"];
+    for (const z of doc.batuZones ?? []) {
+      const zone = z?.zone;
+      if ((zone === 1 || zone === 2 || zone === 3 || zone === 4) && Array.isArray(z.tramos)) {
+        const tramos = z.tramos
+          .filter((t) => t && typeof t.maxBultos === "number" && typeof t.price === "number")
+          .map((t) => ({ maxBultos: t.maxBultos as number, price: t.price as number }))
+          .sort((a, b) => a.maxBultos - b.maxBultos);
+        if (tramos.length) batu[zone as BatuZone] = tramos;
+      }
+    }
+
+    const andreaniMode = doc.andreaniMode === "cotizar" ? "cotizar" : "estimado";
+    return { batu, andreani, andreaniMode };
+  } catch {
+    return DEFAULT_SHIPPING_CONFIG;
+  }
 }
 
 /** Artículos del blog (index). */

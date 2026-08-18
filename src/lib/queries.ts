@@ -201,6 +201,16 @@ export const testimonialsQuery = groq`
   }
 `;
 
+/** Config de envíos (singleton _id "shipping-config"). Devuelve el doc crudo;
+ *  getShippingConfig() lo mapea a ShippingConfig con fallback a los defaults. */
+export const shippingConfigQuery = groq`
+  *[_type == "shippingConfig" && _id == "shipping-config"][0] {
+    andreaniMode,
+    andreaniBands[]{ band, price },
+    batuZones[]{ zone, tramos[]{ maxBultos, price } }
+  }
+`;
+
 /** Artículos del blog (index) — ordenados por fecha de publicación. */
 export const blogPostsQuery = groq`
   *[_type == "blogPost" && defined(slug.current)] | order(publishedAt desc) {
@@ -320,6 +330,14 @@ export interface SanityTestimonial {
   quote: string;
   name: string;
   location?: string;
+}
+
+/** Doc crudo del singleton de envíos (todos los campos opcionales — el getter
+ *  cae al default por campo). */
+export interface SanityShippingConfigDoc {
+  andreaniMode?: "estimado" | "cotizar";
+  andreaniBands?: { band?: string; price?: number }[];
+  batuZones?: { zone?: number; tramos?: { maxBultos?: number; price?: number }[] }[];
 }
 
 /** Hero/banner editable desde el Studio (ver `heroQuery` + schema `hero`).

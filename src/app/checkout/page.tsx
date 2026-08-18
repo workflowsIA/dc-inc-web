@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useCart } from "@/lib/cart-store";
@@ -8,7 +8,12 @@ import { useCart } from "@/lib/cart-store";
 type ClerkUser = NonNullable<ReturnType<typeof useUser>["user"]>;
 import { ars } from "@/lib/format";
 import { totalsFor, unitPrice, waCheckoutURL, type CheckoutInfo } from "@/lib/whatsapp";
-import { BATU_ZONE_OPTIONS, type BatuZone } from "@/lib/shipping";
+import {
+  BATU_ZONE_OPTIONS,
+  DEFAULT_SHIPPING_CONFIG,
+  type BatuZone,
+  type ShippingConfig,
+} from "@/lib/shipping";
 import { useWholesaleCtx, useRepricedItems } from "@/lib/wholesale-prices";
 
 export default function CheckoutPage() {
@@ -52,7 +57,24 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
     notas: "",
   });
 
-  const t = totalsFor(items, wholesale, info.cp, info.batuZone);
+  // Config de envíos (Sanity, editable por Marce). Default hardcodeado +
+  // refresh async, para que el total del checkout coincida con lo que cobra el
+  // server (que lee la misma config).
+  const [shipCfg, setShipCfg] = useState<ShippingConfig>(DEFAULT_SHIPPING_CONFIG);
+  useEffect(() => {
+    let ok = true;
+    fetch("/api/shipping-config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (ok && d) setShipCfg(d as ShippingConfig);
+      })
+      .catch(() => {});
+    return () => {
+      ok = false;
+    };
+  }, []);
+
+  const t = totalsFor(items, wholesale, info.cp, info.batuZone, shipCfg);
   const set = (k: keyof CheckoutInfo) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setInfo((s) => ({ ...s, [k]: e.target.value }));
 
@@ -389,7 +411,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
           <a
             className={`btn btn-wa ${onlinePayEnabled ? "" : "btn-lg"} btn-block`}
             style={{ marginTop: onlinePayEnabled ? "10px" : "20px" }}
-            href={waCheckoutURL(items, wholesale, info)}
+            href={waCheckoutURL(items, wholesale, info, shipCfg)}
             target="_blank"
             rel="noopener"
             onClick={persistOrder}

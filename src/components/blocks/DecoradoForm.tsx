@@ -18,9 +18,10 @@ export default function DecoradoForm() {
   const [tecnica, setTecnica] = useState(TECNICAS[0]);
   const [marca, setMarca] = useState("");
   const [comentarios, setComentarios] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
 
-  function buildUrl() {
+  function buildUrl(logoUrl?: string) {
     const lines = [
       "Hola DC Inc! Quiero cotizar un decorado:",
       "",
@@ -30,7 +31,8 @@ export default function DecoradoForm() {
     ];
     if (marca) lines.push(`• Marca / logo: ${marca}`);
     if (comentarios) lines.push(`• Comentarios: ${comentarios}`);
-    lines.push("", "Les paso el archivo del arte por acá.");
+    if (logoUrl) lines.push("", `Logo adjunto: ${logoUrl}`);
+    else lines.push("", "Les paso el archivo del arte por acá.");
     return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(lines.join("\n"))}`;
   }
 
@@ -38,8 +40,25 @@ export default function DecoradoForm() {
    *  El POST es "best effort": si falla, no bloqueamos al usuario. */
   async function handleSubmit() {
     if (sending) return;
-    const waUrl = buildUrl();
     setSending(true);
+    // Best effort: si hay archivo, lo subimos a Sanity y sumamos su URL al lead
+    // y al mensaje de WhatsApp. Si la subida falla, seguimos igual (el cliente
+    // puede mandar el arte por WhatsApp).
+    let logoUrl: string | undefined;
+    if (logoFile) {
+      try {
+        const fd = new FormData();
+        fd.append("file", logoFile);
+        const r = await fetch("/api/upload-logo", { method: "POST", body: fd });
+        if (r.ok) {
+          const j = await r.json();
+          if (j?.ok && j.url) logoUrl = j.url as string;
+        }
+      } catch (e) {
+        console.error("[DecoradoForm] no se pudo subir el logo:", e);
+      }
+    }
+    const waUrl = buildUrl(logoUrl);
     try {
       await fetch("/api/lead", {
         method: "POST",
@@ -50,6 +69,7 @@ export default function DecoradoForm() {
           tecnica,
           marca,
           comentarios,
+          logoUrl,
           origen: "decorado-web",
         }),
       });
@@ -82,6 +102,20 @@ export default function DecoradoForm() {
         />
         <Select label="Técnica de decoración" value={tecnica} onChange={setTecnica} options={TECNICAS} />
         <Field label="Marca / logo (opcional)" value={marca} onChange={setMarca} placeholder="Nombre de tu marca" />
+        <label style={{ display: "grid", gap: "6px" }}>
+          <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
+            Logo / arte (opcional)
+          </span>
+          <input
+            type="file"
+            accept="image/*,.pdf,.ai,.eps"
+            onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+            style={{ fontSize: "13px" }}
+          />
+          <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+            Podés adjuntar el logo acá (PNG, JPG, PDF o AI, hasta 10 MB) o mandarlo por WhatsApp.
+          </span>
+        </label>
         <label style={{ display: "grid", gap: "6px" }}>
           <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
             Comentarios (opcional)

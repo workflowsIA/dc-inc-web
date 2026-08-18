@@ -27,6 +27,7 @@ export default defineType({
     defineField({ name: "cantidad", title: "Cantidad estimada", type: "string" }),
     defineField({ name: "tecnica", title: "Técnica", type: "string" }),
     defineField({ name: "marca", title: "Marca / logo", type: "string" }),
+    defineField({ name: "logoUrl", title: "Logo / arte adjunto (URL)", type: "url" }),
     defineField({ name: "comentarios", title: "Comentarios", type: "text", rows: 3 }),
     defineField({
       name: "origen",

@@ -1,10 +1,17 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
 import { totalsFor, unitPrice, waOrderURL } from "@/lib/whatsapp";
-import { bandForCp, SHIPPING_BAND_LABEL, BATU_ZONE_OPTIONS, type BatuZone } from "@/lib/shipping";
+import {
+  bandForCp,
+  SHIPPING_BAND_LABEL,
+  BATU_ZONE_OPTIONS,
+  DEFAULT_SHIPPING_CONFIG,
+  type BatuZone,
+  type ShippingConfig,
+} from "@/lib/shipping";
 import { useWholesaleCtx, useRepricedItems } from "@/lib/wholesale-prices";
 
 export default function CarritoPage() {
@@ -22,8 +29,24 @@ export default function CarritoPage() {
   // ($23k). El cliente del interior cambia a "Al interior / uso CP".
   const [batuZone, setBatuZone] = useState<BatuZone | null>(1);
   const [shipMsg, setShipMsg] = useState(false);
+  // Config de envíos (Sanity, editable por Marce). Arranca en el default
+  // hardcodeado y se refresca con /api/shipping-config, así el monto que ve el
+  // cliente coincide con lo que cobra el server.
+  const [shipCfg, setShipCfg] = useState<ShippingConfig>(DEFAULT_SHIPPING_CONFIG);
+  useEffect(() => {
+    let ok = true;
+    fetch("/api/shipping-config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (ok && d) setShipCfg(d as ShippingConfig);
+      })
+      .catch(() => {});
+    return () => {
+      ok = false;
+    };
+  }, []);
 
-  const t = totalsFor(items, wholesale, cp, batuZone);
+  const t = totalsFor(items, wholesale, cp, batuZone, shipCfg);
 
   if (items.length === 0) {
     return (
@@ -284,7 +307,7 @@ export default function CarritoPage() {
           <a
             className="btn btn-wa btn-block"
             style={{ marginTop: "10px" }}
-            href={waOrderURL(items, wholesale, cp, batuZone)}
+            href={waOrderURL(items, wholesale, cp, batuZone, shipCfg)}
             target="_blank"
             rel="noopener"
           >

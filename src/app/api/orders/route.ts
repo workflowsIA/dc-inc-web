@@ -11,6 +11,7 @@ import {
 } from "@/lib/queries";
 import { IVA_RATE, isSaleActive } from "@/lib/pricing";
 import { shippingEstimate, type BatuZone } from "@/lib/shipping";
+import { getShippingConfig } from "@/lib/sanity-data";
 import { guard, LIMITS } from "@/lib/rate-limit";
 
 /**
@@ -190,12 +191,16 @@ export async function POST(req: Request) {
     const net = sub - sub * rate;
     // Envío estimado server-side: Batu (zona × bultos) si el cliente eligió zona
     // CABA/GBA; si no, banda de CP (interior). Mayorista → 0.
-    const shipping = shippingEstimate({
-      cp: body.cp,
-      batuZone: body.batuZone as BatuZone | undefined,
-      bultos: Math.max(1, totalBultos),
-      wholesale,
-    });
+    const shipCfg = await getShippingConfig();
+    const shipping = shippingEstimate(
+      {
+        cp: body.cp,
+        batuZone: body.batuZone as BatuZone | undefined,
+        bultos: Math.max(1, totalBultos),
+        wholesale,
+      },
+      shipCfg,
+    );
     const iva = (net + shipping) * IVA_RATE;
     const total = net + shipping + iva;
 

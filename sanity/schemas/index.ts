@@ -10,6 +10,7 @@ import hero from "./hero";
 import blogPost from "./blogPost";
 import lead from "./lead";
 import testimonial from "./testimonial";
+import shippingConfig from "./shippingConfig";
 
 export const schemaTypes = [
   product,
@@ -24,4 +25,5 @@ export const schemaTypes = [
   blogPost,
   lead,
   testimonial,
+  shippingConfig,
 ];

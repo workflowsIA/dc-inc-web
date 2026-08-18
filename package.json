@@ -18,6 +18,7 @@
     "sync:sheet": "tsx --env-file=.env.local scripts/sync-sheet-to-sanity.ts",
     "backfill:customers": "tsx --env-file=.env.local scripts/backfill-customers.ts",
     "seed:testimonials": "tsx --env-file=.env.local scripts/seed-testimonials.ts",
+    "seed:shipping": "tsx --env-file=.env.local scripts/seed-shipping-config.ts",
     "sku:propose": "tsx --env-file=.env.local scripts/propose-sku-fix.ts",
     "sku:apply": "tsx --env-file=.env.local scripts/apply-sku-fix.ts",
     "sku:dedup": "tsx --env-file=.env.local scripts/dedup-skus.ts",

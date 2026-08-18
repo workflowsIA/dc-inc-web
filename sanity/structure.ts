@@ -247,6 +247,16 @@ export const structure: StructureResolver = (S) =>
               S.documentTypeListItem("blogPost").title("Blog").icon(DocumentsIcon),
               S.documentTypeListItem("client").title("Marcas con las que trabajamos").icon(StarIcon),
               S.documentTypeListItem("testimonial").title("Testimonios de clientes").icon(CommentIcon),
+              S.listItem()
+                .id("shipping-config")
+                .title("Configuración de envíos")
+                .icon(PackageIcon)
+                .child(
+                  S.document()
+                    .schemaType("shippingConfig")
+                    .documentId("shipping-config")
+                    .title("Configuración de envíos"),
+                ),
             ]),
         ),
     ]);
