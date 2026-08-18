@@ -83,6 +83,45 @@ const diffs = [
   { Icon: Headphones, title: "Vendedor asignado", body: "Una persona que conoce tu cuenta y te responde por WhatsApp." },
 ];
 
+/**
+ * Testimonios de clientes (texto). Estáticos: pasados por Marce el 17-ago-2026.
+ * Livianamente editados para lectura web. Si más adelante Marce quiere
+ * autogestionarlos, se migran a un schema `testimonial` en Sanity (mismo
+ * patrón que `client` / `combo`).
+ */
+const testimonials = [
+  {
+    quote:
+      "Trabajamos con DC Inc desde hace varios años y siempre recibimos una atención excelente. Destacamos el compromiso del equipo, la calidad de los productos y el cumplimiento en los tiempos de entrega. Es un proveedor confiable, que da respuestas rápidas y nos acompaña con soluciones cuando las necesitamos.",
+    name: "Donata del Desierto",
+    location: "Rivadavia, San Juan",
+  },
+  {
+    quote:
+      "Un placer trabajar con ustedes: respuestas instantáneas de una persona física, algo que hoy es mucho pedir y mucho para apreciar. Entregas siempre a tiempo. ¡Un gusto!",
+    name: "Federal",
+    location: "CABA",
+  },
+  {
+    quote:
+      "Nuestra experiencia con DC siempre fue muy buena y cordial: cotizaciones rápidas, entregas y cumplimientos según lo acordado, excelente calidad y un chat que valoramos mucho. ¡Las respuestas son rápidas!",
+    name: "Eternal",
+    location: "Potrero de los Funes, San Luis",
+  },
+  {
+    quote:
+      "¡Todo 10 puntos! Ya vinieron varios a ofrecerme y nunca los cambié. Lo que más valoro es la atención personalizada, la agilidad, la respuesta y la calidad general de los productos.",
+    name: "Bichofeo",
+    location: "Resistencia, Chaco",
+  },
+  {
+    quote:
+      "Hace años trabajamos con DC y siempre tuvimos una muy buena experiencia. Valoramos especialmente la calidad de sus productos, el cumplimiento y la atención cercana con la que nos acompañan en cada proyecto. Es un proveedor en el que confiamos.",
+    name: "Heredero",
+    location: "Paraná, Entre Ríos",
+  },
+];
+
 export default async function Home() {
   const totalSkus = await getProductCount();
 
@@ -443,6 +482,75 @@ export default async function Home() {
                 <h4>{title}</h4>
                 <p>{body}</p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* TESTIMONIOS — voces de clientes reales (texto). Estáticos (ver
+          `testimonials` arriba). Se muestran siempre. */}
+      <section className="section">
+        <div className="wrap">
+          <div className="section-head">
+            <div>
+              <span className="eyebrow">Lo que dicen nuestros clientes</span>
+              <h2 className="h-lg" style={{ marginTop: "12px" }}>
+                Marcas que ya trabajan con nosotros
+              </h2>
+            </div>
+          </div>
+          <div className="grid grid-3">
+            {testimonials.map((t) => (
+              <figure
+                key={t.name}
+                style={{
+                  margin: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "16px",
+                  background: "var(--surface, #fff)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "16px",
+                  padding: "26px 24px",
+                }}
+              >
+                <span
+                  aria-hidden
+                  style={{
+                    fontFamily: "Georgia, serif",
+                    fontSize: "44px",
+                    lineHeight: 1,
+                    color: "var(--amber)",
+                    height: "22px",
+                  }}
+                >
+                  &ldquo;
+                </span>
+                <blockquote
+                  style={{
+                    margin: 0,
+                    flex: 1,
+                    fontSize: "15px",
+                    lineHeight: 1.6,
+                    color: "var(--text, #1a1a1a)",
+                  }}
+                >
+                  {t.quote}
+                </blockquote>
+                <figcaption
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    borderTop: "1px solid var(--line)",
+                    paddingTop: "14px",
+                  }}
+                >
+                  <b style={{ fontSize: "15px" }}>{t.name}</b>
+                  <span style={{ fontSize: "13px", opacity: 0.65 }}>
+                    {t.location}
+                  </span>
+                </figcaption>
+              </figure>
             ))}
           </div>
         </div>
