@@ -4,8 +4,8 @@
  * route handler de cron (src/app/api/sync-sheet/route.ts).
  *
  * Fuentes (ver vault: entregables/mapeo-sheet-sanity-junio-2026.md):
- *   PRECIOS → "Lista de precios productos - DC Inc 2026" / `Precios Insumos`
- *     CODIGO → sku · CON IVA - Web → pricePublic · SIN IVA - Presupuesto → priceWholesale · UNIDAD POR BULTO → unitsPerBulk
+ *   PRECIOS → "Lista de precios productos - DC Inc 2026" / `ProductosDC-Todos`
+ *     Sku → sku · Precio unitario (NETO) → pricePublic = priceWholesale · UxB → unitsPerBulk
  *   STOCK   → "Presupuestos | inventario | Actual" / `Productos_Inventario_DC`
  *     Sku → sku · Stock Venta (fila base) → stockQty · Minimos stock → stockMin
  *
@@ -24,7 +24,7 @@ const SHEET_PRECIOS_ID =
   process.env.SHEET_PRECIOS_ID ?? "1rQoHe-bx5x8tBcEWgGGwyWIQi3zfUvYM5b7wYiLjdf0";
 const SHEET_INVENTARIO_ID =
   process.env.SHEET_INVENTARIO_ID ?? "1IArDR92PfChhzAHHKsI-6KLY0xo63ERr7u07vNP_U8M";
-const TAB_PRECIOS = "Precios Insumos";
+const TAB_PRECIOS = "ProductosDC-Todos";
 const TAB_INVENTARIO = "Productos_Inventario_DC";
 
 export interface SyncSummary {
@@ -143,17 +143,20 @@ interface PriceRow {
 function buildPriceMap(rows: Record<string, unknown>[]): Map<string, PriceRow> {
   const map = new Map<string, PriceRow>();
   for (const r of rows) {
-    const sku = cleanSku(r["codigo"]);
+    const sku = cleanSku(r["sku"] ?? r["codigo"]);
     if (!sku) continue;
-    // Columnas nuevas (jul 2026) primero; las viejas quedan de fallback.
-    const pricePublic = toNum(r["con iva - web"] ?? r["precio unitario"]);
-    const priceWholesale = toNum(
-      r["sin iva - presupuesto"] ??
-        r["precio sin iva - (p/presupuestero)"] ??
-        r["precio sin iva"],
-    );
-    const unitsPerBulk = toNum(r["unidad por bulto"]);
-    const name = String(r["descripcion"] ?? "").trim();
+    // Fuente: pestana "ProductosDC-Todos". "Precio unitario" es el precio NETO
+    // (sin IVA) por unidad de cada presentacion (fila base + SKUs con sufijo
+    // P/CP/CG). Es la fuente unica: publico y mayorista salen del mismo neto
+    // (el cliente final muestra +IVA una sola vez; el mayorista muestra neto).
+    // Asi se arregla el IVA doble sin dividir nada. Ver dc-inc-web-iva-doble.
+    const precioUnit = toNum(r["precio unitario"]);
+    const pricePublic = precioUnit;
+    const priceWholesale = precioUnit;
+    const unitsPerBulk = toNum(r["uxb"] ?? r["unidad por bulto"]);
+    const name = String(
+      r["insumos: unidad, caja y pallet"] ?? r["descripcion"] ?? "",
+    ).trim();
     const isVariant = unitsPerBulk !== null && unitsPerBulk > 1;
     if (!map.has(sku) && pricePublic !== null) {
       map.set(sku, { pricePublic, priceWholesale, unitsPerBulk, name, isVariant });
@@ -202,9 +205,9 @@ function buildPresentationPricingMap(
   const map = new Map<string, PresentationPricing[]>();
   const seen = new Set<string>(); // dedupe por SKU de variante (primera gana)
   for (const r of rows) {
-    const sku = cleanSku(r["codigo"]);
+    const sku = cleanSku(r["sku"] ?? r["codigo"]);
     if (!sku) continue;
-    const unitsPerBulk = toNum(r["unidad por bulto"]);
+    const unitsPerBulk = toNum(r["uxb"] ?? r["unidad por bulto"]);
     // Solo filas variante (Caja/Pallet). La fila base (Unidad) trae UxB = 1.
     if (unitsPerBulk === null || unitsPerBulk <= 1) continue;
     const m = sku.match(PRES_SUFFIX_RE);
@@ -213,12 +216,11 @@ function buildPresentationPricingMap(
     if (!base) continue;
     if (seen.has(sku)) continue;
     seen.add(sku);
-    const pricePublic = toNum(r["con iva - web"] ?? r["precio unitario"]);
-    const priceWholesale = toNum(
-      r["sin iva - presupuesto"] ??
-        r["precio sin iva - (p/presupuestero)"] ??
-        r["precio sin iva"],
-    );
+    // ProductosDC-Todos: "Precio unitario" NETO por presentacion. Publico y
+    // mayorista = mismo neto (ver buildPriceMap). Ver dc-inc-web-iva-doble.
+    const precioUnit = toNum(r["precio unitario"]);
+    const pricePublic = precioUnit;
+    const priceWholesale = precioUnit;
     if (pricePublic === null && priceWholesale === null) continue; // fila sin precio útil
     const entry: PresentationPricing = {
       sku,
