@@ -1,4 +1,5 @@
 import { defineField, defineType } from "sanity";
+import { PriceWithIvaInput } from "./PriceWithIvaInput";
 import {
   PackageIcon,
   TagIcon,
@@ -118,21 +119,39 @@ export default defineType({
     }),
 
     // ---- PRECIOS Y OFERTA ----
+    // Los precios NO se editan acá: los escribe la sincronización desde la
+    // planilla de precios (ProductosDC-Todos) todos los días. Se muestran solo
+    // como información. Si un precio está mal, se corrige en la planilla.
     defineField({
       name: "pricePublic",
-      title: "Precio público (visitante)",
+      title: "Precio unitario NETO (sin IVA) — desde la planilla",
       type: "number",
       group: "precios",
-      description: "Precio normal que ve un visitante no logueado.",
+      readOnly: true,
+      description:
+        "Precio por unidad SIN IVA que trae la planilla de precios (columna «Precio unitario» de ProductosDC-Todos). No se edita acá: lo pisa la sincronización diaria. En la web, el cliente final lo ve con IVA incluido (× 1,21) y el mayorista lo ve neto + IVA.",
       validation: (r) => r.required().positive(),
     }),
     defineField({
       name: "priceWholesale",
-      title: "Precio mayorista",
+      title: "Precio mayorista NETO — desde la planilla (igual al unitario)",
       type: "number",
       group: "precios",
-      description: "Precio para clientes mayoristas logueados.",
+      readOnly: true,
+      hidden: ({ parent }) =>
+        typeof parent?.pricePublic === "number" && parent?.priceWholesale === parent?.pricePublic,
+      description:
+        "Mismo neto que el precio unitario: hoy no hay una lista mayorista aparte, el mayorista se diferencia por comprar por caja/pallet (ver «Precios por presentación») y por ver el precio sin IVA. Solo aparece si difiere del unitario.",
       validation: (r) => r.required().positive(),
+    }),
+    defineField({
+      name: "priceFinalInfo",
+      title: "Precio que ve el cliente final (con IVA)",
+      type: "string",
+      group: "precios",
+      readOnly: true,
+      description: "Calculado: precio unitario neto × 1,21. Solo informativo.",
+      components: { input: PriceWithIvaInput },
     }),
     defineField({
       name: "isOnSale",
@@ -145,12 +164,12 @@ export default defineType({
     }),
     defineField({
       name: "salePrice",
-      title: "Precio de oferta (público)",
+      title: "Precio de oferta por unidad (NETO, sin IVA)",
       type: "number",
       group: "precios",
       hidden: ({ parent }) => !parent?.isOnSale,
       description:
-        "Precio promocional que se muestra en lugar del precio público mientras la oferta está activa.",
+        "Precio promocional NETO por unidad que reemplaza al precio unitario mientras la oferta está activa (la web le suma el IVA igual que al normal). Este sí se edita acá. Aplica solo al cliente final y a la compra por unidad.",
       validation: (r) =>
         r.custom((value, ctx) => {
           const p = ctx.parent as { isOnSale?: boolean; pricePublic?: number };
@@ -159,7 +178,7 @@ export default defineType({
             return "Completá el precio de oferta o desactivá «En oferta».";
           if (value <= 0) return "El precio de oferta tiene que ser mayor a 0.";
           if (typeof p.pricePublic === "number" && value >= p.pricePublic)
-            return "El precio de oferta debería ser menor al precio público.";
+            return "El precio de oferta debería ser menor al precio unitario neto.";
           return true;
         }),
     }),
@@ -188,11 +207,11 @@ export default defineType({
     }),
     defineField({
       name: "pricePublicOld",
-      title: "Precio público anterior (tachado)",
+      title: "Precio anterior tachado (NETO, sin IVA)",
       type: "number",
       group: "precios",
       description:
-        "Precio anterior que aparece tachado. Lo usa el catálogo actual para mostrar el ahorro. Tip: si activás «En oferta», poné acá el precio público viejo para que se vea el tachado.",
+        "Opcional. Precio unitario NETO anterior que aparece tachado al lado del actual, para mostrar el ahorro. Se edita acá (la planilla no lo maneja).",
     }),
 
     // ---- PRESENTACIÓN Y STOCK ----
@@ -210,29 +229,43 @@ export default defineType({
       title: "Precios por presentación (bulto)",
       type: "array",
       group: "presentacion",
+      readOnly: true,
       description:
-        "Precio REAL por presentación cerrada (Caja / Pallet) según la planilla de precios. Lo completa la sincronización Sheet→Sanity: el buy-box lo usa para reflejar el descuento por volumen (el markup por pallet es menor) en vez de multiplicar el precio unitario. Los precios son POR UNIDAD dentro de esa presentación, misma base que Precio público / mayorista. No editar a mano: lo pisa la sincronización.",
+        "Las presentaciones que la web OFRECE (Caja / Pallet / Paquete…), una por cada fila con sufijo que tiene el producto en la planilla de precios (ej. B355C = caja, B355P = pallet). Lo carga la sincronización: si falta una presentación, hay que agregar la fila en la planilla, no acá. Los precios son POR UNIDAD, NETOS (sin IVA), a ese markup.",
       of: [
         {
           type: "object",
           fields: [
-            { name: "sku", title: "SKU variante (planilla)", type: "string" },
+            { name: "sku", title: "SKU de la fila (planilla)", type: "string" },
             { name: "label", title: "Presentación", type: "string" },
+            {
+              name: "variant",
+              title: "Distintivo (ej. color)",
+              type: "string",
+              description: "Lo que esa fila agrega respecto de la base, ej. «Lisa Negra» en una tapa corona.",
+            },
             { name: "unitsPerBulk", title: "Unidades por bulto", type: "number" },
-            { name: "pricePublic", title: "Precio público por unidad (con IVA)", type: "number" },
-            { name: "priceWholesale", title: "Precio mayorista por unidad (sin IVA)", type: "number" },
+            { name: "pricePublic", title: "Precio por unidad NETO (sin IVA)", type: "number" },
+            {
+              name: "priceWholesale",
+              title: "Precio mayorista por unidad NETO (igual al anterior)",
+              type: "number",
+              hidden: ({ parent }) => parent?.priceWholesale === parent?.pricePublic,
+            },
           ],
           preview: {
-            select: { title: "label", units: "unitsPerBulk", price: "pricePublic" },
-            prepare({ title, units, price }) {
-              const fmt = (n: number) => `$${n.toLocaleString("es-AR")}`;
+            select: { title: "label", variant: "variant", units: "unitsPerBulk", price: "pricePublic", sku: "sku" },
+            prepare({ title, variant, units, price, sku }) {
+              const fmt = (n: number) => `$${Math.round(n).toLocaleString("es-AR")}`;
               const subtitle = [
                 units ? `${units} u` : null,
-                typeof price === "number" ? `${fmt(price)}/u` : null,
+                typeof price === "number" ? `${fmt(price)}/u neto` : null,
+                sku ? String(sku) : null,
               ]
                 .filter(Boolean)
                 .join("  ·  ");
-              return { title: title || "(presentación)", subtitle };
+              const t = [title || "(presentación)", variant].filter(Boolean).join(" · ");
+              return { title: t, subtitle };
             },
           },
         },
