@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isWholesale } from "@/lib/user";
-import { getProducts } from "@/lib/sanity-data";
+import { sanityClient } from "@/lib/sanity";
+import { wholesalePricesQuery } from "@/lib/queries";
 
 /**
  * Precios mayoristas — SOLO para usuarios con rol wholesale/admin.
@@ -37,7 +38,16 @@ export async function GET() {
   }
 
   try {
-    const products = await getProducts();
+    // Query propio con priceWholesale de las presentaciones (productsQuery no lo
+    // trae a propósito: es el payload público). Ver wholesalePricesQuery.
+    const products = await sanityClient.fetch<
+      {
+        _id: string;
+        slug?: string;
+        priceWholesale: number;
+        presentationPricing?: { unitsPerBulk?: number; priceWholesale?: number }[];
+      }[]
+    >(wholesalePricesQuery, {}, { next: { revalidate: 60 } });
     const map: Record<string, WholesaleEntry> = {};
 
     for (const p of products) {

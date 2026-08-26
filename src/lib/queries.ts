@@ -64,6 +64,19 @@ export const productBySlugQuery = groq`
   }
 `;
 
+/** Precios mayoristas por producto — SOLO para /api/precios (usuario wholesale).
+ *  Trae el neto unitario y el neto por presentación (caja/pallet). Es un query
+ *  aparte porque `productsQuery` NO incluye priceWholesale de las presentaciones
+ *  (ese dato no viaja en el payload público) — y por eso /api/precios devolvía
+ *  `pres` vacío y el mayorista veía el precio unitario base en Caja y Pallet
+ *  (bug reportado por Marce, ago-2026: "Botella R 500 ml, $530 en las tres"). */
+export const wholesalePricesQuery = groq`
+  *[_type == "product"] {
+    _id, "slug": slug.current, priceWholesale,
+    presentationPricing[]{ unitsPerBulk, priceWholesale }
+  }
+`;
+
 /** Slugs de todos los productos — para generateStaticParams. */
 export const productSlugsQuery = groq`*[_type == "product" && defined(slug.current)][].slug.current`;
 
