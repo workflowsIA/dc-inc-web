@@ -67,6 +67,14 @@ async function main() {
       "   → Studio: Catálogo → Productos → «Nuevos desde la planilla» (completar foto/categoría y publicar).",
     );
   }
+  if (r.unlinkedVariants.length) {
+    console.log(
+      `\n⚠️  Filas de presentación (UxB > 1) sin fila base en la planilla (${r.unlinkedVariants.length}) — no se ofrecen en la web:`,
+    );
+    for (const u of r.unlinkedVariants)
+      console.log(`   ${u.sku.padEnd(18)} ${String(u.unitsPerBulk ?? "").padStart(6)} u  ${u.name}`);
+    console.log("   → Revisar con Marce: SKU mal formado o falta la fila Unidad de ese producto.");
+  }
   if (r.noMatch.length) {
     console.log(
       `   (SKUs en Sanity sin fila en las planillas: ${r.noMatch.slice(0, 20).join(", ")}${r.noMatch.length > 20 ? "…" : ""})`,

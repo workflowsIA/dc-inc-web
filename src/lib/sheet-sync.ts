@@ -19,6 +19,12 @@
  */
 import { google } from "googleapis";
 import { sanityWriteClient } from "./sanity";
+import {
+  baseAliases,
+  linkPresentations,
+  type LinkedPresentation,
+  type SheetPriceRow,
+} from "./sheet-presentations";
 
 const SHEET_PRECIOS_ID =
   process.env.SHEET_PRECIOS_ID ?? "1rQoHe-bx5x8tBcEWgGGwyWIQi3zfUvYM5b7wYiLjdf0";
@@ -42,6 +48,10 @@ export interface SyncSummary {
   /** SKUs de la planilla de precios que NO existían en Sanity → creados como
    *  borradores (drafts) para dar de alta desde el Studio ("Nuevos desde la planilla"). */
   createdDrafts: { sku: string; name: string }[];
+  /** Filas variante (UxB > 1) de la planilla sin ninguna fila base que sea
+   *  prefijo de su SKU → no se pueden ofrecer como presentación. Para revisar
+   *  con Marce (SKU mal formado o base que falta). */
+  unlinkedVariants: { sku: string; name: string; unitsPerBulk: number | null }[];
 }
 
 // ---- helpers ----
@@ -128,115 +138,61 @@ async function readTab(
   return rowsToObjects((res.data.values ?? []) as unknown[][]);
 }
 
-interface PriceRow {
-  pricePublic: number | null;
-  priceWholesale: number | null;
-  unitsPerBulk: number | null;
-  /** DESCRIPCION de la planilla — nombre tentativo para productos nuevos. */
-  name: string;
-  /** true si la fila es una presentación Caja/Pallet (UNIDAD POR BULTO > 1).
-   *  Matchea SKUs existentes pero no crea drafts (evita inundar el Studio
-   *  con variantes LAS473P/CP/CG que en la web son opciones del producto). */
-  isVariant: boolean;
-}
-
-function buildPriceMap(rows: Record<string, unknown>[]): Map<string, PriceRow> {
-  const map = new Map<string, PriceRow>();
+/** Filas de la planilla de precios normalizadas (ver sheet-presentations.ts). */
+function toPriceRows(rows: Record<string, unknown>[]): SheetPriceRow[] {
+  const out: SheetPriceRow[] = [];
   for (const r of rows) {
     const sku = cleanSku(r["sku"] ?? r["codigo"]);
-    if (!sku) continue;
-    // Fuente: pestana "ProductosDC-Todos". "Precio unitario" es el precio NETO
-    // (sin IVA) por unidad de cada presentacion (fila base + SKUs con sufijo
-    // P/CP/CG). Es la fuente unica: publico y mayorista salen del mismo neto
-    // (el cliente final muestra +IVA una sola vez; el mayorista muestra neto).
-    // Asi se arregla el IVA doble sin dividir nada. Ver dc-inc-web-iva-doble.
-    const precioUnit = toNum(r["precio unitario"]);
-    const pricePublic = precioUnit;
-    const priceWholesale = precioUnit;
-    const unitsPerBulk = toNum(r["uxb"] ?? r["unidad por bulto"]);
-    const name = String(
-      r["insumos: unidad, caja y pallet"] ?? r["descripcion"] ?? "",
-    ).trim();
-    const isVariant = unitsPerBulk !== null && unitsPerBulk > 1;
-    if (!map.has(sku) && pricePublic !== null) {
-      map.set(sku, { pricePublic, priceWholesale, unitsPerBulk, name, isVariant });
-    }
+    if (!sku || normKey(sku) === "sku") continue; // subtítulos "Sku | Cristaleria Bultos"
+    // Fuente: pestaña "ProductosDC-Todos". "Precio unitario" es el precio NETO
+    // (sin IVA) por unidad de cada presentación (fila base + variantes). Es la
+    // fuente única: público y mayorista salen del mismo neto (el cliente final
+    // muestra +IVA una sola vez; el mayorista muestra neto). Ver dc-inc-web-iva-doble.
+    out.push({
+      sku,
+      name: String(r["insumos: unidad, caja y pallet"] ?? r["descripcion"] ?? "").trim(),
+      unitsPerBulk: toNum(r["uxb"] ?? r["unidad por bulto"]),
+      price: toNum(r["precio unitario"]),
+    });
   }
-  return map;
+  return out;
 }
 
 /**
- * Precio por PRESENTACIÓN (bulto: Caja / Pallet) para reflejar el descuento por
- * volumen en la web. En la planilla nueva cada producto tiene una fila por
- * presentación; la variante lleva el SKU base + sufijo:
- *   P → Pallet · CP → Caja · CG → Caja (grande).  (ej: LAS473 base → LAS473CP
- *   caja UxB=88, LAS473P pallet UxB=6224).
+ * Precio por PRESENTACIÓN (Caja / Pallet / Paquete / Manga…) para reflejar el
+ * descuento por volumen en la web. Cada producto tiene una fila por
+ * presentación con el SKU base + sufijo; el linkeo vive en
+ * src/lib/sheet-presentations.ts (regla: base más largo que sea prefijo).
  *
- * SUPUESTO (a confirmar contra la planilla real):
- *  - El SKU de la variante = SKU base + uno de {P, CP, CG} al final. Derivamos el
- *    SKU base quitando ese sufijo. Si un SKU base terminara legítimamente en esas
- *    letras habría ambigüedad; NO se rompe el match actual porque las filas base
- *    (Unidad, UxB=1) se siguen indexando por su SKU completo en buildPriceMap, y
- *    acá solo tocamos filas variante (UxB > 1).
- *  - "CON IVA - Web" / "SIN IVA - Presupuesto" de la fila variante son precios
- *    POR UNIDAD a ese markup (misma base que los del producto), no el total del
- *    bulto. El buy-box los pasa por resolveDisplayPrice y multiplica por unidades,
- *    igual que hoy con el precio unitario.
- *  - `label` (Caja/Pallet) se deriva del sufijo; el buy-box linkea cada fila con
- *    su presentación por unitsPerBulk (primario) y por label (fallback).
+ *  - "Precio unitario" de la fila variante es POR UNIDAD a ese markup (misma
+ *    base que el del producto), no el total del bulto. El buy-box lo pasa por
+ *    resolveDisplayPrice y multiplica por unidades.
+ *  - `label` (Caja / Pallet / Paquete…) sale de la descripción de la fila y
+ *    `variant` (ej. color "Lisa Negra") de lo que la fila agrega respecto de la
+ *    base. El buy-box linkea por SKU de variante (primario) o por unidades.
  */
-const PRES_SUFFIX_RE = /(CP|CG|P)$/;
-
-function presLabelFromSuffix(suffix: string): string {
-  return suffix === "P" ? "Pallet" : "Caja"; // CP / CG → Caja
-}
-
 export interface PresentationPricing {
   sku: string;
   label: string;
+  variant?: string;
   unitsPerBulk: number;
   pricePublic: number | null;
   priceWholesale: number | null;
 }
 
-function buildPresentationPricingMap(
-  rows: Record<string, unknown>[],
-): Map<string, PresentationPricing[]> {
-  const map = new Map<string, PresentationPricing[]>();
-  const seen = new Set<string>(); // dedupe por SKU de variante (primera gana)
-  for (const r of rows) {
-    const sku = cleanSku(r["sku"] ?? r["codigo"]);
-    if (!sku) continue;
-    const unitsPerBulk = toNum(r["uxb"] ?? r["unidad por bulto"]);
-    // Solo filas variante (Caja/Pallet). La fila base (Unidad) trae UxB = 1.
-    if (unitsPerBulk === null || unitsPerBulk <= 1) continue;
-    const m = sku.match(PRES_SUFFIX_RE);
-    if (!m) continue; // sin sufijo reconocible → no la podemos linkear al base
-    const base = sku.slice(0, sku.length - m[1].length);
-    if (!base) continue;
-    if (seen.has(sku)) continue;
-    seen.add(sku);
-    // ProductosDC-Todos: "Precio unitario" NETO por presentacion. Publico y
-    // mayorista = mismo neto (ver buildPriceMap). Ver dc-inc-web-iva-doble.
-    const precioUnit = toNum(r["precio unitario"]);
-    const pricePublic = precioUnit;
-    const priceWholesale = precioUnit;
-    if (pricePublic === null && priceWholesale === null) continue; // fila sin precio útil
-    const entry: PresentationPricing = {
-      sku,
-      label: presLabelFromSuffix(m[1]),
-      unitsPerBulk,
-      pricePublic,
-      priceWholesale,
-    };
-    const list = map.get(base);
-    if (list) list.push(entry);
-    else map.set(base, [entry]);
-  }
-  // Orden estable: menor a mayor bulto (Caja antes que Pallet).
-  for (const list of map.values())
-    list.sort((a, b) => a.unitsPerBulk - b.unitsPerBulk);
-  return map;
+function toPresentationPricing(e: LinkedPresentation): PresentationPricing {
+  return {
+    sku: e.sku,
+    label: e.label,
+    ...(e.variant ? { variant: e.variant } : {}),
+    unitsPerBulk: e.unitsPerBulk,
+    pricePublic: e.price,
+    priceWholesale: e.price,
+  };
+}
+
+function withKey(e: PresentationPricing): PresentationPricing & { _key: string } {
+  return { _key: e.sku.replace(/[^A-Za-z0-9._-]/g, "-"), ...e };
 }
 
 interface StockRow {
@@ -279,9 +235,14 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
     readTab(sheets, SHEET_PRECIOS_ID, TAB_PRECIOS),
     readTab(sheets, SHEET_INVENTARIO_ID, TAB_INVENTARIO),
   ]);
-  const priceMap = buildPriceMap(priceRows);
+  const sheetRows = toPriceRows(priceRows);
+  const linked = linkPresentations(sheetRows);
+  const priceMap = linked.bases; // clave de producto (SKU de Sanity o alias) → fila base
   const stockMap = buildStockMap(stockRows);
-  const presentationPricingMap = buildPresentationPricingMap(priceRows);
+  const presentationPricingMap = new Map<string, PresentationPricing[]>();
+  for (const [key, list] of linked.presentations) {
+    presentationPricingMap.set(key, list.map(toPresentationPricing));
+  }
 
   const products: { _id: string; sku: string; name?: string; slug?: string }[] =
     await sanityWriteClient.fetch(
@@ -309,20 +270,15 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
       continue;
     }
     const set: Record<string, unknown> = {};
-    if (price?.pricePublic != null) set.pricePublic = price.pricePublic;
-    if (price?.priceWholesale != null) set.priceWholesale = price.priceWholesale;
-    // La fila base de la planilla nueva trae UNIDAD POR BULTO = 1 (es la fila
-    // "Unidad"); pisar con 1 rompería el buy-box por bulto enriquecido de Wix.
-    if (price?.unitsPerBulk != null && price.unitsPerBulk > 1)
-      set.unitsPerBulk = price.unitsPerBulk;
-    // Precio por presentación (caja/pallet) del producto base → descuento por
-    // volumen en el buy-box. _key por variante para el patch idempotente.
-    const presPricing = presentationPricingMap.get(p.sku);
-    if (presPricing && presPricing.length > 0) {
-      set.presentationPricing = presPricing.map((e) => ({
-        _key: e.sku.replace(/[^A-Za-z0-9._-]/g, "-"),
-        ...e,
-      }));
+    if (price?.price != null) {
+      // Público y mayorista = mismo neto (ver toPriceRows).
+      set.pricePublic = price.price;
+      set.priceWholesale = price.price;
+      // Precio por presentación (caja/pallet/paquete…) del producto base →
+      // descuento por volumen en el buy-box. Se pisa SIEMPRE que la fila base
+      // matchee (aunque quede vacío) para que no sobrevivan presentaciones
+      // viejas mal linkeadas. _key por variante para el patch idempotente.
+      set.presentationPricing = (presentationPricingMap.get(p.sku) ?? []).map(withKey);
     }
     if (stock?.stockQty != null) set.stockQty = stock.stockQty;
     if (stock?.stockMin != null) set.stockMin = stock.stockMin;
@@ -354,11 +310,21 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
   // secuenciales a Sanity cada corrida) → el endpoint se pasaba de 60s y Vercel
   // lo cortaba con 504 (FUNCTION_INVOCATION_TIMEOUT).
   const txDrafts = sanityWriteClient.transaction();
-  for (const [sku, price] of priceMap) {
-    if (knownSkus.has(sku)) continue;
-    if (price.isVariant) continue; // presentación Caja/Pallet → no es un producto nuevo
+  const draftRows = new Set<SheetPriceRow>();
+  for (const [key, price] of priceMap) {
+    // Una fila base puede estar bajo varias claves (SKU real + alias, ej.
+    // NAJT0340UN y NAJT0340). Si el producto existe en Sanity bajo CUALQUIERA
+    // de ellas, no es nuevo. El draft se crea con la clave "pelada" (alias),
+    // que es la convención de SKU de Sanity y del inventario.
+    if (knownSkus.has(key) || knownSkus.has(price.sku)) continue;
+    if (baseAliases(price.sku).some((a) => knownSkus.has(a))) continue;
+    if (draftRows.has(price)) continue;
+    draftRows.add(price);
+    // SKU del draft: la clave "pelada" si la fila tiene alias (NAJT0340, no
+    // NAJT0340UN); si no, el SKU de la fila tal cual.
+    const sku = baseAliases(price.sku).find((a) => priceMap.get(a) === price) ?? key;
     const name = price.name || sku;
-    const stock = stockMap.get(sku);
+    const stock = stockMap.get(sku) ?? stockMap.get(price.sku);
     const level = deriveStockLevel(stock?.stockQty ?? null, stock?.stockMin ?? null);
     createdDrafts.push({ sku, name });
     if (dryRun) continue;
@@ -376,15 +342,9 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
       sku,
       name,
       slug: { _type: "slug", current: slug || idSafe.toLowerCase() },
-      ...(price.pricePublic != null ? { pricePublic: price.pricePublic } : {}),
-      ...(price.priceWholesale != null ? { priceWholesale: price.priceWholesale } : {}),
-      ...(price.unitsPerBulk != null ? { unitsPerBulk: price.unitsPerBulk } : {}),
+      ...(price.price != null ? { pricePublic: price.price, priceWholesale: price.price } : {}),
       ...(presentationPricingMap.get(sku)?.length
-        ? {
-            presentationPricing: presentationPricingMap
-              .get(sku)!
-              .map((e) => ({ _key: e.sku.replace(/[^A-Za-z0-9._-]/g, "-"), ...e })),
-          }
+        ? { presentationPricing: presentationPricingMap.get(sku)!.map(withKey) }
         : {}),
       ...(stock?.stockQty != null ? { stockQty: stock.stockQty } : {}),
       ...(stock?.stockMin != null ? { stockMin: stock.stockMin } : {}),
@@ -399,7 +359,7 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
   }
 
   return {
-    pricesRead: priceMap.size,
+    pricesRead: new Set(priceMap.values()).size,
     stockRead: stockMap.size,
     productsInSanity: products.length,
     patched,
@@ -409,6 +369,11 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
     dryRun,
     changes: dryRun ? changes : undefined,
     createdDrafts,
+    unlinkedVariants: linked.unlinked.map((r) => ({
+      sku: r.sku,
+      name: r.name,
+      unitsPerBulk: r.unitsPerBulk,
+    })),
   };
 }
 

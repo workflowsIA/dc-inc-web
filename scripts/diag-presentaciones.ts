@@ -4,15 +4,16 @@
  *
  * Para cada SKU cruza lo que hay en Sanity (presentaciones, precios por
  * presentación, precio base) con las filas de la planilla de precios
- * (`ProductosDC-Todos`: fila base + variantes con sufijo P / CP / CG) y marca
+ * (`ProductosDC-Todos`: fila base + variantes con sufijo, ver
+ * src/lib/sheet-presentations.ts para la convención real) y marca
  * la causa más probable:
  *   [A] la planilla tiene el MISMO precio unitario en la fila base y en las
  *       variantes → no hay descuento por volumen cargado (dato, no código);
  *   [B] el texto viejo "Presentaciones" (ej. "24un en Caja") no tiene fila en
  *       la planilla → la web NO ofrece esa presentación (solo vende lo que
  *       está en la planilla); si tiene que existir, falta la fila;
- *   [C] la planilla no tiene filas variante para ese SKU (o el sufijo no es
- *       P/CP/CG) → el sync no pudo cargar presentationPricing;
+ *   [C] la planilla no tiene filas variante linkeables a ese SKU → el sync no
+ *       pudo cargar presentationPricing;
  *   [D] Sanity no tiene presentationPricing (falta correr el sync).
  *
  * Uso (en la Mac, .env.local con SANITY_API_WRITE_TOKEN y GOOGLE_SERVICE_ACCOUNT_JSON):
@@ -23,11 +24,11 @@ import { google } from "googleapis";
 import { sanityWriteClient } from "../src/lib/sanity";
 import { parsePresentationUnits } from "../src/lib/presentations";
 import { matchesSearch } from "../src/lib/search";
+import { linkPresentations, type SheetPriceRow } from "../src/lib/sheet-presentations";
 
 const SHEET_PRECIOS_ID =
   process.env.SHEET_PRECIOS_ID ?? "1rQoHe-bx5x8tBcEWgGGwyWIQi3zfUvYM5b7wYiLjdf0";
 const TAB_PRECIOS = "ProductosDC-Todos";
-const PRES_SUFFIX_RE = /(CP|CG|P)$/;
 
 interface SanityRow {
   _id: string;
@@ -118,6 +119,15 @@ async function main() {
     return;
   }
   const rows = await readSheet();
+  const priceRows: SheetPriceRow[] = rows
+    .map((r) => ({
+      sku: String(r["sku"] ?? r["codigo"] ?? "").trim(),
+      name: String(r["insumos: unidad, caja y pallet"] ?? r["descripcion"] ?? "").trim(),
+      unitsPerBulk: toNum(r["uxb"] ?? r["unidad por bulto"]),
+      price: toNum(r["precio unitario"]),
+    }))
+    .filter((r) => r.sku && normKey(r.sku) !== "sku");
+  const linked = linkPresentations(priceRows);
 
   for (const p of products) {
     console.log(`\n══════ ${p.sku} — ${p.name} ══════`);
@@ -132,16 +142,13 @@ async function main() {
     for (const e of pp)
       console.log(`   ${e.sku ?? "?"} ${e.label ?? ""} UxB=${e.unitsPerBulk ?? "?"} pub/u=${fmt(e.pricePublic)} may/u=${fmt(e.priceWholesale)}`);
 
-    // Planilla: fila base + variantes
+    // Planilla: fila base + variantes, con la MISMA lógica de linkeo del sync.
     const base = p.sku.trim();
-    const sheetRows = rows.filter((r) => {
-      const sku = String(r["sku"] ?? r["codigo"] ?? "").trim();
-      if (!sku) return false;
-      if (sku === base) return true;
-      const m = sku.match(PRES_SUFFIX_RE);
-      return !!m && sku.slice(0, sku.length - m[1].length) === base;
-    });
-    console.log(`Planilla ${TAB_PRECIOS} (filas cuyo SKU es ${base} o ${base}+P/CP/CG):`);
+    const baseRow = linked.bases.get(base);
+    const variants = linked.presentations.get(base) ?? [];
+    const wanted = new Set([baseRow?.sku, ...variants.map((v) => v.sku)].filter(Boolean));
+    const sheetRows = rows.filter((r) => wanted.has(String(r["sku"] ?? r["codigo"] ?? "").trim()));
+    console.log(`Planilla ${TAB_PRECIOS} (fila base de ${base}${baseRow && baseRow.sku !== base ? ` = ${baseRow.sku}` : ""} + variantes linkeadas):`);
     if (!sheetRows.length) console.log("   (ninguna) → [C] el SKU de Sanity no está en la planilla");
     const unitPrices: number[] = [];
     for (const r of sheetRows) {
@@ -161,11 +168,11 @@ async function main() {
     );
     for (const x of presUnits) {
       if (x.n > 1 && !sheetUxb.has(x.n) && !pp.some((e) => e.unitsPerBulk === x.n))
-        flags.push(`[B] el texto "${x.s}" (${x.n} u) no tiene fila en la planilla (UxB cargados: ${[...sheetUxb].join(", ") || "—"}) → la web NO ofrece esa presentación (solo se venden las filas de la planilla). Si tiene que existir, agregar la fila con sufijo CP/CG/P.`);
+        flags.push(`[B] el texto "${x.s}" (${x.n} u) no tiene fila en la planilla (UxB cargados: ${[...sheetUxb].join(", ") || "—"}) → la web NO ofrece esa presentación (solo se venden las filas de la planilla). Si tiene que existir, agregar la fila con sufijo (C = caja, P = pallet, B = paquete).`);
     }
     const variantRows = sheetRows.filter((r) => String(r["sku"] ?? r["codigo"]).trim() !== base);
     if (!variantRows.length && sheetRows.length)
-      flags.push("[C] la planilla solo tiene la fila base: sin filas Caja/Pallet (sufijo P/CP/CG) no hay precio por presentación.");
+      flags.push("[C] la planilla solo tiene la fila base: sin filas Caja/Pallet/Paquete (SKU base + sufijo) no hay precio por presentación.");
     if (variantRows.length && !pp.length)
       flags.push("[D] la planilla tiene variantes pero Sanity no tiene presentationPricing → correr el sync (npm run sync:sheet).");
     console.log(flags.length ? `\nDiagnóstico:\n - ${flags.join("\n - ")}` : "\nDiagnóstico: todo consistente — si la ficha igual muestra precios iguales, avisar (sería código).");
