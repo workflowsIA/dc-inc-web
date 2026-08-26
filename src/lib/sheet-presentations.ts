@@ -66,6 +66,19 @@ const BASE_ALIASES: Record<string, string> = {
   TC27PI: "TC27PIVA",
 };
 
+/**
+ * Filas de la planilla que NO son productos del catálogo: tarifas de decorado
+ * por tramo (DBC11xx, DG211xx, DC11xx, DCT…, DEPX…, pintura/pantalla/película
+ * epoxi) y despachos (Batu / local / transportes). Se ignoran en el sync: ni
+ * crean borradores ni cuentan como "variante sin base". Cuando el decorado
+ * entre como extra en la ficha (fase 2) se leerán desde acá con su propia lógica.
+ */
+const TARIFF_SKU_RE = /^(DBC|DBG|DG\d|DCA|DCT|DC1\d|DCMYM|DEPX|PINEPX|PATEPX|PELEPX|DBZ|DLT|DTT)/;
+
+export function isTariffSku(sku: string): boolean {
+  return TARIFF_SKU_RE.test(sku);
+}
+
 export function isBaseRow(r: { unitsPerBulk: number | null }): boolean {
   return r.unitsPerBulk === null || r.unitsPerBulk <= 1;
 }
@@ -157,7 +170,8 @@ export function presentationVariant(baseName: string, name: string): string | un
  * Indexa las filas de la planilla: bases (por clave de producto, con alias
  * UN / 1 / U) y variantes linkeadas al base más largo que sea prefijo.
  */
-export function linkPresentations(rows: SheetPriceRow[]): LinkResult {
+export function linkPresentations(allRows: SheetPriceRow[]): LinkResult {
+  const rows = allRows.filter((r) => !isTariffSku(r.sku));
   const bases = new Map<string, SheetPriceRow>();
   const rawSkus = new Set(rows.map((r) => r.sku));
 

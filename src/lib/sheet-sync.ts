@@ -21,6 +21,7 @@ import { google } from "googleapis";
 import { sanityWriteClient } from "./sanity";
 import {
   baseAliases,
+  isTariffSku,
   linkPresentations,
   type LinkedPresentation,
   type SheetPriceRow,
@@ -257,6 +258,9 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
   const tx = sanityWriteClient.transaction();
 
   for (const p of products) {
+    // Borradores viejos de tarifas/despachos (DBZ…, DBC11…): no son productos,
+    // se ignoran (ni se actualizan ni se reportan como "sin match").
+    if (isTariffSku(p.sku)) continue;
     const price = priceMap.get(p.sku);
     const stock = stockMap.get(p.sku);
     if (!price && !stock) {
