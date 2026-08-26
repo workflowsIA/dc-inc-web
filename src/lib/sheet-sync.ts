@@ -349,6 +349,11 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
   // Idempotente: id determinístico + createIfNotExists (no pisa ediciones a medias).
   const knownSkus = new Set(products.map((p) => p.sku));
   const createdDrafts: SyncSummary["createdDrafts"] = [];
+  // Los drafts se acumulan en UNA transacción y se commitean de una sola vez.
+  // Antes se hacía un `await createIfNotExists` por SKU (N round-trips
+  // secuenciales a Sanity cada corrida) → el endpoint se pasaba de 60s y Vercel
+  // lo cortaba con 504 (FUNCTION_INVOCATION_TIMEOUT).
+  const txDrafts = sanityWriteClient.transaction();
   for (const [sku, price] of priceMap) {
     if (knownSkus.has(sku)) continue;
     if (price.isVariant) continue; // presentación Caja/Pallet → no es un producto nuevo
@@ -365,7 +370,7 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .slice(0, 96);
-    await sanityWriteClient.createIfNotExists({
+    txDrafts.createIfNotExists({
       _id: `drafts.product-sheet-${idSafe}`,
       _type: "product",
       sku,
@@ -386,6 +391,11 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
       ...(level ? { stockLevel: level } : {}),
       fromSheet: true,
     });
+  }
+
+  // Un solo commit para todos los drafts nuevos (en vez de N llamadas sueltas).
+  if (!dryRun && createdDrafts.length > 0) {
+    await txDrafts.commit({ visibility: "async" });
   }
 
   return {
