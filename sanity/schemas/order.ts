@@ -108,10 +108,25 @@ export default defineType({
           // "Expirado": pedido que inició pago y nunca lo terminó; lo marca la
           // barredora /api/orders/expire-pending tras > EXPIRE_PENDING_HOURS.
           { title: "Expirado", value: "expirado" },
+          // Anulaciones manuales (Marce, desde el panel). "Devuelto" = se cobró
+          // y después se reintegró la plata (ej. pruebas reales de Nave).
+          // Ninguno de los dos cuenta en las métricas de ventas del Dashboard.
+          { title: "Cancelado", value: "cancelado" },
+          { title: "Devuelto / reembolsado", value: "devuelto" },
         ],
         layout: "radio",
       },
       initialValue: "no_pagado",
+      description:
+        "Solo los pedidos «Pagado» suman en las ventas del panel. Si un pedido se cobró y después se devolvió la plata, marcalo «Devuelto» (o borralo desde el menú ⋯ del pedido si fue una prueba).",
+    }),
+    defineField({
+      name: "isTest",
+      title: "Pedido de prueba",
+      type: "boolean",
+      initialValue: false,
+      description:
+        "Marcalo si el pedido fue una prueba interna: queda guardado pero no cuenta en ventas, pedidos ni ticket promedio del panel.",
     }),
     defineField({
       name: "paymentProvider",
@@ -188,19 +203,31 @@ export default defineType({
       total: "total",
       paymentStatus: "paymentStatus",
       fulfillmentStatus: "fulfillmentStatus",
+      isTest: "isTest",
     },
-    prepare({ orderNumber, customerName, customerCompany, createdAt, total, paymentStatus, fulfillmentStatus }) {
+    prepare({ orderNumber, customerName, customerCompany, createdAt, total, paymentStatus, fulfillmentStatus, isTest }) {
       const cliente = [customerName, customerCompany].filter(Boolean).join(" · ");
       const fecha = createdAt
         ? new Date(createdAt).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })
         : "";
       const totalLabel = typeof total === "number" ? `$${total.toLocaleString("es-AR")}` : "";
       const pagoLabel =
-        paymentStatus === "pagado" ? "Pagado" : paymentStatus === "expirado" ? "Expirado" : "No pagado";
+        paymentStatus === "pagado"
+          ? "Pagado"
+          : paymentStatus === "expirado"
+            ? "Expirado"
+            : paymentStatus === "cancelado"
+              ? "Cancelado"
+              : paymentStatus === "devuelto"
+                ? "Devuelto"
+                : "No pagado";
       const estado = [
+        isTest ? "PRUEBA" : null,
         pagoLabel,
         fulfillmentStatus === "enviado" ? "Enviado" : fulfillmentStatus === "procesado" ? "Procesado" : "No procesado",
-      ].join(" · ");
+      ]
+        .filter(Boolean)
+        .join(" · ");
       return {
         title: [orderNumber, cliente].filter(Boolean).join(" — ") || "(Pedido)",
         subtitle: [fecha, totalLabel, estado].filter(Boolean).join(" · "),

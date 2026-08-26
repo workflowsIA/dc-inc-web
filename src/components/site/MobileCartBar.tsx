@@ -39,7 +39,7 @@ export default function MobileCartBar() {
     <div className="mcart">
       <div className="mc-total">
         <span className="mono">
-          {count} {count === 1 ? "ítem" : "ítems"} · estimado
+          {count} {count === 1 ? "artículo" : "artículos"} · estimado
         </span>
         <span className="v">{ars(subtotal)}</span>
       </div>

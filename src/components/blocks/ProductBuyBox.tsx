@@ -1,4 +1,5 @@
 "use client";
+import { parsePresentationUnits } from "@/lib/presentations";
 import { useState } from "react";
 import { useCart, type ProductSnapshot } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
@@ -24,8 +25,8 @@ interface Pres {
 
 /** "24 unidades en cajas" → {label, units:24}. */
 function parsePres(s: string): Pres {
-  const m = s.replace(/\./g, "").match(/(\d+)/);
-  return { label: s, units: m ? parseInt(m[1], 10) : 1 };
+  // Ver src/lib/presentations.ts: ignora medidas ("500 ml") y toma la cantidad.
+  return { label: s, units: parsePresentationUnits(s) };
 }
 
 export default function ProductBuyBox({

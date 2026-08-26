@@ -209,6 +209,28 @@ export function coerce(col: ColumnDef, raw: string, refs: RefMaps): Coerced {
       return { ok: true, value: { _type: "reference", _ref: id } };
     }
 
+    case "refArray": {
+      const map = col.refType === "subtype" ? refs.subtype : refs.category;
+      const names = v
+        .split(/[;|]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const refsOut: { _type: "reference"; _ref: string; _key: string }[] = [];
+      const missing: string[] = [];
+      for (const name of names) {
+        const id = map.get(norm(name));
+        if (!id) missing.push(name);
+        else if (!refsOut.some((r) => r._ref === id))
+          refsOut.push({ _type: "reference", _ref: id, _key: makeKey() });
+      }
+      if (missing.length)
+        return {
+          ok: false,
+          error: `${col.label}: "${missing.join('", "')}" no existe en Sanity (crealo primero en Catálogo → Subtipos)`,
+        };
+      return { ok: true, value: refsOut };
+    }
+
     case "stringArray": {
       const arr = v
         .split(/[;|]/)
@@ -274,6 +296,11 @@ export function currentValue(col: ColumnDef, doc: Record<string, unknown>): unkn
   if (col.kind === "ref") {
     return col.refType === "subtype" ? doc.subtypeId : doc.categoryId;
   }
+  if (col.kind === "refArray") {
+    // ids actuales (el query de CsvUpdate los resuelve como subtypeIds, con
+    // fallback al campo viejo `subtype` si todavía no se migró el producto).
+    return ((doc.subtypeIds as string[] | undefined) ?? []).filter(Boolean);
+  }
   return doc[col.field];
 }
 
@@ -282,6 +309,11 @@ export function valuesEqual(col: ColumnDef, current: unknown, next: unknown): bo
     const cur = current ?? null;
     const nx = (next as { _ref?: string })?._ref ?? null;
     return cur === nx;
+  }
+  if (col.kind === "refArray") {
+    const cur = [...((current as string[]) ?? [])].sort();
+    const nx = ((next as { _ref: string }[]) ?? []).map((r) => r._ref).sort();
+    return JSON.stringify(cur) === JSON.stringify(nx);
   }
   if (col.kind === "specs") {
     const c = ((current as Spec[]) ?? []).map((s) => `${norm(s.key)}=${norm(s.value)}`);
@@ -312,6 +344,11 @@ export function display(col: ColumnDef, value: unknown, doc?: Record<string, unk
     if (doc) return String(col.refType === "subtype" ? doc.subtypeName ?? "—" : doc.categoryName ?? "—");
     const ref = (value as { _ref?: string })?._ref;
     return ref ? `→ ${ref}` : "—";
+  }
+  if (col.kind === "refArray") {
+    if (doc) return ((doc.subtypeNames as string[] | undefined) ?? []).filter(Boolean).join("; ") || "—";
+    const refs = ((value as { _ref?: string }[]) ?? []).map((r) => r._ref).filter(Boolean);
+    return refs.length ? `→ ${refs.length} subtipo(s)` : "—";
   }
   if (col.kind === "boolean") return value ? "Sí" : "No";
   if (col.kind === "specs")
@@ -460,7 +497,7 @@ export function buildPlan(
           fromText: display(col, cur, ref),
           // Para referencias mostramos el nombre tal cual lo escribió el usuario
           // (el _ref resuelto no es legible). Para el resto, el display normal.
-          toText: col.kind === "ref" ? raw.trim() : display(col, c.value, undefined),
+          toText: col.kind === "ref" || col.kind === "refArray" ? raw.trim() : display(col, c.value, undefined),
           nextValue: c.value,
         });
       }

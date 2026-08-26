@@ -43,6 +43,8 @@ const PRODUCT_FIELDS = `
   badges, decoAvailable, presentations, seoTitle, seoDescription, specs,
   "categoryName": category->name, "categoryId": category._ref,
   "subtypeName": subtype->name, "subtypeId": subtype._ref,
+  "subtypeNames": array::compact(coalesce(subtypes[]->name, [subtype->name])),
+  "subtypeIds": array::compact(coalesce(subtypes[]._ref, [subtype._ref])),
   "imageRef": images[0].asset._ref, "imageUrl": images[0].asset->url
 `;
 
@@ -82,6 +84,9 @@ function exportCell(field: string, doc: ProductDoc): string {
   const col = COLUMNS.find((c) => c.field === field)!;
   if (col.kind === "ref") {
     return String((col.refType === "subtype" ? doc.subtypeName : doc.categoryName) ?? "");
+  }
+  if (col.kind === "refArray") {
+    return ((doc.subtypeNames as string[] | undefined) ?? []).filter(Boolean).join("; ");
   }
   if (col.kind === "image") {
     // Export: URL actual de la imagen principal (re-importable tal cual).

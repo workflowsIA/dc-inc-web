@@ -19,6 +19,8 @@ export type ColumnKind =
   | "boolean"
   | "date"
   | "ref"
+  /** varias referencias separadas por ; o | (ej. subtipos "Cognac; Whisky") */
+  | "refArray"
   | "stringArray"
   | "badges"
   | "specs"
@@ -32,7 +34,7 @@ export interface ColumnDef {
   kind: ColumnKind;
   /** Headers reconocidos (normalizados: sin acentos, minúsculas). El primero es el "canónico" para plantilla/export. */
   headers: string[];
-  /** Solo para kind === "ref": tipo del documento referenciado. */
+  /** Solo para kind === "ref" / "refArray": tipo del documento referenciado. */
   refType?: "category" | "subtype";
 }
 
@@ -73,11 +75,13 @@ export const COLUMNS: ColumnDef[] = [
     headers: ["categoria", "category", "rubro"],
   },
   {
-    field: "subtype",
-    label: "Subtipo",
-    kind: "ref",
+    // Varios subtipos por producto (ago-2026): "Cognac; Whisky". Reemplaza al
+    // campo viejo `subtype` (una sola referencia).
+    field: "subtypes",
+    label: "Subtipos",
+    kind: "refArray",
     refType: "subtype",
-    headers: ["subtipo", "subtype", "tipo"],
+    headers: ["subtipos", "subtipo", "subtypes", "subtype", "tipo"],
   },
   // --- Presentación (solo lo que NO maneja el sync) ---
   {

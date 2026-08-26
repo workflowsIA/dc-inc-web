@@ -136,10 +136,14 @@ export default async function Home() {
     console.error("[home] Sanity fetch failed:", (e as Error).message);
   }
 
-  // Featured: badge "best" si hay, sino primeros 4, sino mock.
+  // Featured: los marcados "Destacar en el home" en Sanity (ordenados por
+  // "Orden en el catálogo"); si no hay ninguno, los que tienen badge "Más
+  // vendido"; si tampoco, los primeros del catálogo. Los 3 primeros van al
+  // collage del hero y los 4 primeros a "Productos destacados".
   // Solo productos CON foto (el collage del hero muestra el packshot; un destacado
   // sin imagen dejaba la tarjeta grande vacía). Si faltan, se completa con otros
   // del catálogo que tengan foto.
+  const FEATURED_MAX = 4;
   let featured: Product[] = [];
   try {
     const best = await getFeaturedProducts();
@@ -149,11 +153,12 @@ export default async function Home() {
   }
   if (featured.length < 3) {
     const withPhoto = allLegacy.filter((p) => p.imageUrl && !featured.some((f) => f.id === p.id));
-    featured = [...featured, ...withPhoto].slice(0, 4);
+    featured = [...featured, ...withPhoto];
   }
+  featured = featured.slice(0, FEATURED_MAX);
 
   // Tiles de categoría: los 6 rubros canónicos de DC Inc (los que tienen ícono
-  // propio en CAT_IMG), ordenados por cantidad real de productos. Seleccionando
+  // propio en CAT_IMG), en el orden del campo "Orden" de cada categoría. Seleccionando
   // solo las categorías canónicas evitamos que un rubro de cola (Válvulas,
   // Accesorios, Otros) se cuele en la grilla, y garantizamos que aparezcan las 6
   // (incluida "Cajas y estuches") mientras tengan al menos un producto.
@@ -163,18 +168,22 @@ export default async function Home() {
   // Si la categoria tiene imagen cargada, se usa; si no, cae al packshot local
   // (CAT_IMG). Asi Marce puede cambiar el icono de cada rubro desde el Studio.
   let catImageByName: Record<string, string> = {};
+  // Orden de los tiles = campo "Orden" de la categoría en Sanity (mismo criterio
+  // que el filtro del catálogo: Botellas, Latas, Copas y vasos, Botellones, Cajas…).
+  const catOrderByName: Record<string, number> = {};
   try {
     const categories = await getCategories();
     catImageByName = Object.fromEntries(
       categories.filter((c) => c.image).map((c) => [c.name, c.image as string]),
     );
+    for (const c of categories) catOrderByName[c.name] = typeof c.order === "number" ? c.order : 999;
   } catch (e) {
     console.error("[home] categories fetch failed:", (e as Error).message);
   }
   let cats: { name: string; count: string; img?: string; imageUrl?: string }[] = Object.keys(CAT_IMG)
     .map((name) => ({ name, n: catCounts[name] ?? 0 }))
     .filter((c) => c.n > 0)
-    .sort((a, b) => b.n - a.n)
+    .sort((a, b) => (catOrderByName[a.name] ?? 999) - (catOrderByName[b.name] ?? 999) || b.n - a.n)
     .map((c) => ({ name: c.name, count: String(c.n), img: CAT_IMG[c.name], imageUrl: catImageByName[c.name] }));
   if (cats.length === 0) cats = categoryDataFallback;
 

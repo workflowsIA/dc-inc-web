@@ -28,19 +28,15 @@ export interface CartItem {
 /**
  * Cantidad que se muestra al usuario (badge del header, barra mobile).
  *
- * El carrito guarda `qty` en UNIDADES, pero la venta es por bulto cerrado: si
- * agregas un bulto de 500, qty vale 500 y el badge decia "500". Lo que el
- * usuario espera ver es 1.
+ * Cuenta ARTÍCULOS (líneas del carrito), no unidades ni bultos: 1 caja de 36
+ * botellas + 1 bolsa de tapas = "2". Pedido de Marce (ago-2026): el número
+ * tiene que reflejar cuántos productos distintos eligió, no cuántas piezas.
+ * El detalle de bultos/unidades se ve dentro de /carrito.
  *
- * Distinto de `totalBultos()` de whatsapp.ts, que sirve para calcular el envio
- * y por eso cuenta una linea suelta como 1 bulto. Aca una linea suelta cuenta
- * sus unidades. Misma cuenta que usa la fila del carrito en /carrito.
+ * Distinto de `totalBultos()` de whatsapp.ts, que sirve para calcular el envío.
  */
 export function cartItemCount(items: CartItem[]): number {
-  return items.reduce((acc, i) => {
-    const step = i.kind === "combo" ? 1 : i.bulto > 0 ? i.bulto : 1;
-    return acc + (step > 1 ? Math.max(1, Math.round(i.qty / step)) : i.qty);
-  }, 0);
+  return items.length;
 }
 
 export type ProductSnapshot = Omit<CartItem, "qty" | "deco">;

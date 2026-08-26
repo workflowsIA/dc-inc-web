@@ -39,7 +39,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
   if (!product) return { title: "Producto no encontrado" };
 
-  const cat = product.sub ? `${product.cat} · ${product.sub}` : product.cat;
+  const subLabel = product.subs?.length ? product.subs.join(", ") : product.sub;
+  const cat = subLabel ? `${product.cat} · ${subLabel}` : product.cat;
   return {
     title: product.name,
     description: `${product.name} (${product.sku}) — ${cat}. Comprá al por mayor en DC Inc: stock real, factura A/B/E y envíos a todo el país.`,
@@ -113,7 +114,7 @@ export default async function ProductPage({ params }: Props) {
         <div>
           <span className="eyebrow">
             {product.cat}
-            {product.sub ? ` · ${product.sub}` : ""}
+            {product.subs?.length ? ` · ${product.subs.join(", ")}` : product.sub ? ` · ${product.sub}` : ""}
           </span>
           <h1 className="h-lg" style={{ marginTop: "12px" }}>
             {product.name}

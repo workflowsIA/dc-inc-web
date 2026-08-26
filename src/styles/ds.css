@@ -224,13 +224,34 @@ p{ margin:0; }
 .hdr-burger{ display:none; }
 
 /* benefits bar */
-.benefits{ background:var(--ink); color:#d8d8d4; border-top:1px solid rgba(255,255,255,.07); }
+.benefits{ background:var(--ink); color:#d8d8d4; border-top:1px solid rgba(255,255,255,.07); overflow:hidden; }
 .benefits .wrap{ display:flex; align-items:center; gap:6px; overflow-x:auto; scrollbar-width:none; }
 .benefits .wrap::-webkit-scrollbar{ display:none; }
+.benefits-track{ display:flex; align-items:center; gap:6px; flex:none; }
+/* La copia duplicada solo existe para que el marquee mobile sea continuo. */
+.benefits-track[aria-hidden="true"]{ display:none; }
 .benefit{ display:inline-flex; align-items:center; gap:9px; padding:11px 0; font-size:13.5px; font-weight:600; white-space:nowrap; }
 .benefit svg{ width:17px; height:17px; color:var(--amber); flex:none; }
 .benefit + .benefit{ margin-left:6px; }
 .benefit-sep{ width:1px; height:16px; background:rgba(255,255,255,.13); }
+.benefits-track > .benefit-sep:last-child{ display:none; }
+/* Mobile: la barra no entra en el ancho → corre como marquee continuo
+   (pedido de Marce, ago-2026). Dos copias del track, la segunda oculta a
+   lectores de pantalla; la animación desplaza exactamente una copia. */
+@media(max-width:860px){
+  .benefits .wrap{ overflow:hidden; gap:0; padding:0; }
+  .benefits-track{ padding-right:28px; animation:benefits-marquee 22s linear infinite; }
+  .benefits-track[aria-hidden="true"]{ display:flex; }
+  .benefits-track > .benefit-sep:last-child{ display:block; }
+  .benefits .wrap:hover .benefits-track{ animation-play-state:paused; }
+  .benefits-track > .benefit:first-child{ padding-left:16px; }
+  .benefit{ font-size:12.5px; }
+}
+@keyframes benefits-marquee{ from{ transform:translateX(0); } to{ transform:translateX(-100%); } }
+@media(prefers-reduced-motion:reduce){
+  .benefits-track{ animation:none !important; }
+  .benefits .wrap{ overflow-x:auto; }
+}
 
 /* ---------- product card ---------- */
 .grid{ display:grid; gap:22px; }
@@ -452,7 +473,15 @@ textarea.input{ resize:vertical; min-height:96px; line-height:1.5; }
 .catalog-aside{ position:sticky; top:80px; }
 .product-layout{ display:grid; grid-template-columns:1fr 1fr; gap:48px; }
 .cart-layout{ display:grid; grid-template-columns:1fr 360px; gap:32px; margin-top:32px; }
-.cart-line{ display:grid; grid-template-columns:1fr auto auto; gap:16px; align-items:center; }
+/* Los hijos de un grid tienen min-width:auto → un <select> con una opción
+   larga (el de "Calcular envío") imponía su ancho intrínseco al resumen y
+   corría toda la página en celulares de 360px (bug reportado por Marce). Con
+   min-width:0 el aside se achica y el select respeta max-width:100%. */
+.cart-layout > *, .catalog-layout > *, .product-layout > *{ min-width:0; }
+.cart-line{ display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:16px; align-items:center; }
+.cart-line > *{ min-width:0; }
+.cart-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.cart-head-actions{ display:flex; gap:8px; flex-wrap:wrap; }
 .tiles-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
 .approval-row{ display:grid; grid-template-columns:1fr auto; gap:16px; align-items:center; }
 
@@ -464,8 +493,16 @@ textarea.input{ resize:vertical; min-height:96px; line-height:1.5; }
   .tiles-3{ grid-template-columns:repeat(2,1fr); }
 }
 @media(max-width:560px){
-  .cart-line{ grid-template-columns:1fr auto; row-gap:12px; }
-  .cart-line .cart-line-price{ grid-column:1 / -1; justify-content:space-between; }
+  /* Una línea del carrito en el celu: foto+nombre arriba a todo el ancho;
+     abajo, cantidad a la izquierda y precio + quitar a la derecha. Antes el
+     nombre y el ± compartían fila y el bloque se salía de la pantalla. */
+  .cart-line{ grid-template-columns:minmax(0,1fr) auto; row-gap:12px; }
+  .cart-line .cart-line-main{ grid-column:1 / -1; }
+  .cart-line .cart-line-qty{ grid-column:1; }
+  .cart-line .cart-line-price{ grid-column:2; justify-content:flex-end; }
+  .cart-line .cart-line-qty input{ width:52px !important; flex:none; }
+  .cart-line .cart-line-qty .btn{ flex:none; }
+  .cart-head .h-lg{ font-size:28px; }
   .tiles-3{ grid-template-columns:1fr; }
   .approval-row{ grid-template-columns:1fr; }
   .approval-row .approval-actions{ justify-content:flex-start; }

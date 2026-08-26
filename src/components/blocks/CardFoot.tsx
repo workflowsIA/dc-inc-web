@@ -1,4 +1,5 @@
 "use client";
+import { parsePresentationUnits } from "@/lib/presentations";
 import { useState } from "react";
 import type { Product } from "@/data/products";
 import { ars } from "@/lib/format";
@@ -99,10 +100,8 @@ function WholesaleFoot({
   // de cada presentacion sale del mapa mayorista fresco (entry.pres, por unidades
   // por bulto); si falta, cae al precio unitario base (may).
   const pp = product.presentationPricing ?? [];
-  const parsePresUnits = (s: string): number => {
-    const m = s.replace(/\./g, "").match(/(\d+)/);
-    return m ? parseInt(m[1], 10) : 1;
-  };
+  // Ver src/lib/presentations.ts: ignora medidas ("500 ml") y toma la cantidad.
+  const parsePresUnits = parsePresentationUnits;
   const byUnits = new Map<number, PresOpt>();
   byUnits.set(1, { units: 1, label: "Unidad", perUnit: may });
   // Todas las presentaciones reales del producto (misma fuente que la ficha y la

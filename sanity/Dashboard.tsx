@@ -46,8 +46,9 @@ interface OrderRow {
   customerName?: string;
   customerCompany?: string;
   total?: number;
-  paymentStatus?: "no_pagado" | "pagado";
+  paymentStatus?: "no_pagado" | "pagado" | "expirado" | "cancelado" | "devuelto";
   fulfillmentStatus?: "no_procesado" | "procesado" | "enviado";
+  isTest?: boolean;
 }
 
 interface Metrics {
@@ -55,6 +56,8 @@ interface Metrics {
   ventas: number;
   pedidos: number;
   pendientes: number;
+  /** pedidos del período que NO cuentan (impagos, expirados, cancelados, devueltos, pruebas) */
+  descartados: number;
   // Catálogo (no dependen del período)
   productos: number;
   sinStock: number;
@@ -64,21 +67,30 @@ interface Metrics {
   ultimosPedidos: OrderRow[];
 }
 
+/**
+ * Qué cuenta como VENTA: solo pedidos con paymentStatus == "pagado" y que no
+ * estén marcados como prueba. Los impagos / expirados / cancelados / devueltos
+ * quedan afuera (antes se sumaba TODO lo creado, incluidos carritos que nunca
+ * se pagaron y pruebas internas → las métricas daban cualquier cosa).
+ */
+const VENTA_REAL = `_type == "order" && paymentStatus == "pagado" && isTest != true`;
+
 function buildQuery() {
   return `{
     "ventas": coalesce(
-      math::sum(*[_type == "order" && createdAt >= $since].total),
+      math::sum(*[${VENTA_REAL} && createdAt >= $since].total),
       0
     ),
-    "pedidos": count(*[_type == "order" && createdAt >= $since]),
-    "pendientes": count(*[_type == "order" && fulfillmentStatus == "no_procesado"]),
+    "pedidos": count(*[${VENTA_REAL} && createdAt >= $since]),
+    "descartados": count(*[_type == "order" && createdAt >= $since && !(paymentStatus == "pagado" && isTest != true)]),
+    "pendientes": count(*[${VENTA_REAL} && fulfillmentStatus == "no_procesado"]),
     "productos": count(*[_type == "product"]),
     "sinStock": count(*[_type == "product" && stockLevel == "out"]),
     "enOferta": count(*[_type == "product" && isOnSale == true]),
     "sinFoto": count(*[_type == "product" && !defined(images) && !defined(legacyImageUrl)]),
     "ultimosPedidos": *[_type == "order"] | order(createdAt desc)[0...8]{
       _id, orderNumber, createdAt, customerName, customerCompany,
-      total, paymentStatus, fulfillmentStatus
+      total, paymentStatus, fulfillmentStatus, isTest
     }
   }`;
 }
@@ -176,7 +188,7 @@ export function Dashboard() {
           {/* 1. VENTAS */}
           <Stack space={3}>
             <Text size={1} weight="semibold" muted>
-              VENTAS · ÚLTIMOS {period} DÍAS
+              VENTAS · ÚLTIMOS {period} DÍAS · solo pedidos pagados (sin pruebas, cancelados ni devueltos)
             </Text>
             <Grid columns={[1, 2, 4]} gap={3}>
               <Kpi
@@ -187,7 +199,7 @@ export function Dashboard() {
               />
               <Kpi
                 icon={<BillIcon />}
-                label="Pedidos"
+                label="Pedidos pagados"
                 value={String(m.pedidos)}
               />
               <Kpi
@@ -202,6 +214,12 @@ export function Dashboard() {
                 tone={m.pendientes > 0 ? "caution" : "positive"}
               />
             </Grid>
+            {m.descartados > 0 && (
+              <Text size={1} muted>
+                {m.descartados} {m.descartados === 1 ? "pedido" : "pedidos"} del período no{" "}
+                {m.descartados === 1 ? "cuenta" : "cuentan"} (sin pagar, expirados, cancelados, devueltos o de prueba).
+              </Text>
+            )}
           </Stack>
 
           {/* 2. CATÁLOGO */}
@@ -442,9 +460,14 @@ function OrderRowItem({ row, last }: { row: OrderRow; last: boolean }) {
         <Text size={1} weight="semibold" align="right">
           {total}
         </Text>
-        <Box>
+        <Flex gap={1} wrap="wrap">
+          {row.isTest && (
+            <Badge tone="default" fontSize={0}>
+              Prueba
+            </Badge>
+          )}
           <PaymentBadge status={row.paymentStatus} />
-        </Box>
+        </Flex>
         <Box>
           <FulfillmentBadge status={row.fulfillmentStatus} />
         </Box>
@@ -458,6 +481,27 @@ function PaymentBadge({ status }: { status?: OrderRow["paymentStatus"] }) {
     return (
       <Badge tone="positive" fontSize={0}>
         Pagado
+      </Badge>
+    );
+  }
+  if (status === "expirado") {
+    return (
+      <Badge tone="default" fontSize={0}>
+        Expirado
+      </Badge>
+    );
+  }
+  if (status === "cancelado") {
+    return (
+      <Badge tone="critical" fontSize={0}>
+        Cancelado
+      </Badge>
+    );
+  }
+  if (status === "devuelto") {
+    return (
+      <Badge tone="critical" fontSize={0}>
+        Devuelto
       </Badge>
     );
   }

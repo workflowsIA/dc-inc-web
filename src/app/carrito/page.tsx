@@ -18,6 +18,7 @@ export default function CarritoPage() {
   const rawItems = useCart((s) => s.items);
   const setQty = useCart((s) => s.setQty);
   const remove = useCart((s) => s.remove);
+  const clear = useCart((s) => s.clear);
   const { ready, wholesale } = useWholesaleCtx();
   // Reprecio mayorista fresco: evita mostrar $0 cuando el carrito se armo anonimo
   // (snapshot con may:0) y luego se logueo como mayorista. Ver useRepricedItems.
@@ -62,9 +63,33 @@ export default function CarritoPage() {
     );
   }
 
+  const nItems = items.length;
+
   return (
     <div className="wrap" style={{ padding: "32px 24px 80px" }}>
-      <h1 className="h-lg">Tu pedido</h1>
+      <div className="cart-head">
+        <div>
+          <h1 className="h-lg">Tu pedido</h1>
+          <p style={{ marginTop: "6px", fontSize: "13px", color: "var(--muted)" }}>
+            {nItems} {nItems === 1 ? "artículo" : "artículos"}
+          </p>
+        </div>
+        {/* Seguir comprando / vaciar (pedido de Marce, ago-2026) */}
+        <div className="cart-head-actions">
+          <Link className="btn btn-ghost btn-sm" href="/productos" prefetch={false}>
+            + Agregar productos
+          </Link>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => {
+              if (window.confirm("¿Vaciar el carrito? Se sacan todos los productos.")) clear();
+            }}
+          >
+            Vaciar carrito
+          </button>
+        </div>
+      </div>
 
       <div className="cart-layout">
         <div style={{ display: "grid", gap: "12px" }}>
@@ -79,7 +104,7 @@ export default function CarritoPage() {
                 background: "#fff",
               }}
             >
-              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+              <div className="cart-line-main" style={{ display: "flex", gap: "12px", alignItems: "center", minWidth: 0 }}>
                 {i.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -108,9 +133,9 @@ export default function CarritoPage() {
                     }}
                   />
                 )}
-                <div>
-                  <div style={{ fontWeight: 700 }}>{i.name}</div>
-                  <div className="mono" style={{ fontSize: "12px", color: "var(--muted)" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, overflowWrap: "anywhere" }}>{i.name}</div>
+                  <div className="mono" style={{ fontSize: "12px", color: "var(--muted)", overflowWrap: "anywhere" }}>
                     {i.kind === "combo" ? "Combo armado" : i.sku}
                     {i.kind !== "combo" && i.bulto > 1 ? ` · bulto ${i.bulto} u` : ""}
                     {i.deco ? " · con decorado" : ""}
@@ -123,7 +148,7 @@ export default function CarritoPage() {
                 const step = i.bulto > 0 ? i.bulto : 1;
                 const bultos = Math.max(1, Math.round(i.qty / step));
                 return (
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div className="cart-line-qty" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => setQty(i.id, i.qty - step)}>
                       −
                     </button>
@@ -167,7 +192,7 @@ export default function CarritoPage() {
                     );
                   })()}
                 </div>
-                <button className="btn btn-ghost btn-sm" onClick={() => remove(i.id)}>
+                <button className="btn btn-ghost btn-sm" onClick={() => remove(i.id)} aria-label="Quitar del carrito">
                   ✕
                 </button>
               </div>

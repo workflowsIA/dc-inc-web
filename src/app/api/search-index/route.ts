@@ -17,6 +17,7 @@ export async function GET() {
       name: p.name,
       slug: p.slug || p._id,
       cat: p.category ?? "",
+      sku: p.sku ?? "",
     }));
     return NextResponse.json(items, {
       headers: {

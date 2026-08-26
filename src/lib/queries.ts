@@ -8,6 +8,9 @@ export const productsQuery = groq`
     _id,
     sku,
     name,
+    sortOrder,
+    homeFeatured,
+    "categoryOrder": category->order,
     "slug": slug.current,
     description,
     pricePublic,
@@ -27,7 +30,7 @@ export const productsQuery = groq`
     decoAvailable,
     "image": coalesce(images[0].asset->url, legacyImageUrl),
     "category": category->name,
-    "subtype": subtype->name
+    "subtypes": array::compact(coalesce(subtypes[]->name, [subtype->name]))
   }
 `;
 
@@ -57,7 +60,7 @@ export const productBySlugQuery = groq`
     specs,
     "image": coalesce(images[0].asset->url, legacyImageUrl),
     "category": category->name,
-    "subtype": subtype->name
+    "subtypes": array::compact(coalesce(subtypes[]->name, [subtype->name]))
   }
 `;
 
@@ -136,10 +139,14 @@ export const allOrdersQuery = groq`
   }
 `;
 
-/** Productos destacados para la home. */
+/** Productos destacados para la home.
+ *  Prioridad: los marcados "Destacar en el home" (homeFeatured), ordenados por
+ *  `sortOrder`; si no hay ninguno marcado, caen los que tienen el badge
+ *  "Más vendido" (comportamiento histórico). Trae hasta 8 y la home recorta. */
 export const featuredProductsQuery = groq`
-  *[_type == "product" && "best" in badges] | order(_createdAt desc)[0...4] {
-    _id, sku, name, "slug": slug.current,
+  *[_type == "product" && (homeFeatured == true || "best" in badges)]
+    | order(select(homeFeatured == true => 0, 1) asc, coalesce(sortOrder, 999999) asc, _createdAt desc)[0...8] {
+    _id, sku, name, "slug": slug.current, sortOrder, homeFeatured,
     pricePublic, priceWholesale, pricePublicOld,
     isOnSale, salePrice, saleStartDate, saleEndDate,
     presentations, unitsPerBulk, unitsPerPallet, presentationPricing[]{ sku, label, unitsPerBulk }, deliveryTime, stockLevel, badges,
@@ -151,7 +158,7 @@ export const featuredProductsQuery = groq`
 /** Categorías activas para sidebar y home. */
 export const categoriesQuery = groq`
   *[_type == "category"] | order(order asc, name asc) {
-    _id, name, "slug": slug.current, "image": image.asset->url
+    _id, name, order, "slug": slug.current, "image": image.asset->url
   }
 `;
 
@@ -279,13 +286,21 @@ export interface SanityProduct {
   image?: string;
   images?: string[];
   category?: string;
-  subtype?: string;
+  /** orden de la categoría (para agrupar el catálogo por rubro) */
+  categoryOrder?: number;
+  /** nombres de los subtipos (array; compat con el campo viejo `subtype`) */
+  subtypes?: string[];
+  /** orden manual en el catálogo */
+  sortOrder?: number;
+  /** destacado en el home */
+  homeFeatured?: boolean;
 }
 
 export interface SanityCategory {
   _id: string;
   name: string;
   slug: string;
+  order?: number;
   image?: string;
 }
 
@@ -388,9 +403,11 @@ export interface SanityOrder {
   subtotal?: number;
   iva?: number;
   total?: number;
-  paymentStatus?: "no_pagado" | "pagado";
+  paymentStatus?: "no_pagado" | "pagado" | "expirado" | "cancelado" | "devuelto";
   fulfillmentStatus?: "no_procesado" | "procesado" | "enviado";
   origin?: "web" | "whatsapp";
+  /** pedido de prueba: no cuenta en las métricas del panel */
+  isTest?: boolean;
   paymentProvider?: string;
   paymentId?: string;
   naveExternalId?: string;

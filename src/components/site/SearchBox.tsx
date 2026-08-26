@@ -2,15 +2,15 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
+import { matchesSearch, searchScore, searchTokens } from "@/lib/search";
 
 export interface SearchItem {
   name: string;
   slug: string;
   cat: string;
+  /** SKU (opcional en índices viejos cacheados). */
+  sku?: string;
 }
-
-const norm = (s: string) =>
-  s.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
 
 export default function SearchBox({ className = "" }: { className?: string }) {
   const [q, setQ] = useState("");
@@ -35,10 +35,16 @@ export default function SearchBox({ className = "" }: { className?: string }) {
       });
   };
 
-  const qn = norm(q.trim());
+  // Búsqueda por palabras (todas tienen que aparecer, en cualquier orden):
+  // "botella 500" encuentra "Botella R - 500 ml". Ver src/lib/search.ts.
+  const tokens = searchTokens(q);
+  const qn = tokens.join(" ");
   const matches =
     qn.length >= 2
-      ? items.filter((i) => norm(`${i.name} ${i.cat}`).includes(qn)).slice(0, 6)
+      ? items
+          .filter((i) => matchesSearch(`${i.name} ${i.sku ?? ""} ${i.cat}`, tokens))
+          .sort((a, b) => searchScore(b.name, tokens) - searchScore(a.name, tokens))
+          .slice(0, 6)
       : [];
 
   return (

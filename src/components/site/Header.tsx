@@ -83,25 +83,32 @@ export default function Header() {
       </div>
       <div className="benefits">
         <div className="wrap">
-          <span className="benefit">
-            <Shield /> Mayorista y minorista
-          </span>
-          <span className="benefit-sep" />
-          <span className="benefit">
-            <Truck /> Envíos a todo el país
-          </span>
-          <span className="benefit-sep" />
-          <span className="benefit">
-            <Receipt /> Factura A / B / E
-          </span>
-          <span className="benefit-sep" />
-          <span className="benefit">
-            <Brush /> Decorado propio
-          </span>
-          <span className="benefit-sep" />
-          <span className="benefit">
-            <CheckCircle2 /> Stock real
-          </span>
+          {/* Dos copias del mismo track: en desktop se ve una sola; en mobile
+              corren como marquee continuo (ver .benefits-track en ds.css). */}
+          {[false, true].map((dup) => (
+            <div className="benefits-track" key={dup ? "dup" : "main"} aria-hidden={dup || undefined}>
+              <span className="benefit">
+                <Shield /> Mayorista y minorista
+              </span>
+              <span className="benefit-sep" />
+              <span className="benefit">
+                <Truck /> Envíos a todo el país
+              </span>
+              <span className="benefit-sep" />
+              <span className="benefit">
+                <Receipt /> Factura A / B / E
+              </span>
+              <span className="benefit-sep" />
+              <span className="benefit">
+                <Brush /> Decorado propio
+              </span>
+              <span className="benefit-sep" />
+              <span className="benefit">
+                <CheckCircle2 /> Stock real
+              </span>
+              <span className="benefit-sep" />
+            </div>
+          ))}
         </div>
       </div>
       {/* Phone hint hidden on the chrome but referenced for accessibility */}

@@ -10,7 +10,7 @@ export default function CartCount() {
   // en cliente, para evitar mismatch con el HTML del servidor.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
-  // Bultos, no unidades sueltas (ver cartItemCount).
+  // Artículos distintos, no unidades ni bultos (ver cartItemCount).
   const count = mounted ? cartItemCount(items) : 0;
   if (count <= 0) return null;
   return <span className="cart-count">{count}</span>;

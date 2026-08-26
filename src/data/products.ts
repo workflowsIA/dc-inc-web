@@ -13,8 +13,13 @@ export interface Product {
   id: string;
   sku: string;
   cat: string;
+  /** primer subtipo (compat) — ver `subs` para todos */
   sub: string;
+  /** subtipos del producto (un producto puede tener varios, ej. "Cognac" y "Whisky") */
+  subs?: string[];
   name: string;
+  /** orden manual en el catálogo (menor primero); vacío = orden por defecto */
+  sortOrder?: number;
   /** precio público (visitante) */
   pub: number;
   /** precio mayorista (logueado) */

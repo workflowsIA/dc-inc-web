@@ -60,13 +60,26 @@ export default defineType({
       validation: (r) => r.required(),
     }),
     defineField({
-      name: "subtype",
-      title: "Subtipo",
-      type: "reference",
+      name: "subtypes",
+      title: "Subtipos",
+      type: "array",
       group: "basico",
       description:
-        "Tipo de cristalería o envase (ej: copa de coctel, botella). Opcional, pero ayuda a filtrar.",
+        "Tipo de cristalería o envase (ej: Cognac, Whisky, Pinta). Podés elegir más de uno: el producto aparece en el filtro de cada subtipo que marques.",
+      of: [{ type: "reference", to: [{ type: "subtype" }] }],
+      validation: (r) => r.unique(),
+    }),
+    defineField({
+      // Campo viejo (una sola referencia). Se migró a `subtypes` (array) en
+      // ago-2026 — ver scripts/migrate-subtypes.ts. Queda oculto para no perder
+      // datos mientras se corre la migración; la web lee subtypes y cae a este.
+      name: "subtype",
+      title: "Subtipo (campo viejo)",
+      type: "reference",
+      group: "basico",
       to: [{ type: "subtype" }],
+      hidden: true,
+      readOnly: true,
     }),
     defineField({
       name: "description",
@@ -294,6 +307,24 @@ export default defineType({
     }),
 
     // ---- DECORACIÓN Y DESTACADOS ----
+    defineField({
+      name: "homeFeatured",
+      title: "Destacar en el home",
+      type: "boolean",
+      group: "decoracion",
+      initialValue: false,
+      description:
+        "Activalo para que el producto salga en la portada (las 3 fotos grandes del inicio y la sección «Productos destacados»). Si no hay ninguno marcado, se usan los que tienen el badge «Más vendido». El orden entre destacados lo define «Orden en el catálogo».",
+    }),
+    defineField({
+      name: "sortOrder",
+      title: "Orden en el catálogo",
+      type: "number",
+      group: "decoracion",
+      description:
+        "Opcional. Los productos con número aparecen primero en el catálogo, de menor a mayor (1, 2, 3…). Los que no tienen número van después, agrupados por categoría y por nombre. Sirve también para ordenar los destacados del home.",
+      validation: (r) => r.integer().min(0),
+    }),
     defineField({
       name: "badges",
       title: "Destacados / Badges",

@@ -72,7 +72,7 @@ export default function ProductCard({ product }: Props) {
       <div className="pcard-body">
         <span className="pcard-cat">
           {product.cat}
-          {product.sub ? ` · ${product.sub}` : ""}
+          {product.subs?.length ? ` · ${product.subs.join(", ")}` : product.sub ? ` · ${product.sub}` : ""}
         </span>
         <h3 className="pcard-title">
           <Link href={`/productos/${product.id}`} prefetch={false}>{product.name}</Link>

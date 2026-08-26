@@ -3,9 +3,10 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import ProductCard from "@/components/blocks/ProductCard";
 import type { Product } from "@/data/products";
-import { getProducts, toLegacyProduct } from "@/lib/sanity-data";
+import { getCategories, getProducts, toLegacyProduct } from "@/lib/sanity-data";
 import { resolveDisplayPrice } from "@/lib/pricing";
 import { ars } from "@/lib/format";
+import { matchesSearch, searchScore, searchTokens } from "@/lib/search";
 
 export const revalidate = 60;
 
@@ -42,12 +43,6 @@ function filterPrice(p: Product, wholesale: boolean): number {
 
 const PER_PAGE = 24;
 
-const norm = (s: string) =>
-  s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
-
 /** Catálogo. Productos de Sanity (323 SKUs migrados del Wix). Si Sanity
  *  no responde, fallback al mock. Filtra por ?q= / ?cat= / ?sub=. */
 export default async function CatalogPage({
@@ -73,9 +68,26 @@ export default async function CatalogPage({
     console.error("[catalog] Sanity fetch failed:", (e as Error).message);
   }
 
-  // Categorías y subtipos reales, derivados del catálogo (no hardcodeados)
-  const cats = [...new Set(products.map((p) => p.cat).filter(Boolean))].sort();
-  const subs = [...new Set(products.map((p) => p.sub).filter(Boolean))].sort();
+  // Orden de las categorías del filtro: el campo "Orden" de cada categoría en
+  // Sanity (Botellas 1, Latas 2, Copas y vasos 3, …). Antes salían alfabéticas.
+  // Solo se listan las que tienen productos; una categoría vacía desaparece sola.
+  let catOrder = new Map<string, number>();
+  try {
+    catOrder = new Map(
+      (await getCategories()).map((c) => [c.name, typeof c.order === "number" ? c.order : 999]),
+    );
+  } catch (e) {
+    console.error("[catalog] categories fetch failed:", (e as Error).message);
+  }
+  const cats = [...new Set(products.map((p) => p.cat).filter(Boolean))].sort(
+    (a, b) => (catOrder.get(a) ?? 999) - (catOrder.get(b) ?? 999) || a.localeCompare(b, "es"),
+  );
+  // Subtipos: un producto puede tener varios (ej. Cognac + Whisky) → se listan
+  // todos los distintos y el filtro matchea si el producto tiene CUALQUIERA.
+  const subsOf = (p: Product) => (p.subs && p.subs.length ? p.subs : p.sub ? [p.sub] : []);
+  const subs = [...new Set(products.flatMap(subsOf).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, "es"),
+  );
 
   // Rango de precio: bounds reales del catálogo (sobre el precio que ve el usuario)
   const allPrices = products.map((p) => filterPrice(p, wholesale)).filter((n) => n > 0);
@@ -86,14 +98,15 @@ export default async function CatalogPage({
   const hasMin = minNum != null && !Number.isNaN(minNum);
   const hasMax = maxNum != null && !Number.isNaN(maxNum);
 
-  // Filtrado
-  const qn = q ? norm(q) : "";
-  const filtered = products.filter((p) => {
+  // Filtrado. Búsqueda por palabras: todas tienen que aparecer, en cualquier
+  // orden ("botella 500" → "Botella R - 500 ml"). Ver src/lib/search.ts.
+  const tokens = q ? searchTokens(q) : [];
+  let filtered = products.filter((p) => {
     if (cat && p.cat !== cat) return false;
-    if (subSet.size > 0 && !subSet.has(p.sub)) return false;
-    if (qn) {
-      const hay = norm(`${p.name} ${p.sku} ${p.cat} ${p.sub}`);
-      if (!hay.includes(qn)) return false;
+    if (subSet.size > 0 && !subsOf(p).some((s) => subSet.has(s))) return false;
+    if (tokens.length) {
+      const hay = `${p.name} ${p.sku} ${p.cat} ${subsOf(p).join(" ")}`;
+      if (!matchesSearch(hay, tokens)) return false;
     }
     if (hasMin || hasMax) {
       const pr = filterPrice(p, wholesale);
@@ -102,6 +115,14 @@ export default async function CatalogPage({
     }
     return true;
   });
+  // Con búsqueda, los que matchean por nombre van primero (sort estable: el
+  // resto conserva el orden del catálogo).
+  if (tokens.length) {
+    filtered = filtered
+      .map((p, i) => ({ p, i, s: searchScore(p.name, tokens) }))
+      .sort((a, b) => b.s - a.s || a.i - b.i)
+      .map((x) => x.p);
+  }
 
   const hasFilter = !!(q || cat || subSet.size > 0 || hasMin || hasMax);
 

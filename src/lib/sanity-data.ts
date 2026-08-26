@@ -54,8 +54,10 @@ export function toLegacyProduct(p: SanityProduct, wholesale = false): Product {
     id: p.slug || p._id,
     sku: p.sku,
     cat: p.category ?? "Otros",
-    sub: p.subtype ?? "",
+    sub: p.subtypes?.[0] ?? "",
+    subs: p.subtypes ?? [],
     name: p.name,
+    sortOrder: p.sortOrder,
     pub: p.pricePublic,
     may: wholesale ? p.priceWholesale : 0,
     oldPub: p.pricePublicOld,
@@ -85,8 +87,32 @@ export function toLegacyProduct(p: SanityProduct, wholesale = false): Product {
   };
 }
 
+/**
+ * Orden del catálogo (pedido de Marce, ago-2026): primero los productos con
+ * "Orden en el catálogo" cargado (menor número primero), después el resto
+ * agrupado por el orden de su categoría (Botellas, Latas, Copas y vasos…) y,
+ * dentro de cada rubro, por nombre. Sanity ya devuelve por nombre; acá se
+ * reordena en memoria para que TODAS las páginas (catálogo, categoría, home,
+ * índice del buscador) usen el mismo criterio.
+ */
+export function sortCatalog<T extends Pick<SanityProduct, "name" | "sortOrder" | "categoryOrder">>(
+  products: T[],
+): T[] {
+  const BIG = Number.MAX_SAFE_INTEGER;
+  const so = (p: T) => (typeof p.sortOrder === "number" ? p.sortOrder : BIG);
+  const co = (p: T) => (typeof p.categoryOrder === "number" ? p.categoryOrder : 999);
+  return [...products].sort(
+    (a, b) => so(a) - so(b) || co(a) - co(b) || a.name.localeCompare(b.name, "es"),
+  );
+}
+
 export async function getProducts(): Promise<SanityProduct[]> {
-  return await sanityClient.fetch(productsQuery, {}, { next: { revalidate: 60 } });
+  const products: SanityProduct[] = await sanityClient.fetch(
+    productsQuery,
+    {},
+    { next: { revalidate: 60 } },
+  );
+  return sortCatalog(products);
 }
 
 export async function getProductBySlug(slug: string): Promise<SanityProduct | null> {

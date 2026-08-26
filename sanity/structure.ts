@@ -83,14 +83,34 @@ export const structure: StructureResolver = (S) =>
                         .child(
                           S.documentList()
                             .title("Copas/vasos sin subtipo")
-                            .filter('_type == "product" && category->name == "Copas y vasos" && !defined(subtype)'),
+                            .filter(
+                              '_type == "product" && category->name == "Copas y vasos" && !defined(subtype) && count(subtypes) == 0',
+                            ),
                         ),
                       S.listItem()
-                        .title("Destacados (con badge)")
+                        .title("Destacados del home")
+                        .icon(HomeIcon)
+                        .child(
+                          S.documentList()
+                            .title("Productos que salen en la portada (switch «Destacar en el home»)")
+                            .filter('_type == "product" && homeFeatured == true')
+                            .defaultOrdering([{ field: "sortOrder", direction: "asc" }]),
+                        ),
+                      S.listItem()
+                        .title("Con orden manual")
                         .icon(StarIcon)
                         .child(
                           S.documentList()
-                            .title("Productos destacados")
+                            .title("Productos con «Orden en el catálogo» cargado")
+                            .filter('_type == "product" && defined(sortOrder)')
+                            .defaultOrdering([{ field: "sortOrder", direction: "asc" }]),
+                        ),
+                      S.listItem()
+                        .title("Con etiqueta (Nuevo, Promo…)")
+                        .icon(StarIcon)
+                        .child(
+                          S.documentList()
+                            .title("Productos con etiqueta sobre la foto")
                             .filter('_type == "product" && count(badges) > 0'),
                         ),
                       S.listItem()
@@ -112,7 +132,21 @@ export const structure: StructureResolver = (S) =>
                     ]),
                 ),
               S.divider(),
-              S.documentTypeListItem("category").title("Categorías").icon(TagIcon),
+              // Las categorías se listan en el orden en que salen en la web
+              // (campo "Orden"). Para reordenar el filtro del catálogo, cambiar
+              // ese número: menor = más arriba.
+              S.listItem()
+                .title("Categorías")
+                .icon(TagIcon)
+                .child(
+                  S.documentList()
+                    .title("Categorías (orden = como salen en la web)")
+                    .filter('_type == "category"')
+                    .defaultOrdering([
+                      { field: "order", direction: "asc" },
+                      { field: "name", direction: "asc" },
+                    ]),
+                ),
               S.documentTypeListItem("subtype").title("Subtipos").icon(TagsIcon),
               S.documentTypeListItem("combo").title("Combos").icon(TrolleyIcon),
               // Solo marcas de producto. Los logos de clientes viven en "Clientes".
@@ -163,6 +197,36 @@ export const structure: StructureResolver = (S) =>
                           S.documentList()
                             .title("Pedidos procesados / enviados")
                             .filter('_type == "order" && fulfillmentStatus in ["procesado", "enviado"]')
+                            .defaultOrdering([{ field: "createdAt", direction: "desc" }]),
+                        ),
+                      S.divider(),
+                      S.listItem()
+                        .title("Pagados")
+                        .icon(CheckmarkCircleIcon)
+                        .child(
+                          S.documentList()
+                            .title("Pedidos pagados (los que suman en el panel)")
+                            .filter('_type == "order" && paymentStatus == "pagado" && isTest != true')
+                            .defaultOrdering([{ field: "createdAt", direction: "desc" }]),
+                        ),
+                      S.listItem()
+                        .title("Sin pagar / expirados")
+                        .icon(ClockIcon)
+                        .child(
+                          S.documentList()
+                            .title("Carritos que no completaron el pago")
+                            .filter('_type == "order" && paymentStatus in ["no_pagado", "expirado"]')
+                            .defaultOrdering([{ field: "createdAt", direction: "desc" }]),
+                        ),
+                      S.listItem()
+                        .title("Cancelados / devueltos / pruebas")
+                        .icon(WarningOutlineIcon)
+                        .child(
+                          S.documentList()
+                            .title("Pedidos que no cuentan como venta")
+                            .filter(
+                              '_type == "order" && (paymentStatus in ["cancelado", "devuelto"] || isTest == true)',
+                            )
                             .defaultOrdering([{ field: "createdAt", direction: "desc" }]),
                         ),
                     ]),
