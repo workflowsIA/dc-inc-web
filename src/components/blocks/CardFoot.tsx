@@ -94,21 +94,19 @@ function WholesaleFoot({
   // de cada presentacion sale del mapa mayorista fresco (entry.pres, por unidades
   // por bulto); si falta, cae al precio unitario base (may).
   const pp = product.presentationPricing ?? [];
-  const byUnits = new Map<number, PresOpt>();
-  byUnits.set(1, { units: 1, label: "Unidad", perUnit: may });
-  // Presentaciones = filas Caja/Pallet de la planilla (presentationPricing).
+  // Presentaciones = filas Caja/Pallet/Paquete de la planilla (presentationPricing).
   // Si la planilla no tiene fila de caja, no se ofrece caja. El precio por
-  // unidad sale del mapa mayorista fresco (entry.pres, por unidades); si falta,
-  // cae al unitario base.
+  // unidad sale del mapa mayorista fresco (entry.pres, por SKU de fila o por
+  // unidades); si falta, cae al unitario base.
+  const opts: PresOpt[] = [{ units: 1, label: "Unidad", perUnit: may }];
   for (const o of presentationOptions(pp)) {
-    byUnits.set(o.units, {
+    opts.push({
       units: o.units,
       label: o.label,
-      perUnit: entry.pres?.[String(o.units)] ?? may,
+      perUnit: (o.sku ? entry.pres?.[o.sku] : undefined) ?? entry.pres?.[String(o.units)] ?? may,
       sku: o.sku,
     });
   }
-  const opts = [...byUnits.values()].sort((a, b) => a.units - b.units);
   const minPerUnit = Math.min(...opts.map((o) => o.perUnit));
   // Default: el bulto mas chico (units > 1); si no hay, unidad.
   const firstBulto = opts.findIndex((o) => o.units > 1);
@@ -145,7 +143,7 @@ function WholesaleFoot({
           <div className="chips">
             {opts.map((o, i) => (
               <button
-                key={o.units}
+                key={o.sku ?? o.units}
                 type="button"
                 className={`chip ${i === idx ? "on" : ""}`}
                 onClick={(e) => {

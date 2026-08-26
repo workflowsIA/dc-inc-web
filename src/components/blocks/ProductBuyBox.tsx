@@ -41,9 +41,10 @@ export default function ProductBuyBox({
     ? (presentationPricingProp ?? []).map((pp) => ({
         ...pp,
         priceWholesale:
-          pp.unitsPerBulk && entry.pres?.[String(pp.unitsPerBulk)] != null
+          (pp.sku ? entry.pres?.[pp.sku] : undefined) ??
+          (pp.unitsPerBulk && entry.pres?.[String(pp.unitsPerBulk)] != null
             ? entry.pres[String(pp.unitsPerBulk)]
-            : pp.priceWholesale,
+            : pp.priceWholesale),
       }))
     : presentationPricingProp;
   // Precio de vista: cliente final ve IVA incluido + envío estimado; mayorista

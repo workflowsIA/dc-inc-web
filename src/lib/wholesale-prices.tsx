@@ -90,17 +90,19 @@ export function useWholesaleCtx(): WholesaleCtx {
  * precios, devuelve los items sin tocar. Reprecia por presentacion (bulto) si
  * corresponde, igual que ProductBuyBox.
  */
-export function useRepricedItems<T extends { id: string; bulto?: number; may: number }>(
-  items: T[],
-): T[] {
+export function useRepricedItems<
+  T extends { id: string; bulto?: number; may: number; presentationSku?: string },
+>(items: T[]): T[] {
   const { ready, wholesale, prices } = useWholesaleCtx();
   return useMemo(() => {
     if (!wholesale || !ready) return items;
     return items.map((i) => {
       const e = prices[i.id];
       if (!e) return i;
+      // Primero por SKU de presentación (exacto), después por unidades (compat).
       const may =
-        i.bulto && e.pres?.[String(i.bulto)] != null ? e.pres[String(i.bulto)] : e.may;
+        (i.presentationSku ? e.pres?.[i.presentationSku] : undefined) ??
+        (i.bulto && e.pres?.[String(i.bulto)] != null ? e.pres[String(i.bulto)] : e.may);
       return typeof may === "number" ? { ...i, may } : i;
     });
   }, [items, ready, wholesale, prices]);

@@ -21,7 +21,7 @@ export const productsQuery = groq`
     saleStartDate,
     saleEndDate,
     presentations,
-    presentationPricing[]{ sku, label, unitsPerBulk },
+    presentationPricing[]{ sku, label, variant, unitsPerBulk },
     unitsPerBulk,
     unitsPerPallet,
     deliveryTime,
@@ -50,7 +50,7 @@ export const productBySlugQuery = groq`
     saleStartDate,
     saleEndDate,
     presentations,
-    presentationPricing[]{ sku, label, unitsPerBulk, pricePublic, priceWholesale },
+    presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic, priceWholesale },
     unitsPerBulk,
     unitsPerPallet,
     deliveryTime,
@@ -73,7 +73,7 @@ export const productBySlugQuery = groq`
 export const wholesalePricesQuery = groq`
   *[_type == "product"] {
     _id, "slug": slug.current, priceWholesale,
-    presentationPricing[]{ unitsPerBulk, priceWholesale }
+    presentationPricing[]{ sku, unitsPerBulk, priceWholesale }
   }
 `;
 
@@ -91,7 +91,7 @@ export const productsBySkusQuery = groq`
     pricePublic, priceWholesale,
     isOnSale, salePrice, saleStartDate, saleEndDate,
     unitsPerBulk, unitsPerPallet,
-    presentationPricing[]{ sku, label, unitsPerBulk, pricePublic, priceWholesale },
+    presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic, priceWholesale },
     "image": coalesce(images[0].asset->url, legacyImageUrl)
   }
 `;
@@ -162,7 +162,7 @@ export const featuredProductsQuery = groq`
     _id, sku, name, "slug": slug.current, sortOrder, homeFeatured,
     pricePublic, priceWholesale, pricePublicOld,
     isOnSale, salePrice, saleStartDate, saleEndDate,
-    presentations, unitsPerBulk, unitsPerPallet, presentationPricing[]{ sku, label, unitsPerBulk }, deliveryTime, stockLevel, badges,
+    presentations, unitsPerBulk, unitsPerPallet, presentationPricing[]{ sku, label, variant, unitsPerBulk }, deliveryTime, stockLevel, badges,
     "image": coalesce(images[0].asset->url, legacyImageUrl),
     "category": category->name
   }
@@ -269,6 +269,8 @@ export const heroQuery = groq`
 export interface PresentationPricing {
   sku?: string;
   label?: string;
+  /** distintivo dentro del mismo tipo (ej. color de tapa "Lisa Negra") */
+  variant?: string;
   unitsPerBulk: number;
   pricePublic?: number;
   priceWholesale?: number;

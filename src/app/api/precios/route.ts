@@ -25,7 +25,9 @@ export const runtime = "nodejs";
 export interface WholesaleEntry {
   /** precio mayorista neto por unidad */
   may: number;
-  /** precio mayorista por presentación (caja/pallet), indexado por unitsPerBulk */
+  /** precio mayorista por presentación (caja/pallet/paquete), indexado por
+   *  SKU de la fila de la planilla Y por unitsPerBulk (compat con snapshots
+   *  viejos del carrito que solo guardaron `bulto`). */
   pres?: Record<string, number>;
 }
 
@@ -45,7 +47,7 @@ export async function GET() {
         _id: string;
         slug?: string;
         priceWholesale: number;
-        presentationPricing?: { unitsPerBulk?: number; priceWholesale?: number }[];
+        presentationPricing?: { sku?: string; unitsPerBulk?: number; priceWholesale?: number }[];
       }[]
     >(wholesalePricesQuery, {}, { next: { revalidate: 60 } });
     const map: Record<string, WholesaleEntry> = {};
@@ -56,7 +58,10 @@ export async function GET() {
 
       const pres: Record<string, number> = {};
       for (const pp of p.presentationPricing ?? []) {
-        if (typeof pp.priceWholesale === "number" && pp.unitsPerBulk) {
+        if (typeof pp.priceWholesale !== "number") continue;
+        if (pp.sku) pres[pp.sku] = pp.priceWholesale;
+        // Por unidades solo si no hay otra fila con las mismas (primera gana).
+        if (pp.unitsPerBulk && pres[String(pp.unitsPerBulk)] == null) {
           pres[String(pp.unitsPerBulk)] = pp.priceWholesale;
         }
       }

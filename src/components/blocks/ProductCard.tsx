@@ -83,7 +83,7 @@ export default function ProductCard({ product }: Props) {
           {presentationOptions(product.presentationPricing)
             .slice(0, 2)
             .map((o) => (
-              <span key={o.units}>{o.label}</span>
+              <span key={o.key}>{o.label}</span>
             ))}
           <span>{product.deli}</span>
           <span className={`stock ${stockClass}`}>{stockLabel}</span>

@@ -41,11 +41,13 @@ export function parsePresentationUnits(label: string): number {
 
 /** Opción de compra derivada de la planilla de precios. */
 export interface PresentationOption {
-  /** "Caja x20", "Pallet x1350" */
+  /** "Caja x20", "Pallet x1.350", "Paquete x100 · Lisa Negra" */
   label: string;
   units: number;
   /** SKU de la fila variante en la planilla (para reprecio server-side) */
   sku?: string;
+  /** clave estable para listas/lookup: el SKU de la fila o, si falta, las unidades */
+  key: string;
 }
 
 /**
@@ -57,14 +59,28 @@ export interface PresentationOption {
  * Ordenadas de menor a mayor, sin repetir cantidades. No incluye la unidad.
  */
 export function presentationOptions(
-  pricing: { sku?: string; label?: string; unitsPerBulk?: number }[] | undefined,
+  pricing:
+    | { sku?: string; label?: string; variant?: string; unitsPerBulk?: number }[]
+    | undefined,
 ): PresentationOption[] {
-  const byUnits = new Map<number, PresentationOption>();
+  // Se dedupe por SKU de fila (no por unidades): dos filas pueden tener las
+  // mismas unidades y ser presentaciones distintas (paquete x100 por color).
+  const byKey = new Map<string, PresentationOption>();
   for (const pp of pricing ?? []) {
     const units = pp.unitsPerBulk ?? 0;
-    if (!Number.isFinite(units) || units <= 1 || byUnits.has(units)) continue;
+    if (!Number.isFinite(units) || units <= 1) continue;
+    const key = pp.sku?.trim() || String(units);
+    if (byKey.has(key)) continue;
     const base = (pp.label ?? "").trim() || "Bulto";
-    byUnits.set(units, { label: `${base} x${units.toLocaleString("es-AR")}`, units, sku: pp.sku });
+    const variant = (pp.variant ?? "").trim();
+    byKey.set(key, {
+      label: `${base} x${units.toLocaleString("es-AR")}${variant ? ` · ${variant}` : ""}`,
+      units,
+      sku: pp.sku,
+      key,
+    });
   }
-  return [...byUnits.values()].sort((a, b) => a.units - b.units);
+  return [...byKey.values()].sort(
+    (a, b) => a.units - b.units || a.label.localeCompare(b.label, "es"),
+  );
 }
