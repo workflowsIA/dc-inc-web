@@ -22,6 +22,7 @@
 import { google } from "googleapis";
 import { sanityWriteClient } from "../src/lib/sanity";
 import { parsePresentationUnits } from "../src/lib/presentations";
+import { matchesSearch } from "../src/lib/search";
 
 const SHEET_PRECIOS_ID =
   process.env.SHEET_PRECIOS_ID ?? "1rQoHe-bx5x8tBcEWgGGwyWIQi3zfUvYM5b7wYiLjdf0";
@@ -96,11 +97,11 @@ async function main() {
   const FIELDS = `_id, sku, name, pricePublic, priceWholesale, unitsPerBulk, unitsPerPallet, presentations,
     presentationPricing[]{ sku, label, unitsPerBulk, pricePublic, priceWholesale }`;
   if (byName >= 0) {
+    // Mismo matcheo por palabras que el buscador de la web (todas las palabras,
+    // en cualquier orden, sin acentos). `match` de GROQ no sirve para esto.
     const q = args[byName + 1] ?? "";
-    products = await sanityWriteClient.fetch<SanityRow[]>(
-      `*[_type == "product" && name match $q]{ ${FIELDS} }`,
-      { q: `*${q.split(/\s+/).join("*")}*` },
-    );
+    const all = await sanityWriteClient.fetch<SanityRow[]>(`*[_type == "product"]{ ${FIELDS} }`);
+    products = all.filter((p) => matchesSearch(`${p.name} ${p.sku}`, q));
   } else {
     const skus = args.filter((a) => !a.startsWith("--"));
     if (!skus.length) {
