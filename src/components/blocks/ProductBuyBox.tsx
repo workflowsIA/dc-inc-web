@@ -1,5 +1,5 @@
 "use client";
-import { parsePresentationUnits } from "@/lib/presentations";
+import { presentationOptions } from "@/lib/presentations";
 import { useState } from "react";
 import { useCart, type ProductSnapshot } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
@@ -13,27 +13,20 @@ interface Props {
   /** datos de precio crudos para resolver la vista (cliente final vs mayorista + oferta) */
   pricing: PricingInput;
   deli: string;
-  presentations?: string[];
-  /** precio real por presentación (caja/pallet) para reflejar el descuento por volumen */
+  /** filas Caja/Pallet de la planilla: definen QUÉ presentaciones se venden y a qué precio */
   presentationPricing?: PresentationPricing[];
 }
 
 interface Pres {
   label: string;
   units: number;
-}
-
-/** "24 unidades en cajas" → {label, units:24}. */
-function parsePres(s: string): Pres {
-  // Ver src/lib/presentations.ts: ignora medidas ("500 ml") y toma la cantidad.
-  return { label: s, units: parsePresentationUnits(s) };
+  sku?: string;
 }
 
 export default function ProductBuyBox({
   product,
   pricing: pricingProp,
   deli,
-  presentations,
   presentationPricing: presentationPricingProp,
 }: Props) {
   const add = useCart((s) => s.add);
@@ -58,8 +51,10 @@ export default function ProductBuyBox({
   // `finalConsumer` sólo depende del rol (no del precio de presentación), así que
   // lo resolvemos con el pricing base para poder armar la lista de presentaciones.
   const finalConsumer = resolveDisplayPrice(pricing, wholesale).finalConsumer;
-  // Bultos (caja/pallet) ordenados de menor a mayor → default = el bulto más chico.
-  const bultoPres = (presentations ?? []).map(parsePres).sort((a, b) => a.units - b.units);
+  // Bultos (caja/pallet) = filas de la planilla, de menor a mayor. Si la planilla
+  // no tiene fila de caja para este producto, no se ofrece caja (ver
+  // presentationOptions). Default = el bulto más chico.
+  const bultoPres: Pres[] = presentationOptions(presentationPricing);
   // Minorista (cliente final) puede comprar de a UNA unidad: anteponemos la opción
   // Individual (units:1) y queda como default. Mayorista compra solo por bulto cerrado.
   // Unidad disponible para todos: DC habilitó comprar por unidad también al por
@@ -86,10 +81,8 @@ export default function ProductBuyBox({
   // (salePrice) mantiene su prioridad porque resolveDisplayPrice la aplica si vige.
   const presMatch =
     sel && sel.units > 1 && presentationPricing?.length
-      ? (presentationPricing.find((pp) => pp.unitsPerBulk === sel.units) ??
-        presentationPricing.find(
-          (pp) => !!pp.label && sel.label.toLowerCase().includes(pp.label.toLowerCase()),
-        ) ??
+      ? ((sel.sku ? presentationPricing.find((pp) => pp.sku === sel.sku) : undefined) ??
+        presentationPricing.find((pp) => pp.unitsPerBulk === sel.units) ??
         null)
       : null;
   const selPricing: PricingInput =

@@ -1,5 +1,5 @@
 "use client";
-import { parsePresentationUnits } from "@/lib/presentations";
+import { presentationOptions } from "@/lib/presentations";
 import { useState } from "react";
 import type { Product } from "@/data/products";
 import { ars } from "@/lib/format";
@@ -78,12 +78,6 @@ interface PresOpt {
   sku?: string;
 }
 
-function presLabel(units: number, pallet: number): string {
-  if (units <= 1) return "Unidad";
-  if (pallet > 1 && units === pallet) return `Pallet (${units})`;
-  return `Bulto (${units})`;
-}
-
 function WholesaleFoot({
   product,
   may,
@@ -100,27 +94,19 @@ function WholesaleFoot({
   // de cada presentacion sale del mapa mayorista fresco (entry.pres, por unidades
   // por bulto); si falta, cae al precio unitario base (may).
   const pp = product.presentationPricing ?? [];
-  // Ver src/lib/presentations.ts: ignora medidas ("500 ml") y toma la cantidad.
-  const parsePresUnits = parsePresentationUnits;
   const byUnits = new Map<number, PresOpt>();
   byUnits.set(1, { units: 1, label: "Unidad", perUnit: may });
-  // Todas las presentaciones reales del producto (misma fuente que la ficha y la
-  // linea de specs). Para cada una buscamos su fila de precio (presentationPricing,
-  // por unidades) para el SKU (reprecio server-side) y el precio mayorista por
-  // unidad (entry.pres); si no hay fila, cae al unitario base.
-  const presUnits = (product.presentations ?? []).length
-    ? (product.presentations ?? []).map(parsePresUnits)
-    : [product.bulto, product.pallet];
-  for (const n of presUnits) {
-    if (n > 1 && !byUnits.has(n)) {
-      const match = pp.find((p) => p.unitsPerBulk === n);
-      byUnits.set(n, {
-        units: n,
-        label: presLabel(n, product.pallet),
-        perUnit: entry.pres?.[String(n)] ?? may,
-        sku: match?.sku,
-      });
-    }
+  // Presentaciones = filas Caja/Pallet de la planilla (presentationPricing).
+  // Si la planilla no tiene fila de caja, no se ofrece caja. El precio por
+  // unidad sale del mapa mayorista fresco (entry.pres, por unidades); si falta,
+  // cae al unitario base.
+  for (const o of presentationOptions(pp)) {
+    byUnits.set(o.units, {
+      units: o.units,
+      label: o.label,
+      perUnit: entry.pres?.[String(o.units)] ?? may,
+      sku: o.sku,
+    });
   }
   const opts = [...byUnits.values()].sort((a, b) => a.units - b.units);
   const minPerUnit = Math.min(...opts.map((o) => o.perUnit));

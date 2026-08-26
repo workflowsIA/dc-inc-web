@@ -1,3 +1,4 @@
+import { presentationOptions } from "@/lib/presentations";
 import Image from "next/image";
 import Link from "next/link";
 import type { Product, Badge } from "@/data/products";
@@ -78,14 +79,12 @@ export default function ProductCard({ product }: Props) {
           <Link href={`/productos/${product.id}`} prefetch={false}>{product.name}</Link>
         </h3>
         <div className="pcard-specs">
-          {product.presentations?.length ? (
-            product.presentations.slice(0, 2).map((pr) => <span key={pr}>{pr}</span>)
-          ) : (
-            <>
-              {product.bulto > 1 && <span>Bulto: {product.bulto} u</span>}
-              {product.pallet > 0 && <span>Pallet: {product.pallet} u</span>}
-            </>
-          )}
+          {/* Presentaciones reales (filas de la planilla), no el texto heredado de Wix. */}
+          {presentationOptions(product.presentationPricing)
+            .slice(0, 2)
+            .map((o) => (
+              <span key={o.units}>{o.label}</span>
+            ))}
           <span>{product.deli}</span>
           <span className={`stock ${stockClass}`}>{stockLabel}</span>
         </div>

@@ -128,7 +128,6 @@ export default async function ProductPage({ params }: Props) {
           <div style={{ marginTop: "24px" }}>
             <ProductBuyBox
               deli={product.deli}
-              presentations={product.presentations}
               presentationPricing={product.presentationPricing}
               pricing={{
                 pub: product.pub,

@@ -38,3 +38,33 @@ export function parsePresentationUnits(label: string): number {
   const strong = candidates.find((c) => c.unitWord || c.afterX);
   return (strong ?? candidates[candidates.length - 1]).n;
 }
+
+/** Opción de compra derivada de la planilla de precios. */
+export interface PresentationOption {
+  /** "Caja x20", "Pallet x1350" */
+  label: string;
+  units: number;
+  /** SKU de la fila variante en la planilla (para reprecio server-side) */
+  sku?: string;
+}
+
+/**
+ * Presentaciones que se OFRECEN a la venta: exactamente las filas Caja/Pallet
+ * que tiene el producto en la planilla de precios (`presentationPricing`, lo
+ * carga el sync). No todos los productos se venden en todas las presentaciones:
+ * si la planilla no tiene fila de caja, no hay caja. (Antes los chips salían
+ * del texto "Presentaciones" heredado de Wix, que ofrecía cajas inexistentes.)
+ * Ordenadas de menor a mayor, sin repetir cantidades. No incluye la unidad.
+ */
+export function presentationOptions(
+  pricing: { sku?: string; label?: string; unitsPerBulk?: number }[] | undefined,
+): PresentationOption[] {
+  const byUnits = new Map<number, PresentationOption>();
+  for (const pp of pricing ?? []) {
+    const units = pp.unitsPerBulk ?? 0;
+    if (!Number.isFinite(units) || units <= 1 || byUnits.has(units)) continue;
+    const base = (pp.label ?? "").trim() || "Bulto";
+    byUnits.set(units, { label: `${base} x${units.toLocaleString("es-AR")}`, units, sku: pp.sku });
+  }
+  return [...byUnits.values()].sort((a, b) => a.units - b.units);
+}

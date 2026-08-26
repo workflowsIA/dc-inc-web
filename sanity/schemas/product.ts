@@ -203,7 +203,7 @@ export default defineType({
       group: "presentacion",
       of: [{ type: "string" }],
       description:
-        'Opciones de presentación que ve el cliente (ej: "24un en Caja", "2025un en Pallet"). Vienen del export de Wix.',
+        'Texto heredado de Wix, SOLO informativo. Las presentaciones que se venden (Caja / Pallet) salen de las filas de la planilla de precios (ver "Precios por presentación"): si la planilla no tiene fila de caja, la web no ofrece caja.',
     }),
     defineField({
       name: "presentationPricing",

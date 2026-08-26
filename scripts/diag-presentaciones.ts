@@ -8,9 +8,9 @@
  * la causa más probable:
  *   [A] la planilla tiene el MISMO precio unitario en la fila base y en las
  *       variantes → no hay descuento por volumen cargado (dato, no código);
- *   [B] la cantidad de la presentación (texto "24un en Caja") no coincide con
- *       UxB de la fila variante (ej. 24 vs 20) → la web no linkea y cae al
- *       precio unitario base;
+ *   [B] el texto viejo "Presentaciones" (ej. "24un en Caja") no tiene fila en
+ *       la planilla → la web NO ofrece esa presentación (solo vende lo que
+ *       está en la planilla); si tiene que existir, falta la fila;
  *   [C] la planilla no tiene filas variante para ese SKU (o el sufijo no es
  *       P/CP/CG) → el sync no pudo cargar presentationPricing;
  *   [D] Sanity no tiene presentationPricing (falta correr el sync).
@@ -161,7 +161,7 @@ async function main() {
     );
     for (const x of presUnits) {
       if (x.n > 1 && !sheetUxb.has(x.n) && !pp.some((e) => e.unitsPerBulk === x.n))
-        flags.push(`[B] la presentación "${x.s}" (${x.n} u) no coincide con ninguna fila de la planilla (UxB: ${[...sheetUxb].join(", ") || "—"}) → la web cae al precio unitario base. Alinear el texto de la presentación en Sanity o el UxB en la planilla.`);
+        flags.push(`[B] el texto "${x.s}" (${x.n} u) no tiene fila en la planilla (UxB cargados: ${[...sheetUxb].join(", ") || "—"}) → la web NO ofrece esa presentación (solo se venden las filas de la planilla). Si tiene que existir, agregar la fila con sufijo CP/CG/P.`);
     }
     const variantRows = sheetRows.filter((r) => String(r["sku"] ?? r["codigo"]).trim() !== base);
     if (!variantRows.length && sheetRows.length)
