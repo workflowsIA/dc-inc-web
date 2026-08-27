@@ -296,6 +296,23 @@ export default function ProductBuyBox({
             <div style={{ marginTop: "4px", fontSize: "13px", color: "var(--muted)" }}>Despacho {deli}</div>
           </>
         )}
+        {/* Decorado elegido: desglose acá arriba, junto al precio del producto */}
+        {decoQ && (
+          <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--line)" }}>
+            <div style={{ fontSize: "12px", color: "var(--muted)" }}>
+              + Decorado {decoQ.option.label}: {ars(decoQ.perUnit * decoFactor)} por pieza × {unitsTotal} u
+              {decoQ.setup > 0 ? ` + montaje y horneado ${ars(decoQ.setup * decoFactor)}` : ""}
+            </div>
+            <div style={{ fontFamily: "var(--display)", fontSize: "22px", fontWeight: 700, color: "var(--ink)", marginTop: "2px" }}>
+              {ars(decoQ.total * decoFactor)}{" "}
+              <span style={{ fontSize: "13px", color: "var(--muted)" }}>{ivaTag} de decorado</span>
+            </div>
+            <div style={{ marginTop: "6px", fontSize: "13px", color: "var(--ink)" }}>
+              Con decorado: <strong>{ars((unitsPerSel > 1 ? bultoPrice * qty : unitPrice * qty) + decoQ.total * decoFactor)}</strong>{" "}
+              <span style={{ color: "var(--muted)" }}>{ivaTag}</span>
+            </div>
+          </div>
+        )}
         {/* Envío: cliente final ve estimado; mayorista, a cotizar */}
         <div style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
           {finalConsumer && !retailBlocked
@@ -311,7 +328,9 @@ export default function ProductBuyBox({
         <div style={{ marginTop: "18px", padding: "16px", border: "1px solid var(--line)", borderRadius: "var(--r-lg)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", flexWrap: "wrap" }}>
             <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Decorado con tu marca (opcional)</span>
-            <span style={{ fontSize: "12px", color: "var(--muted)" }}>Serigrafía · 1 color</span>
+            <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+              Serigrafía 1 color · desde {Math.min(...decoOptions.map(decoMinUnits))} u · el arte se coordina por WhatsApp
+            </span>
           </div>
           <div className="chips" style={{ marginTop: "8px" }}>
             <button type="button" className={`chip ${decoIdx < 0 ? "on" : ""}`} onClick={() => setDecoIdx(-1)}>
@@ -338,51 +357,6 @@ export default function ProductBuyBox({
             })}
           </div>
 
-          {/* Tarifa por pieza según cantidad, siempre visible (de la opción
-              elegida o, si no hay, de la primera). El tramo vigente va resaltado. */}
-          {(() => {
-            const shown = decoSel ?? decoOptions[0];
-            const cur = decoQ?.tier.sku;
-            return (
-              <div style={{ marginTop: "10px", fontSize: "12px", color: "var(--muted)" }}>
-                <div style={{ marginBottom: "4px" }}>
-                  Precio por pieza ({shown.label}) según cantidad{" "}
-                  <span style={{ opacity: 0.8 }}>· {ivaTag}</span>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 10px" }}>
-                  {shown.tiers.map((t) => (
-                    <span
-                      key={t.sku}
-                      style={{
-                        padding: "2px 8px",
-                        borderRadius: "999px",
-                        background: t.sku === cur ? "var(--amber-soft)" : "var(--bg-2)",
-                        color: t.sku === cur ? "var(--amber-deep)" : "var(--muted)",
-                        fontWeight: t.sku === cur ? 700 : 400,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {t.minUnits.toLocaleString("es-AR")}+ u: {ars(t.pricePerUnit * decoFactor)}
-                    </span>
-                  ))}
-                </div>
-                {shown.setupPrice ? (
-                  <div style={{ marginTop: "4px" }}>
-                    + montaje y horneado {ars(shown.setupPrice * decoFactor)} por trabajo · el arte se coordina por WhatsApp.
-                  </div>
-                ) : null}
-              </div>
-            );
-          })()}
-
-          {decoQ && (
-            <p style={{ marginTop: "10px", fontSize: "13px", color: "var(--ink)" }}>
-              Decorado de {unitsTotal} u: {ars(decoQ.perUnit * decoFactor)} × {unitsTotal} ={" "}
-              {ars(decoQ.piecesTotal * decoFactor)}
-              {decoQ.setup > 0 ? ` + ${ars(decoQ.setup * decoFactor)} montaje` : ""} ={" "}
-              <strong>{ars(decoQ.total * decoFactor)}</strong> {ivaTag}
-            </p>
-          )}
           {!decoQ && unitsTotal < Math.min(...decoOptions.map(decoMinUnits)) && (
             <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--muted)" }}>
               Se decora a partir de {Math.min(...decoOptions.map(decoMinUnits))} piezas (hoy: {unitsTotal} u).
@@ -423,15 +397,9 @@ export default function ProductBuyBox({
           </span>
         </div>
         <div style={{ marginLeft: "auto", textAlign: "right" }}>
-          {decoQ ? (
-            <div style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.5 }}>
-              Producto ({unitsTotal} u): {ars(total)}
-              <br />
-              Decorado: {ars(decoQ.total * decoFactor)}
-            </div>
-          ) : (
-            <div style={{ fontSize: "12px", color: "var(--muted)" }}>Total · {unitsTotal} u</div>
-          )}
+          <div style={{ fontSize: "12px", color: "var(--muted)" }}>
+            Total · {unitsTotal} u{decoQ ? " + decorado" : ""}
+          </div>
           <div style={{ fontFamily: "var(--display)", fontSize: "22px", fontWeight: 700 }}>
             {ars(total + (decoQ ? decoQ.total * decoFactor : 0))}{" "}
             <span style={{ fontSize: "12px", color: "var(--muted)" }}>{ivaTag}</span>
