@@ -40,7 +40,7 @@ export default function Header() {
     <header className="hdr">
       <div className="wrap hdr-top">
         <MobileMenu />
-        <Link href="/" aria-label="DC Inc — Inicio">
+        <Link href="/" aria-label="DC Inc — Inicio" className="hdr-brand">
           <span className="logo">
             <Image
               className="logo-img"

@@ -195,6 +195,9 @@ p{ margin:0; }
 .hdr{ position:sticky; top:0; z-index:60; background:var(--charcoal); color:#fff; }
 .hdr-top{ display:flex; align-items:center; gap:22px; height:var(--header-h); }
 .hdr .logo{ --logo-size:34px; --logo-d:#fff; flex:none; }
+/* El link del logo era inline: su caja de línea (descender) lo dejaba ~4px
+   más alto que el burger y el carrito. Flex + line-height 0 = centrado real. */
+.hdr-brand{ display:inline-flex; align-items:center; line-height:0; flex:none; }
 .nav{ display:flex; align-items:center; gap:4px; margin-left:8px; }
 .nav a{ padding:9px 13px; border-radius:8px; font-weight:600; font-size:14.5px; color:#e7e7e4; transition:background .15s,color .15s; }
 .nav a:hover{ background:rgba(255,255,255,.09); color:#fff; }
