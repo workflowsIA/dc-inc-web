@@ -26,6 +26,7 @@ import {
   type LinkedPresentation,
   type SheetPriceRow,
 } from "./sheet-presentations";
+import { buildDecoPricing } from "./deco";
 
 const SHEET_PRECIOS_ID =
   process.env.SHEET_PRECIOS_ID ?? "1rQoHe-bx5x8tBcEWgGGwyWIQi3zfUvYM5b7wYiLjdf0";
@@ -53,6 +54,8 @@ export interface SyncSummary {
    *  prefijo de su SKU → no se pueden ofrecer como presentación. Para revisar
    *  con Marce (SKU mal formado o base que falta). */
   unlinkedVariants: { sku: string; name: string; unitsPerBulk: number | null }[];
+  /** Tarifa de decorado cargada (opciones familia×caras y tramos). */
+  decoOptions: { family: string; sides: number; tiers: number; setup?: number }[];
 }
 
 // ---- helpers ----
@@ -362,6 +365,25 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
     await txDrafts.commit({ visibility: "async" });
   }
 
+  // --- Tarifa de decorado (filas DBC11xx / DBG11xx / DG111xx / DG211xx / DC11xx
+  // + DCMYM1/2) → singleton `deco-pricing`, solo lectura en el Studio. Ver deco.ts.
+  const deco = buildDecoPricing(sheetRows);
+  if (!dryRun && deco.options.length > 0) {
+    await sanityWriteClient.createOrReplace({
+      _id: "deco-pricing",
+      _type: "decoPricing",
+      updatedAt: new Date().toISOString(),
+      options: deco.options.map((o) => ({
+        _key: `${o.family}-${o.sides}`,
+        family: o.family,
+        sides: o.sides,
+        label: o.label,
+        ...(o.setupSku ? { setupSku: o.setupSku, setupPrice: o.setupPrice } : {}),
+        tiers: o.tiers.map((t) => ({ _key: t.sku, ...t })),
+      })),
+    });
+  }
+
   return {
     pricesRead: new Set(priceMap.values()).size,
     stockRead: stockMap.size,
@@ -377,6 +399,12 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
       sku: r.sku,
       name: r.name,
       unitsPerBulk: r.unitsPerBulk,
+    })),
+    decoOptions: deco.options.map((o) => ({
+      family: o.family,
+      sides: o.sides,
+      tiers: o.tiers.length,
+      ...(o.setupPrice != null ? { setup: o.setupPrice } : {}),
     })),
   };
 }

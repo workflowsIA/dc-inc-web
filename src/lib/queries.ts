@@ -57,6 +57,7 @@ export const productBySlugQuery = groq`
     stockLevel,
     badges,
     decoAvailable,
+    decoFamily,
     specs,
     "image": coalesce(images[0].asset->url, legacyImageUrl),
     "category": category->name,
@@ -221,6 +222,13 @@ export const testimonialsQuery = groq`
   }
 `;
 
+/** Tarifa de decorado (singleton _id "deco-pricing", la carga el sync). */
+export const decoPricingQuery = groq`
+  *[_type == "decoPricing" && _id == "deco-pricing"][0] {
+    options[]{ family, sides, label, setupSku, setupPrice, tiers[]{ sku, minUnits, pricePerUnit } }
+  }
+`;
+
 /** Config de envíos (singleton _id "shipping-config"). Devuelve el doc crudo;
  *  getShippingConfig() lo mapea a ShippingConfig con fallback a los defaults. */
 export const shippingConfigQuery = groq`
@@ -297,6 +305,8 @@ export interface SanityProduct {
   stockLevel: "ok" | "low" | "out";
   badges: ("best" | "new" | "promo" | "deco")[];
   decoAvailable: boolean;
+  /** familia de tarifa de decorado (ver src/lib/deco.ts) */
+  decoFamily?: string;
   specs?: { key: string; value: string }[];
   image?: string;
   images?: string[];

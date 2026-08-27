@@ -4,10 +4,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   getAllProductSlugs,
+  getDecoPricing,
   getProductBySlug,
   getProducts,
   toLegacyProduct,
 } from "@/lib/sanity-data";
+import { decoOptionsFor, type DecoFamily } from "@/lib/deco";
 import ProductCard from "@/components/blocks/ProductCard";
 import { plainText } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
@@ -59,6 +61,13 @@ export default async function ProductPage({ params }: Props) {
     console.error("[product page] Sanity fetch failed:", (e as Error).message);
   }
   if (!product) notFound();
+
+  // Decorado con precio (fase 1): solo si el producto tiene familia de tarifa
+  // y la tarifa está cargada desde la planilla. Ver src/lib/deco.ts.
+  const decoOptions =
+    product.deco && product.decoFamily
+      ? decoOptionsFor(await getDecoPricing(), product.decoFamily as DecoFamily)
+      : [];
 
   // Productos relacionados: misma categoría, excluyendo el actual (máx 4).
   // getProducts() es una sola query cacheada → sin costo extra en el build.
@@ -129,6 +138,7 @@ export default async function ProductPage({ params }: Props) {
             <ProductBuyBox
               deli={product.deli}
               presentationPricing={product.presentationPricing}
+              decoOptions={decoOptions}
               pricing={{
                 pub: product.pub,
                 may: product.may,

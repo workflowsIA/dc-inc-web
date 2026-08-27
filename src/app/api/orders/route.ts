@@ -11,7 +11,8 @@ import {
 } from "@/lib/queries";
 import { IVA_RATE, isSaleActive, retailCanBuyPresentation } from "@/lib/pricing";
 import { shippingEstimate, type BatuZone } from "@/lib/shipping";
-import { getShippingConfig } from "@/lib/sanity-data";
+import { getDecoPricing, getShippingConfig } from "@/lib/sanity-data";
+import { decoQuote } from "@/lib/deco";
 import { guard, LIMITS } from "@/lib/rate-limit";
 
 /**
@@ -37,7 +38,7 @@ export const runtime = "nodejs";
 const ItemSchema = z.object({
   sku: z.string().trim().max(64).optional(),
   slug: z.string().trim().max(160).optional(),
-  kind: z.literal("combo").optional(),
+  kind: z.enum(["combo", "deco"]).optional(),
   qty: z.number().int().positive().max(100000),
   name: z.string().trim().max(200).optional(),
   deco: z.boolean().optional(),
@@ -105,15 +106,17 @@ export async function POST(req: Request) {
   try {
     // Separamos items en combos (por slug) y productos (por sku).
     const comboSlugs = body.items.filter((i) => i.kind === "combo" && i.slug).map((i) => i.slug!);
-    const productSkus = body.items.filter((i) => i.kind !== "combo" && i.sku).map((i) => i.sku!);
+    const productSkus = body.items.filter((i) => !i.kind && i.sku).map((i) => i.sku!);
 
-    const [products, combos] = await Promise.all([
+    const hasDeco = body.items.some((i) => i.kind === "deco");
+    const [products, combos, decoPricing] = await Promise.all([
       productSkus.length
         ? sanityClient.fetch<OrderPricingProduct[]>(productsBySkusQuery, { skus: productSkus })
         : Promise.resolve([]),
       comboSlugs.length
         ? sanityClient.fetch<OrderPricingCombo[]>(combosBySlugsQuery, { slugs: comboSlugs })
         : Promise.resolve([]),
+      hasDeco ? getDecoPricing() : Promise.resolve(null),
     ]);
 
     const productBySku = new Map(products.map((p) => [p.sku, p]));
@@ -153,6 +156,27 @@ export async function POST(req: Request) {
         sku = combo.slug;
         unitNet = typeof combo.pricePublicFrom === "number" ? combo.pricePublicFrom : 0;
         totalBultos += it.qty; // 1 bulto por combo
+      } else if (it.kind === "deco") {
+        // Decorado: el SKU es un tramo de la tarifa (DBC1124…) o el montaje
+        // (DCMYM1/2). Se reprecia contra la tarifa de Sanity: el tramo se
+        // recalcula por la cantidad real de piezas (nunca se confía en el precio
+        // del cliente). Sin tarifa o SKU desconocido → se descarta la línea.
+        const opt = decoPricing?.options.find(
+          (o) => o.setupSku === it.sku || o.tiers.some((t) => t.sku === it.sku),
+        );
+        if (!opt || !it.sku) continue;
+        if (opt.setupSku === it.sku) {
+          unitNet = opt.setupPrice ?? 0;
+          sku = it.sku;
+          name = it.name || `Montaje y horneado (${opt.label})`;
+        } else {
+          const q = decoQuote(opt, it.qty);
+          if (!q) continue; // por debajo del tramo mínimo → no se cotiza
+          unitNet = q.perUnit;
+          sku = q.tier.sku;
+          name = it.name || `Decorado ${opt.label}`;
+        }
+        // servicio: no suma bultos para el envío
       } else {
         const prod = it.sku ? productBySku.get(it.sku) : undefined;
         if (!prod) continue; // sku inexistente → se descarta

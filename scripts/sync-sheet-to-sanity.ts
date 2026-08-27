@@ -67,6 +67,11 @@ async function main() {
       "   → Studio: Catálogo → Productos → «Nuevos desde la planilla» (completar foto/categoría y publicar).",
     );
   }
+  if (r.decoOptions.length) {
+    console.log(`\n🎨 Tarifa de decorado: ${r.decoOptions.length} opciones → singleton deco-pricing`);
+    for (const o of r.decoOptions)
+      console.log(`   ${o.family.padEnd(16)} ${o.sides} cara(s)  ${o.tiers} tramos${o.setup != null ? `  montaje $${o.setup}` : ""}`);
+  }
   if (r.unlinkedVariants.length) {
     console.log(
       `\n⚠️  Filas de presentación (UxB > 1) sin fila base en la planilla (${r.unlinkedVariants.length}) — no se ofrecen en la web:`,

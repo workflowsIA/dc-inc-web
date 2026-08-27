@@ -40,6 +40,8 @@ export interface Product {
   stock: StockLevel;
   badges: Badge[];
   deco: boolean;
+  /** familia de tarifa de decorado (src/lib/deco.ts); undefined = sin cotización en la ficha */
+  decoFamily?: string;
   specs: Record<string, string>;
   /** opciones de presentación (ej: "24un en Cajas", "2025un en Pallet") */
   presentations?: string[];

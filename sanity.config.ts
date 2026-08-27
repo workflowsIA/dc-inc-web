@@ -40,9 +40,10 @@ export default defineConfig({
   // que nadie sabe si están en uso. Para desactivarlo está el switch "Mostrar
   // este banner" adentro del documento.
   document: {
-    newDocumentOptions: (prev) => prev.filter((t) => t.templateId !== "hero"),
+    newDocumentOptions: (prev) =>
+      prev.filter((t) => t.templateId !== "hero" && t.templateId !== "decoPricing"),
     actions: (prev, { schemaType }) =>
-      schemaType === "hero"
+      schemaType === "hero" || schemaType === "decoPricing"
         ? prev.filter((a) => !["delete", "duplicate", "unpublish"].includes(String(a.action)))
         : prev,
   },

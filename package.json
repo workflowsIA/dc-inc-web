@@ -28,6 +28,7 @@
     "monday:test": "tsx --env-file=.env.local scripts/test-monday.ts",
     "orders:cleanup": "tsx --env-file=.env.local scripts/cleanup-test-orders.ts",
     "drafts:cleanup": "tsx --env-file=.env.local scripts/cleanup-sheet-drafts.ts",
+    "deco:assign": "tsx --env-file=.env.local scripts/assign-deco-family.ts",
     "subtypes:migrate": "tsx --env-file=.env.local scripts/migrate-subtypes.ts",
     "categories:order": "tsx --env-file=.env.local scripts/set-category-order.ts",
     "diag:presentaciones": "tsx --env-file=.env.local scripts/diag-presentaciones.ts",

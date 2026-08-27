@@ -8,6 +8,7 @@ import { SHIPPING_FROM } from "@/lib/shipping";
 import type { PresentationPricing } from "@/lib/queries";
 import { useWholesaleEntry } from "@/lib/wholesale-prices";
 import WholesaleCta from "./WholesaleCta";
+import { decoMinUnits, decoQuote, type DecoOption } from "@/lib/deco";
 
 interface Props {
   product: ProductSnapshot;
@@ -16,6 +17,8 @@ interface Props {
   deli: string;
   /** filas Caja/Pallet de la planilla: definen QUÉ presentaciones se venden y a qué precio */
   presentationPricing?: PresentationPricing[];
+  /** opciones de decorado con precio para este producto (1 cara / 2 caras); vacío = sin decorado en la ficha */
+  decoOptions?: DecoOption[];
 }
 
 interface Pres {
@@ -29,6 +32,7 @@ export default function ProductBuyBox({
   pricing: pricingProp,
   deli,
   presentationPricing: presentationPricingProp,
+  decoOptions = [],
 }: Props) {
   const add = useCart((s) => s.add);
   // El rol y los precios mayoristas se resuelven en el cliente (ver
@@ -76,6 +80,10 @@ export default function ProductBuyBox({
     new Set((presentationPricingProp ?? []).map((pp) => pp.variant?.trim()).filter(Boolean) as string[]),
   );
   const [color, setColor] = useState<string>(colorOptions[0] ?? "");
+  // DECORADO (serigrafía) como extra: -1 = sin decorado; si no, índice en
+  // decoOptions. Se cotiza por tramo según la cantidad total de piezas y se
+  // agrega como líneas aparte (tramo + montaje). Ver src/lib/deco.ts.
+  const [decoIdx, setDecoIdx] = useState(-1);
 
   const sel = hasPres ? presList[idx] : null;
   // Venta por bulto cerrado: si no hay presentaciones explícitas, caemos al
@@ -116,6 +124,12 @@ export default function ProductBuyBox({
   const unitPrice = dp.display;
   const bultoPrice = unitPrice * unitsPerSel;
   const total = unitPrice * unitsTotal;
+  // Decorado elegido y su cotización para la cantidad actual (null = por
+  // debajo del tramo mínimo). El precio se muestra en la misma base que el
+  // producto (IVA incl. para cliente final, neto para mayorista).
+  const decoSel = decoIdx >= 0 ? decoOptions[decoIdx] : undefined;
+  const decoQ = decoSel ? decoQuote(decoSel, unitsTotal) : null;
+  const decoFactor = finalConsumer && !retailBlocked ? 1 + 0.21 : 1;
   // Sufijo de IVA según el tipo de usuario.
   const ivaTag = finalConsumer && !retailBlocked ? "IVA incl." : "+ IVA";
   // Tachado por unidad (oferta o precio anterior), en la misma base que unitPrice.
@@ -137,7 +151,41 @@ export default function ProductBuyBox({
         variant: needsColor && color ? color : undefined,
       },
       unitsTotal,
+      !!decoQ,
     );
+    // Decorado: una línea por el tramo (qty = piezas) y una por montaje y
+    // horneado (qty 1). /api/orders reprecia por SKU contra la tarifa.
+    if (decoQ) {
+      const tag = `${decoQ.option.label} — ${product.name}`;
+      add(
+        {
+          id: `deco-${product.id}-${decoQ.option.sides}`,
+          name: `Decorado ${tag}`,
+          sku: decoQ.tier.sku,
+          pub: decoQ.perUnit,
+          may: decoQ.perUnit,
+          bulto: 1,
+          kind: "deco",
+          decoFor: product.id,
+        },
+        unitsTotal,
+      );
+      if (decoQ.option.setupSku && decoQ.setup > 0) {
+        add(
+          {
+            id: `deco-setup-${product.id}-${decoQ.option.sides}`,
+            name: `Montaje y horneado — ${product.name}`,
+            sku: decoQ.option.setupSku,
+            pub: decoQ.setup,
+            may: decoQ.setup,
+            bulto: 1,
+            kind: "deco",
+            decoFor: product.id,
+          },
+          1,
+        );
+      }
+    }
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
   }
@@ -255,6 +303,47 @@ export default function ProductBuyBox({
 
       {retailBlocked && <WholesaleCta />}
 
+      {/* DECORADO (opcional) — solo productos con tarifa de la planilla */}
+      {decoOptions.length > 0 && !retailBlocked && (
+        <div style={{ marginTop: "18px", padding: "16px", border: "1px solid var(--line)", borderRadius: "var(--r-lg)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Decorado con tu marca (opcional)</span>
+            <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+              Serigrafía · desde {Math.min(...decoOptions.map(decoMinUnits))} u
+            </span>
+          </div>
+          <div className="chips" style={{ marginTop: "8px" }}>
+            <button type="button" className={`chip ${decoIdx < 0 ? "on" : ""}`} onClick={() => setDecoIdx(-1)}>
+              Sin decorado
+            </button>
+            {decoOptions.map((o, i) => (
+              <button
+                key={`${o.family}-${o.sides}`}
+                type="button"
+                className={`chip ${i === decoIdx ? "on" : ""}`}
+                onClick={() => setDecoIdx(i)}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          {decoSel && !decoQ && (
+            <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--muted)" }}>
+              El decorado se cotiza a partir de {decoMinUnits(decoSel)} piezas. Subí la cantidad
+              (hoy: {unitsTotal} u) o consultá por WhatsApp.
+            </p>
+          )}
+          {decoQ && (
+            <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--muted)" }}>
+              {ars(decoQ.perUnit * decoFactor)} por pieza × {unitsTotal} u ={" "}
+              <strong style={{ color: "var(--ink)" }}>{ars(decoQ.piecesTotal * decoFactor)}</strong>
+              {decoQ.setup > 0 ? ` + montaje y horneado ${ars(decoQ.setup * decoFactor)}` : ""} {ivaTag}.
+              Después de comprar coordinamos el arte por WhatsApp.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* CANTIDAD + TOTAL */}
       <div
         style={{
@@ -286,9 +375,12 @@ export default function ProductBuyBox({
           </span>
         </div>
         <div style={{ marginLeft: "auto", textAlign: "right" }}>
-          <div style={{ fontSize: "12px", color: "var(--muted)" }}>Total · {unitsTotal} u</div>
+          <div style={{ fontSize: "12px", color: "var(--muted)" }}>
+            Total · {unitsTotal} u{decoQ ? " + decorado" : ""}
+          </div>
           <div style={{ fontFamily: "var(--display)", fontSize: "22px", fontWeight: 700 }}>
-            {ars(total)} <span style={{ fontSize: "12px", color: "var(--muted)" }}>{ivaTag}</span>
+            {ars(total + (decoQ ? decoQ.total * decoFactor : 0))}{" "}
+            <span style={{ fontSize: "12px", color: "var(--muted)" }}>{ivaTag}</span>
           </div>
         </div>
       </div>

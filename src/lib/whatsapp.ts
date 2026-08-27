@@ -42,6 +42,7 @@ export function volumeRate(_subtotal: number): number {
  *  cuentan como 1 bulto por línea. Mínimo 1. */
 export function totalBultos(items: CartItem[]): number {
   const n = items.reduce((acc, i) => {
+    if (i.kind === "deco") return acc; // servicio: no ocupa bulto
     if (i.kind === "combo") return acc + i.qty;
     const step = i.bulto > 0 ? i.bulto : 1;
     return acc + (step > 1 ? Math.max(1, Math.round(i.qty / step)) : 1);
@@ -103,7 +104,9 @@ function orderBody(
     const qtyLabel =
       i.kind === "combo"
         ? `${i.qty} ${i.qty === 1 ? "combo" : "combos"}`
-        : step > 1
+        : i.kind === "deco"
+          ? `${i.qty} ${i.qty === 1 ? "u" : "u"}`
+          : step > 1
           ? `${bultos} ${bultos === 1 ? "bulto" : "bultos"} (${i.qty} u)`
           : `${i.qty} u`;
     // Presentación elegida (caja / pallet / paquete por color) y su SKU de la

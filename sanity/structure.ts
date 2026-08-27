@@ -14,6 +14,7 @@ import {
   ClockIcon,
   CheckmarkCircleIcon,
   CommentIcon,
+  SparklesIcon,
 } from "@sanity/icons";
 
 /**
@@ -320,6 +321,16 @@ export const structure: StructureResolver = (S) =>
                     .schemaType("shippingConfig")
                     .documentId("shipping-config")
                     .title("Configuración de envíos"),
+                ),
+              S.listItem()
+                .id("deco-pricing")
+                .title("Tarifa de decorado (planilla)")
+                .icon(SparklesIcon)
+                .child(
+                  S.document()
+                    .schemaType("decoPricing")
+                    .documentId("deco-pricing")
+                    .title("Tarifa de decorado (desde la planilla)"),
                 ),
             ]),
         ),

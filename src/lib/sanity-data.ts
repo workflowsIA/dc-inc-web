@@ -24,6 +24,7 @@ import {
   clientsQuery,
   testimonialsQuery,
   shippingConfigQuery,
+  decoPricingQuery,
   blogPostsQuery,
   blogPostBySlugQuery,
   blogPostSlugsQuery,
@@ -39,6 +40,7 @@ import {
   type SanityHero,
 } from "./queries";
 import type { Product, Badge, StockLevel } from "@/data/products";
+import type { DecoOption, DecoPricing } from "./deco";
 
 /** Convierte un producto Sanity al shape legacy que consumen las páginas
  *  (mismo Product que el mock). El packshot viene como `imageUrl` (URL absoluta
@@ -71,6 +73,7 @@ export function toLegacyProduct(p: SanityProduct, wholesale = false): Product {
     stock: (p.stockLevel as StockLevel) ?? "ok",
     badges: (p.badges as Badge[]) ?? [],
     deco: p.decoAvailable ?? true,
+    decoFamily: p.decoFamily,
     specs: (p.specs ?? []).reduce<Record<string, string>>(
       (acc, s) => ({ ...acc, [s.key]: s.value }),
       {},
@@ -168,6 +171,24 @@ export async function getClients(): Promise<SanityClient[]> {
  *  cae en su lista de fallback. */
 export async function getTestimonials(): Promise<SanityTestimonial[]> {
   return await sanityClient.fetch(testimonialsQuery, {}, { next: { revalidate: 300 } });
+}
+
+/** Tarifa de decorado (singleton cargado por el sync). null si no existe o
+ *  falla: la ficha simplemente no ofrece decorado con precio. */
+export async function getDecoPricing(): Promise<DecoPricing | null> {
+  try {
+    const doc = await sanityClient.fetch<{ options?: DecoOption[] } | null>(
+      decoPricingQuery,
+      {},
+      { next: { revalidate: 300 } },
+    );
+    const options = (doc?.options ?? []).filter(
+      (o) => o && o.family && (o.sides === 1 || o.sides === 2) && Array.isArray(o.tiers),
+    );
+    return options.length ? { options } : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Config de envíos resuelta: lee el singleton de Sanity y lo mapea a

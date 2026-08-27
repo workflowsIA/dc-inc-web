@@ -387,6 +387,24 @@ export default defineType({
       initialValue: true,
       description: "Activado si el producto se puede decorar/personalizar.",
     }),
+    defineField({
+      name: "decoFamily",
+      title: "Tarifa de decorado que aplica",
+      type: "string",
+      group: "decoracion",
+      description:
+        "Qué tarifa de serigrafía de la planilla usa la ficha para cotizar el decorado (según tamaño del envase). Vacío = la ficha no ofrece decorado con precio (solo la página Personalización). Se completa solo la primera vez (script) y se puede corregir acá.",
+      options: {
+        list: [
+          { title: "Botellas 330 a 500 ml", value: "botella-chica" },
+          { title: "Botellas 660 a 1000 ml", value: "botella-grande" },
+          { title: "Botellón 1 litro", value: "botellon-1l" },
+          { title: "Botellón 2 litros", value: "botellon-2l" },
+          { title: "Cristalería (copas y vasos)", value: "cristaleria" },
+        ],
+      },
+      hidden: ({ parent }) => parent?.decoAvailable === false,
+    }),
 
     // ---- FICHA TÉCNICA ----
     defineField({

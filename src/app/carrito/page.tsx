@@ -139,7 +139,7 @@ export default function CarritoPage() {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 700, overflowWrap: "anywhere" }}>{i.name}</div>
                   <div className="mono" style={{ fontSize: "12px", color: "var(--muted)", overflowWrap: "anywhere" }}>
-                    {i.kind === "combo" ? "Combo armado" : (i.presentationSku ?? i.sku)}
+                    {i.kind === "combo" ? "Combo armado" : i.kind === "deco" ? `Decorado · ${i.sku}` : (i.presentationSku ?? i.sku)}
                     {i.kind !== "combo" && i.bulto > 1
                       ? ` · ${i.presentationLabel ?? `bulto ${i.bulto} u`}`
                       : ""}
@@ -153,6 +153,15 @@ export default function CarritoPage() {
               {(() => {
                 const step = i.bulto > 0 ? i.bulto : 1;
                 const bultos = Math.max(1, Math.round(i.qty / step));
+                // Líneas de decorado: la cantidad la fija el producto decorado
+                // (se cotizó por tramo). Para cambiarla, quitar y volver a agregar.
+                if (i.kind === "deco") {
+                  return (
+                    <div className="cart-line-qty" style={{ fontSize: "12px", color: "var(--muted)" }}>
+                      {i.decoFor ? "Cotizado según la cantidad del producto" : ""}
+                    </div>
+                  );
+                }
                 return (
                   <div className="cart-line-qty" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => setQty(lineKey(i), i.qty - step)}>
@@ -191,7 +200,9 @@ export default function CarritoPage() {
                       <div style={{ fontSize: "12px", color: "var(--muted)" }}>
                         {i.kind === "combo"
                           ? `${i.qty} ${i.qty === 1 ? "combo" : "combos"}`
-                          : step > 1
+                          : i.kind === "deco"
+                            ? `${i.qty} ${i.qty === 1 ? "pieza" : "piezas"}`
+                            : step > 1
                             ? `${bultos} ${bultos === 1 ? "bulto" : "bultos"} · ${i.qty} u`
                             : `${i.qty} u`}
                       </div>

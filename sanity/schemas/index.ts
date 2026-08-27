@@ -11,6 +11,7 @@ import blogPost from "./blogPost";
 import lead from "./lead";
 import testimonial from "./testimonial";
 import shippingConfig from "./shippingConfig";
+import decoPricing from "./decoPricing";
 
 export const schemaTypes = [
   product,
@@ -26,4 +27,5 @@ export const schemaTypes = [
   lead,
   testimonial,
   shippingConfig,
+  decoPricing,
 ];
