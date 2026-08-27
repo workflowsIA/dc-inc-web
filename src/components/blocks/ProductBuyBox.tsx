@@ -68,6 +68,14 @@ export default function ProductBuyBox({
   const [idx, setIdx] = useState(wholesale && firstBultoIdx > 0 ? firstBultoIdx : 0);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  // COLOR / TERMINACIÓN: las tapas corona tienen paquetes x100 por color (filas
+  // con `variant` y SKU propio). Para unidad y caja la planilla no tiene código
+  // por color → el color se elige acá y viaja como TEXTO con el SKU genérico
+  // (decisión Fede, 27-ago-2026). Las opciones salen de las variantes cargadas.
+  const colorOptions = Array.from(
+    new Set((presentationPricingProp ?? []).map((pp) => pp.variant?.trim()).filter(Boolean) as string[]),
+  );
+  const [color, setColor] = useState<string>(colorOptions[0] ?? "");
 
   const sel = hasPres ? presList[idx] : null;
   // Venta por bulto cerrado: si no hay presentaciones explícitas, caemos al
@@ -87,6 +95,8 @@ export default function ProductBuyBox({
         presentationPricing.find((pp) => pp.unitsPerBulk === sel.units) ??
         null)
       : null;
+  // La presentación elegida ya trae color propio (paquete por color) → no se pide.
+  const needsColor = colorOptions.length > 0 && !presMatch?.variant;
   const selPricing: PricingInput =
     presMatch && presMatch.pricePublic != null
       ? { ...pricing, pub: presMatch.pricePublic, may: presMatch.priceWholesale ?? pricing.may }
@@ -124,6 +134,7 @@ export default function ProductBuyBox({
         bulto: unitsPerSel,
         presentationSku: presMatch?.sku,
         presentationLabel: presMatch ? sel?.label : undefined,
+        variant: needsColor && color ? color : undefined,
       },
       unitsTotal,
     );
@@ -166,6 +177,25 @@ export default function ProductBuyBox({
                 }}
               >
                 {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* COLOR / TERMINACIÓN (solo productos con variantes, unidad o caja) */}
+      {needsColor && (
+        <div style={{ marginBottom: "16px" }}>
+          <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Color / terminación</span>
+          <div className="chips" style={{ marginTop: "8px" }}>
+            {colorOptions.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className={`chip ${c === color ? "on" : ""}`}
+                onClick={() => setColor(c)}
+              >
+                {c}
               </button>
             ))}
           </div>

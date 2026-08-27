@@ -13,6 +13,7 @@ import {
   type ShippingConfig,
 } from "@/lib/shipping";
 import { useWholesaleCtx, useRepricedItems } from "@/lib/wholesale-prices";
+import { RetailCapNotice } from "@/components/blocks/WholesaleCta";
 
 export default function CarritoPage() {
   const rawItems = useCart((s) => s.items);
@@ -91,6 +92,8 @@ export default function CarritoPage() {
         </div>
       </div>
 
+      <RetailCapNotice netProducts={t.net} wholesale={wholesale} />
+
       <div className="cart-layout">
         <div style={{ display: "grid", gap: "12px" }}>
           {items.map((i) => (
@@ -140,6 +143,7 @@ export default function CarritoPage() {
                     {i.kind !== "combo" && i.bulto > 1
                       ? ` · ${i.presentationLabel ?? `bulto ${i.bulto} u`}`
                       : ""}
+                    {i.variant ? ` · ${i.variant}` : ""}
                     {i.deco ? " · con decorado" : ""}
                   </div>
                 </div>

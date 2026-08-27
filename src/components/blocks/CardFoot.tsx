@@ -1,9 +1,15 @@
 "use client";
 import { presentationOptions } from "@/lib/presentations";
 import { useState } from "react";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import type { Product } from "@/data/products";
 import { ars } from "@/lib/format";
-import { resolveDisplayPrice, retailCanBuyPresentation, withIva } from "@/lib/pricing";
+import {
+  resolveDisplayPrice,
+  retailCanBuyPresentation,
+  withIva,
+} from "@/lib/pricing";
 import { SHIPPING_FROM } from "@/lib/shipping";
 import { useWholesaleEntry, type WholesaleEntry } from "@/lib/wholesale-prices";
 import { AddToCartIcon } from "./AddToCart";
@@ -31,9 +37,18 @@ export default function CardFoot({ product }: { product: Product }) {
   const pricesPending = wholesale && !ready;
 
   if (showWholesale && entry) {
-    return <WholesaleFoot product={product} may={may} entry={entry} pricesPending={pricesPending} />;
+    return (
+      <WholesaleFoot
+        product={product}
+        may={may}
+        entry={entry}
+        pricesPending={pricesPending}
+      />
+    );
   }
-  return <RetailFoot product={product} may={may} pricesPending={pricesPending} />;
+  return (
+    <RetailFoot product={product} may={may} pricesPending={pricesPending} />
+  );
 }
 
 /**
@@ -77,29 +92,38 @@ function RetailFoot({
           <span className="price-from">Desde</span>
           {dp.strike && <span className="price-old">{ars(dp.strike)}</span>}
           <span className="price">{ars(dp.display)}</span>
-          <span className="price-unit">{dp.finalConsumer ? "IVA incl." : "+ IVA"}</span>
+          <span className="price-unit">
+            {dp.finalConsumer ? "IVA incl." : "+ IVA"}
+          </span>
         </div>
-        <AddToCartIcon
-          disabled={pricesPending || blocked}
-          product={{
-            id: product.id,
-            name: product.name,
-            sku: product.sku,
-            // Presentación elegida: precio neto de su fila; unidad: el base.
-            pub: sel ? sel.net : product.pub,
-            may,
-            // Sin presentación elegida el "+" agrega 1 UNIDAD (bulto:1 → el
-            // carrito lo trata por unidad, sin snapping a múltiplos).
-            bulto: sel ? sel.units : 1,
-            pallet: product.pallet,
-            imageUrl: product.imageUrl,
-            presentationSku: sel?.sku,
-            presentationLabel: sel?.label,
-          }}
-        />
+        {needsColorInFicha(product, sel?.sku) ? (
+          <GoToFichaIcon product={product} />
+        ) : (
+          <AddToCartIcon
+            disabled={pricesPending || blocked}
+            product={{
+              id: product.id,
+              name: product.name,
+              sku: product.sku,
+              // Presentación elegida: precio neto de su fila; unidad: el base.
+              pub: sel ? sel.net : product.pub,
+              may,
+              // Sin presentación elegida el "+" agrega 1 UNIDAD (bulto:1 → el
+              // carrito lo trata por unidad, sin snapping a múltiplos).
+              bulto: sel ? sel.units : 1,
+              pallet: product.pallet,
+              imageUrl: product.imageUrl,
+              presentationSku: sel?.sku,
+              presentationLabel: sel?.label,
+            }}
+          />
+        )}
       </div>
       {opts.length > 0 ? (
-        <div className="pcard-pres" style={{ position: "relative", zIndex: 2, marginTop: "8px" }}>
+        <div
+          className="pcard-pres"
+          style={{ position: "relative", zIndex: 2, marginTop: "8px" }}
+        >
           <div className="chips">
             <button
               type="button"
@@ -134,7 +158,13 @@ function RetailFoot({
             ) : null}
           </div>
           {sel ? (
-            <p style={{ marginTop: "6px", fontSize: "12px", color: "var(--muted)" }}>
+            <p
+              style={{
+                marginTop: "6px",
+                fontSize: "12px",
+                color: "var(--muted)",
+              }}
+            >
               {sel.label}:{" "}
               <strong style={{ color: "var(--ink)" }}>
                 {ars((sel.allowed ? withIva(sel.net) : sel.net) * sel.units)}
@@ -142,18 +172,55 @@ function RetailFoot({
               {sel.allowed ? "IVA incl." : "+ IVA"} · {sel.units} u
             </p>
           ) : (
-            <p style={{ marginTop: "6px", fontSize: "11px", color: "var(--muted)" }}>
+            <p
+              style={{
+                marginTop: "6px",
+                fontSize: "11px",
+                color: "var(--muted)",
+              }}
+            >
               + Envío desde {ars(SHIPPING_FROM)}
             </p>
           )}
-          {blocked ? <WholesaleCta compact onClick={(e) => e.stopPropagation()} /> : null}
+          {blocked ? (
+            <WholesaleCta compact onClick={(e) => e.stopPropagation()} />
+          ) : null}
         </div>
       ) : (
-        <p style={{ marginTop: "6px", fontSize: "11px", color: "var(--muted)" }}>
+        <p
+          style={{ marginTop: "6px", fontSize: "11px", color: "var(--muted)" }}
+        >
           + Envío desde {ars(SHIPPING_FROM)}
         </p>
       )}
     </>
+  );
+}
+
+/**
+ * Productos con color / terminación (tapas corona): unidad y caja necesitan
+ * elegir color, y eso se hace en la ficha. La card manda ahí en vez de agregar
+ * a ciegas. Los paquetes por color (fila con `variant`) sí se agregan directo.
+ */
+function needsColorInFicha(product: Product, selSku?: string): boolean {
+  const rows = product.presentationPricing ?? [];
+  if (!rows.some((pp) => pp.variant)) return false;
+  const sel = selSku ? rows.find((pp) => pp.sku === selSku) : undefined;
+  return !sel?.variant;
+}
+
+function GoToFichaIcon({ product }: { product: Product }) {
+  return (
+    <Link
+      href={`/productos/${product.id}`}
+      prefetch={false}
+      className="pcard-add"
+      aria-label={`Elegir color de ${product.name}`}
+      title="Elegí el color en la ficha"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Plus />
+    </Link>
   );
 }
 
@@ -190,7 +257,10 @@ function WholesaleFoot({
     opts.push({
       units: o.units,
       label: o.label,
-      perUnit: (o.sku ? entry.pres?.[o.sku] : undefined) ?? entry.pres?.[String(o.units)] ?? may,
+      perUnit:
+        (o.sku ? entry.pres?.[o.sku] : undefined) ??
+        entry.pres?.[String(o.units)] ??
+        may,
       sku: o.sku,
     });
   }
@@ -209,24 +279,31 @@ function WholesaleFoot({
           <span className="price">{ars(minPerUnit)}</span>
           <span className="price-unit">+ IVA / u</span>
         </div>
-        <AddToCartIcon
-          disabled={pricesPending}
-          product={{
-            id: product.id,
-            name: product.name,
-            sku: product.sku,
-            pub: product.pub,
-            may: sel.perUnit,
-            bulto: sel.units,
-            pallet: product.pallet,
-            imageUrl: product.imageUrl,
-            presentationSku: sel.sku,
-            presentationLabel: sel.units > 1 ? sel.label : undefined,
-          }}
-        />
+        {needsColorInFicha(product, sel.sku) ? (
+          <GoToFichaIcon product={product} />
+        ) : (
+          <AddToCartIcon
+            disabled={pricesPending}
+            product={{
+              id: product.id,
+              name: product.name,
+              sku: product.sku,
+              pub: product.pub,
+              may: sel.perUnit,
+              bulto: sel.units,
+              pallet: product.pallet,
+              imageUrl: product.imageUrl,
+              presentationSku: sel.sku,
+              presentationLabel: sel.units > 1 ? sel.label : undefined,
+            }}
+          />
+        )}
       </div>
       {opts.length > 1 && (
-        <div className="pcard-pres" style={{ position: "relative", zIndex: 2, marginTop: "8px" }}>
+        <div
+          className="pcard-pres"
+          style={{ position: "relative", zIndex: 2, marginTop: "8px" }}
+        >
           <div className="chips">
             {opts.map((o, i) => (
               <button
@@ -243,8 +320,15 @@ function WholesaleFoot({
               </button>
             ))}
           </div>
-          <p style={{ marginTop: "6px", fontSize: "12px", color: "var(--muted)" }}>
-            {sel.label}: <strong style={{ color: "var(--ink)" }}>{ars(total)}</strong> + IVA
+          <p
+            style={{
+              marginTop: "6px",
+              fontSize: "12px",
+              color: "var(--muted)",
+            }}
+          >
+            {sel.label}:{" "}
+            <strong style={{ color: "var(--ink)" }}>{ars(total)}</strong> + IVA
             {sel.units > 1 ? ` · ${sel.units} u` : ""}
           </p>
         </div>

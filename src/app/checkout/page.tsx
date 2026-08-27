@@ -15,6 +15,7 @@ import {
   type ShippingConfig,
 } from "@/lib/shipping";
 import { useWholesaleCtx, useRepricedItems } from "@/lib/wholesale-prices";
+import { RetailCapNotice } from "@/components/blocks/WholesaleCta";
 
 export default function CheckoutPage() {
   // Esperamos a que Clerk cargue al usuario antes de montar el formulario, así
@@ -115,6 +116,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       name: i.name,
       deco: i.deco,
       presentationSku: i.presentationSku,
+      variant: i.variant,
     })),
     cp: info.cp,
     batuZone: info.batuZone ?? undefined,
@@ -237,6 +239,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       name: i.name, // fallback de display si el server no lo encuentra
       deco: i.deco,
       presentationSku: i.presentationSku, // reprecio server-side por presentación
+      variant: i.variant,
     }));
     const payload = {
       customerName: info.nombre,
@@ -277,6 +280,8 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
         <span className="chip on">2 · Tus datos</span>
         <span className="chip">3 · {onlinePayEnabled ? "Pago" : "Confirmar por WhatsApp"}</span>
       </div>
+
+      <RetailCapNotice netProducts={t.net} wholesale={wholesale} />
 
       <h1 className="h-lg">Revisá y confirmá tu pedido</h1>
 

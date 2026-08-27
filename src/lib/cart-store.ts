@@ -23,6 +23,10 @@ export interface CartItem {
   presentationSku?: string;
   /** Etiqueta legible de la presentación (ej. "Caja x24"), solo display. */
   presentationLabel?: string;
+  /** Color / terminación elegida como TEXTO cuando la presentación no tiene
+   *  SKU propio por color (unidad o caja de una tapa corona): viaja al pedido
+   *  con el SKU genérico (decisión Fede, 27-ago-2026). */
+  variant?: string;
 }
 
 /**
@@ -47,8 +51,9 @@ export type ProductSnapshot = Omit<CartItem, "qty" | "deco">;
  * distintas — antes se mezclaban en una sola y la última presentación pisaba a
  * la anterior. `setQty` y `remove` reciben esta clave.
  */
-export function lineKey(i: { id: string; presentationSku?: string }): string {
-  return i.presentationSku ? `${i.id}#${i.presentationSku}` : i.id;
+export function lineKey(i: { id: string; presentationSku?: string; variant?: string }): string {
+  const k = i.presentationSku ? `${i.id}#${i.presentationSku}` : i.id;
+  return i.variant ? `${k}@${i.variant}` : k;
 }
 
 interface CartState {

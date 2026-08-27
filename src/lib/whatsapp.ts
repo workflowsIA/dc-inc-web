@@ -108,9 +108,10 @@ function orderBody(
           : `${i.qty} u`;
     // Presentación elegida (caja / pallet / paquete por color) y su SKU de la
     // planilla, que es el ítem que Marce tiene en su sistema.
-    const pres = i.presentationLabel
-      ? ` · ${i.presentationLabel}${i.presentationSku ? ` [${i.presentationSku}]` : ""}`
-      : "";
+    const pres =
+      (i.presentationLabel
+        ? ` · ${i.presentationLabel}${i.presentationSku ? ` [${i.presentationSku}]` : ""}`
+        : "") + (i.variant ? ` · ${i.variant}` : "");
     msg += `• ${qtyLabel} — ${i.name}${pres}${i.deco ? " (+ decorado)" : ""} — ${ars(sub)}\n`;
   }
   msg += `\nSubtotal: ${ars(t.sub)}`;

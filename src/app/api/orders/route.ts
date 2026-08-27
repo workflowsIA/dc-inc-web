@@ -44,6 +44,9 @@ const ItemSchema = z.object({
   // SKU de la presentación elegida (caja/pallet). El server valida que
   // pertenezca al producto y reprecia con SU precio; nunca confía en el cliente.
   presentationSku: z.string().trim().max(64).optional(),
+  // Color / terminación elegida como texto (unidad o caja de una tapa con
+  // colores): no cambia el precio ni el SKU, solo el nombre de la línea.
+  variant: z.string().trim().max(60).optional(),
 });
 
 const OrderSchema = z.object({
@@ -183,6 +186,8 @@ export async function POST(req: Request) {
           const tag = [pres.label, pres.variant].filter(Boolean).join(" · ");
           if (tag) name = `${prod.name} — ${tag} x${pres.unitsPerBulk}`;
         }
+        // Color elegido como texto (solo si la fila no tiene color propio).
+        if (it.variant && !pres?.variant) name = `${name} · ${it.variant}`;
         // Precio NETO (sin IVA). Espeja al buy-box: la oferta (salePrice) mantiene
         // prioridad sobre el precio de presentación para el cliente final.
         unitNet = wholesale
