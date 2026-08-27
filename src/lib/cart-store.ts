@@ -41,11 +41,21 @@ export function cartItemCount(items: CartItem[]): number {
 
 export type ProductSnapshot = Omit<CartItem, "qty" | "deco">;
 
+/**
+ * Identidad de una LÍNEA del carrito: producto + presentación. El mismo
+ * producto por unidad y por caja (o en dos colores de paquete) son dos líneas
+ * distintas — antes se mezclaban en una sola y la última presentación pisaba a
+ * la anterior. `setQty` y `remove` reciben esta clave.
+ */
+export function lineKey(i: { id: string; presentationSku?: string }): string {
+  return i.presentationSku ? `${i.id}#${i.presentationSku}` : i.id;
+}
+
 interface CartState {
   items: CartItem[];
   add: (snapshot: ProductSnapshot, qty?: number, deco?: boolean) => void;
-  setQty: (id: string, qty: number) => void;
-  remove: (id: string) => void;
+  setQty: (key: string, qty: number) => void;
+  remove: (key: string) => void;
   clear: () => void;
 }
 
@@ -55,11 +65,12 @@ export const useCart = create<CartState>()(
       items: [],
       add: (snapshot, qty = 1, deco = false) =>
         set((s) => {
-          const ex = s.items.find((i) => i.id === snapshot.id);
+          const key = lineKey(snapshot);
+          const ex = s.items.find((i) => lineKey(i) === key);
           if (ex) {
             return {
               items: s.items.map((i) =>
-                i.id === snapshot.id
+                lineKey(i) === key
                   ? { ...i, ...snapshot, qty: i.qty + qty, deco: deco || i.deco }
                   : i,
               ),
@@ -70,16 +81,16 @@ export const useCart = create<CartState>()(
       // Venta por bulto cerrado: la cantidad siempre es múltiplo del bulto.
       // Snappeamos al múltiplo más cercano (mínimo 1 bulto) para que nunca
       // queden unidades sueltas, sin importar de dónde venga el setQty.
-      setQty: (id, qty) =>
+      setQty: (key, qty) =>
         set((s) => ({
           items: s.items.map((i) => {
-            if (i.id !== id) return i;
+            if (lineKey(i) !== key) return i;
             const step = i.bulto > 0 ? i.bulto : 1;
             const bultos = Math.max(1, Math.round(qty / step));
             return { ...i, qty: bultos * step };
           }),
         })),
-      remove: (id) => set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
+      remove: (key) => set((s) => ({ items: s.items.filter((i) => lineKey(i) !== key) })),
       clear: () => set({ items: [] }),
     }),
     { name: "dc_cart_v2" },

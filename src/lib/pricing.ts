@@ -19,6 +19,23 @@ export function withIva(price: number): number {
   return price * (1 + IVA_RATE);
 }
 
+/**
+ * Tope del cliente final (decisión Fede, 26-ago-2026): $150.000 con IVA
+ * incluido. Históricamente era el MÍNIMO de compra mayorista; ahora también es
+ * el TECHO de lo que un cliente final (minorista logueado o visitante) puede
+ * agregar como presentación cerrada. Por unidad compra siempre; una caja/pack
+ * la puede agregar solo si su total con IVA no supera este monto. Por encima,
+ * la presentación se muestra con el precio mayorista (neto "+ IVA") pero
+ * deshabilitada, con la invitación a pedir el alta mayorista.
+ */
+export const RETAIL_PRESENTATION_MAX = 150_000;
+
+/** ¿Un cliente final puede comprar esta presentación (bulto cerrado)? */
+export function retailCanBuyPresentation(netPerUnit: number, units: number): boolean {
+  if (units <= 1) return true;
+  return withIva(netPerUnit) * units <= RETAIL_PRESENTATION_MAX;
+}
+
 /** Forma mínima de producto que necesita el cálculo de precio de vista. */
 export interface PricingInput {
   pub: number;

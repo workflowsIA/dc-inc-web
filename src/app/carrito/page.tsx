@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useCart } from "@/lib/cart-store";
+import { useCart, lineKey } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
 import { totalsFor, unitPrice, waOrderURL } from "@/lib/whatsapp";
 import {
@@ -95,7 +95,7 @@ export default function CarritoPage() {
         <div style={{ display: "grid", gap: "12px" }}>
           {items.map((i) => (
             <div
-              key={i.id}
+              key={lineKey(i)}
               className="cart-line"
               style={{
                 padding: "16px",
@@ -136,8 +136,10 @@ export default function CarritoPage() {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 700, overflowWrap: "anywhere" }}>{i.name}</div>
                   <div className="mono" style={{ fontSize: "12px", color: "var(--muted)", overflowWrap: "anywhere" }}>
-                    {i.kind === "combo" ? "Combo armado" : i.sku}
-                    {i.kind !== "combo" && i.bulto > 1 ? ` · bulto ${i.bulto} u` : ""}
+                    {i.kind === "combo" ? "Combo armado" : (i.presentationSku ?? i.sku)}
+                    {i.kind !== "combo" && i.bulto > 1
+                      ? ` · ${i.presentationLabel ?? `bulto ${i.bulto} u`}`
+                      : ""}
                     {i.deco ? " · con decorado" : ""}
                   </div>
                 </div>
@@ -149,14 +151,14 @@ export default function CarritoPage() {
                 const bultos = Math.max(1, Math.round(i.qty / step));
                 return (
                   <div className="cart-line-qty" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setQty(i.id, i.qty - step)}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setQty(lineKey(i), i.qty - step)}>
                       −
                     </button>
                     <input
                       type="number"
                       min={1}
                       value={bultos}
-                      onChange={(e) => setQty(i.id, (parseInt(e.target.value || "1") || 1) * step)}
+                      onChange={(e) => setQty(lineKey(i), (parseInt(e.target.value || "1") || 1) * step)}
                       aria-label={step > 1 ? "Cantidad de bultos" : "Cantidad"}
                       style={{
                         width: "60px",
@@ -166,7 +168,7 @@ export default function CarritoPage() {
                         borderRadius: "var(--r-sm)",
                       }}
                     />
-                    <button className="btn btn-ghost btn-sm" onClick={() => setQty(i.id, i.qty + step)}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setQty(lineKey(i), i.qty + step)}>
                       +
                     </button>
                   </div>
@@ -192,7 +194,7 @@ export default function CarritoPage() {
                     );
                   })()}
                 </div>
-                <button className="btn btn-ghost btn-sm" onClick={() => remove(i.id)} aria-label="Quitar del carrito">
+                <button className="btn btn-ghost btn-sm" onClick={() => remove(lineKey(i))} aria-label="Quitar del carrito">
                   ✕
                 </button>
               </div>

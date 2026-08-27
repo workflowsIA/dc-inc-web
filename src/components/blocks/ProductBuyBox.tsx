@@ -3,10 +3,11 @@ import { presentationOptions } from "@/lib/presentations";
 import { useState } from "react";
 import { useCart, type ProductSnapshot } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
-import { resolveDisplayPrice, type PricingInput } from "@/lib/pricing";
+import { resolveDisplayPrice, retailCanBuyPresentation, type PricingInput } from "@/lib/pricing";
 import { SHIPPING_FROM } from "@/lib/shipping";
 import type { PresentationPricing } from "@/lib/queries";
 import { useWholesaleEntry } from "@/lib/wholesale-prices";
+import WholesaleCta from "./WholesaleCta";
 
 interface Props {
   product: ProductSnapshot;
@@ -90,12 +91,23 @@ export default function ProductBuyBox({
     presMatch && presMatch.pricePublic != null
       ? { ...pricing, pub: presMatch.pricePublic, may: presMatch.priceWholesale ?? pricing.may }
       : pricing;
-  const dp = resolveDisplayPrice(selPricing, wholesale);
+  // TOPE MINORISTA: el cliente final compra por unidad, o una presentación
+  // cerrada solo si su total con IVA no pasa RETAIL_PRESENTATION_MAX. Por
+  // encima, la presentación se ve con el precio mayorista (neto + IVA) pero no
+  // se puede agregar: se lo invita a pedir el alta. Ver pricing.ts.
+  const retailBlocked =
+    !wholesale && unitsPerSel > 1 && !retailCanBuyPresentation(selPricing.pub, unitsPerSel);
+  // Bloqueado → misma vista que el mayorista (neto, "+ IVA"), para que vea el
+  // precio al que accedería con el alta.
+  const dp = resolveDisplayPrice(
+    retailBlocked ? { ...selPricing, may: selPricing.pub } : selPricing,
+    wholesale || retailBlocked,
+  );
   const unitPrice = dp.display;
   const bultoPrice = unitPrice * unitsPerSel;
   const total = unitPrice * unitsTotal;
   // Sufijo de IVA según el tipo de usuario.
-  const ivaTag = finalConsumer ? "IVA incl." : "+ IVA";
+  const ivaTag = finalConsumer && !retailBlocked ? "IVA incl." : "+ IVA";
   // Tachado por unidad (oferta o precio anterior), en la misma base que unitPrice.
   const strikeUnit = dp.strike;
 
@@ -119,7 +131,7 @@ export default function ProductBuyBox({
     setTimeout(() => setAdded(false), 1600);
   }
 
-  const mayoristaBadge = wholesale ? (
+  const mayoristaBadge = wholesale || retailBlocked ? (
     <span
       style={{
         marginLeft: "10px",
@@ -205,14 +217,24 @@ export default function ProductBuyBox({
         )}
         {/* Envío: cliente final ve estimado; mayorista, a cotizar */}
         <div style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
-          {finalConsumer
+          {finalConsumer && !retailBlocked
             ? `Envío desde ${ars(SHIPPING_FROM)} — según destino, lo calculás en el carrito`
             : "Envío a cotizar"}
         </div>
       </div>
 
+      {retailBlocked && <WholesaleCta />}
+
       {/* CANTIDAD + TOTAL */}
-      <div style={{ marginTop: "18px", display: "flex", gap: "12px", alignItems: "flex-end", flexWrap: "wrap" }}>
+      <div
+        style={{
+          marginTop: "18px",
+          display: retailBlocked ? "none" : "flex",
+          gap: "12px",
+          alignItems: "flex-end",
+          flexWrap: "wrap",
+        }}
+      >
         <div>
           <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "6px" }}>
             {unitsPerSel > 1 ? "Cantidad de bultos" : "Cantidad"}
@@ -245,13 +267,17 @@ export default function ProductBuyBox({
         type="button"
         className="btn btn-primary btn-lg btn-block"
         style={{ marginTop: "16px" }}
-        disabled={pricesPending}
+        disabled={pricesPending || retailBlocked}
         onClick={handleAdd}
       >
-        {added ? "✓ Agregado al carrito" : "Agregar al carrito"}
+        {retailBlocked
+          ? "Solo para clientes mayoristas"
+          : added
+            ? "✓ Agregado al carrito"
+            : "Agregar al carrito"}
       </button>
 
-      {unitsPerSel > 1 && (
+      {unitsPerSel > 1 && !retailBlocked && (
         <p style={{ marginTop: "10px", fontSize: "12px", color: "var(--muted)", textAlign: "center" }}>
           {finalConsumer
             ? `Comprás un bulto cerrado de ${unitsPerSel} u. Para unidades sueltas elegí «Individual».`

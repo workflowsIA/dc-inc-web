@@ -9,7 +9,7 @@ import {
   type OrderPricingProduct,
   type OrderPricingCombo,
 } from "@/lib/queries";
-import { IVA_RATE, isSaleActive } from "@/lib/pricing";
+import { IVA_RATE, isSaleActive, retailCanBuyPresentation } from "@/lib/pricing";
 import { shippingEstimate, type BatuZone } from "@/lib/shipping";
 import { getShippingConfig } from "@/lib/sanity-data";
 import { guard, LIMITS } from "@/lib/rate-limit";
@@ -120,7 +120,12 @@ export async function POST(req: Request) {
       _type: "orderItem";
       _key: string;
       name: string;
+      /** SKU de la línea: el de la PRESENTACIÓN elegida (caja/pallet/paquete por
+       *  color) si la hay — es el ítem que Marce tiene en su sistema —, si no el
+       *  del producto. */
       sku: string;
+      /** SKU del producto base (para stock e historial), cuando difiere de `sku`. */
+      baseSku?: string;
       bultos?: number;
       unidades?: number;
       precioUnitario?: number;
@@ -134,6 +139,7 @@ export async function POST(req: Request) {
     for (const it of body.items) {
       let name = it.name ?? "";
       let sku = it.sku ?? "";
+      let baseSku: string | undefined;
       let unitNet: number | undefined;
       let bultos: number | undefined;
 
@@ -159,6 +165,24 @@ export async function POST(req: Request) {
             : undefined;
         const basePub = pres?.pricePublic ?? prod.pricePublic;
         const baseMay = pres?.priceWholesale ?? prod.priceWholesale;
+        // TOPE MINORISTA (server-side, espeja al buy-box): el cliente final no
+        // puede comprar una presentación cerrada que supere el tope con IVA.
+        if (!wholesale && pres && !retailCanBuyPresentation(basePub, pres.unitsPerBulk)) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: "presentation_wholesale_only",
+              message: `«${prod.name} — ${pres.label ?? "presentación"} x${pres.unitsPerBulk}» es solo para clientes mayoristas. Pedí tu alta mayorista o comprá por unidad.`,
+            },
+            { status: 400 },
+          );
+        }
+        if (pres?.sku) {
+          sku = pres.sku;
+          baseSku = prod.sku;
+          const tag = [pres.label, pres.variant].filter(Boolean).join(" · ");
+          if (tag) name = `${prod.name} — ${tag} x${pres.unitsPerBulk}`;
+        }
         // Precio NETO (sin IVA). Espeja al buy-box: la oferta (salePrice) mantiene
         // prioridad sobre el precio de presentación para el cliente final.
         unitNet = wholesale
@@ -179,6 +203,7 @@ export async function POST(req: Request) {
         _key: `${sku || "item"}-${Math.random().toString(36).slice(2, 8)}`,
         name,
         sku,
+        ...(baseSku && baseSku !== sku ? { baseSku } : {}),
         bultos,
         unidades: it.qty,
         precioUnitario: unitNet,

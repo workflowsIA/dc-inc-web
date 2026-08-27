@@ -395,13 +395,19 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
  * el OK a la columna "Ventas web": setear STOCK_SALE_COLUMN y listo.
  */
 export async function stockSaleAfterPayment(
-  order: { orderNumber?: string; items?: { sku?: string; unidades?: number }[] },
+  order: {
+    orderNumber?: string;
+    items?: { sku?: string; baseSku?: string; unidades?: number }[];
+  },
   tag: string,
 ): Promise<void> {
   if (process.env.STOCK_SALE_ON_PAYMENT !== "1") return;
+  // El stock se lleva por producto base (fila Unidad del inventario); si la
+  // línea es una presentación, `sku` es el de la fila caja/pallet y el base
+  // viene en `baseSku`.
   const items = (order.items ?? [])
-    .filter((i) => i.sku && (i.unidades ?? 0) > 0)
-    .map((i) => ({ sku: i.sku as string, unidades: i.unidades as number }));
+    .filter((i) => (i.baseSku || i.sku) && (i.unidades ?? 0) > 0)
+    .map((i) => ({ sku: (i.baseSku || i.sku) as string, unidades: i.unidades as number }));
   if (items.length === 0) return;
   try {
     const res = await applyStockSale(items);

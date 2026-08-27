@@ -3,10 +3,11 @@ import { presentationOptions } from "@/lib/presentations";
 import { useState } from "react";
 import type { Product } from "@/data/products";
 import { ars } from "@/lib/format";
-import { resolveDisplayPrice } from "@/lib/pricing";
+import { resolveDisplayPrice, retailCanBuyPresentation, withIva } from "@/lib/pricing";
 import { SHIPPING_FROM } from "@/lib/shipping";
 import { useWholesaleEntry, type WholesaleEntry } from "@/lib/wholesale-prices";
 import { AddToCartIcon } from "./AddToCart";
+import WholesaleCta from "./WholesaleCta";
 
 /**
  * Pie de la card: precio + boton de carrito.
@@ -32,9 +33,43 @@ export default function CardFoot({ product }: { product: Product }) {
   if (showWholesale && entry) {
     return <WholesaleFoot product={product} may={may} entry={entry} pricesPending={pricesPending} />;
   }
+  return <RetailFoot product={product} may={may} pricesPending={pricesPending} />;
+}
 
-  // Cliente final (o mayorista con precios aun en camino): vista original.
+/**
+ * Card del CLIENTE FINAL (minorista logueado o visitante; también el mayorista
+ * mientras llegan sus precios). "Desde" = precio unitario con IVA. Abajo, las
+ * mismas presentaciones que ve el mayorista (filas de la planilla) con su
+ * precio: las que entran en el tope minorista se pueden agregar con el "+"; las
+ * que lo superan se muestran a precio mayorista (neto + IVA) con la invitación
+ * a pedir el alta. Ver RETAIL_PRESENTATION_MAX en pricing.ts.
+ */
+function RetailFoot({
+  product,
+  may,
+  pricesPending,
+}: {
+  product: Product;
+  may: number;
+  pricesPending: boolean;
+}) {
   const dp = resolveDisplayPrice({ ...product, may }, false);
+  // Presentaciones con su neto por unidad (pricePublic de la fila; si falta,
+  // el unitario base). `allowed` = entra en el tope minorista.
+  const opts = presentationOptions(product.presentationPricing).map((o) => {
+    const row = product.presentationPricing?.find((pp) => pp.sku === o.sku);
+    const net = row?.pricePublic ?? product.pub;
+    return { ...o, net, allowed: retailCanBuyPresentation(net, o.units) };
+  });
+  const [idx, setIdx] = useState(-1); // -1 = unidad
+  const sel = idx >= 0 ? opts[idx] : undefined;
+  const blocked = !!sel && !sel.allowed;
+  // En la card mostramos hasta 4 presentaciones (las tapas por color tienen
+  // 10); el resto se elige en la ficha.
+  const CARD_MAX = 4;
+  const shown = opts.slice(0, CARD_MAX);
+  const more = opts.length - shown.length;
+
   return (
     <>
       <div className="pcard-foot">
@@ -45,27 +80,79 @@ export default function CardFoot({ product }: { product: Product }) {
           <span className="price-unit">{dp.finalConsumer ? "IVA incl." : "+ IVA"}</span>
         </div>
         <AddToCartIcon
-          disabled={pricesPending}
+          disabled={pricesPending || blocked}
           product={{
             id: product.id,
             name: product.name,
             sku: product.sku,
-            pub: product.pub,
+            // Presentación elegida: precio neto de su fila; unidad: el base.
+            pub: sel ? sel.net : product.pub,
             may,
-            // Minorista/cliente final: el "+" de la card agrega 1 UNIDAD, no un
-            // bulto. Si quiere una caja/pallet, lo elige en la ficha. bulto:1 →
-            // el carrito lo trata por unidad (sin snapping a múltiplos de bulto).
-            bulto: 1,
+            // Sin presentación elegida el "+" agrega 1 UNIDAD (bulto:1 → el
+            // carrito lo trata por unidad, sin snapping a múltiplos).
+            bulto: sel ? sel.units : 1,
             pallet: product.pallet,
             imageUrl: product.imageUrl,
+            presentationSku: sel?.sku,
+            presentationLabel: sel?.label,
           }}
         />
       </div>
-      {dp.finalConsumer ? (
+      {opts.length > 0 ? (
+        <div className="pcard-pres" style={{ position: "relative", zIndex: 2, marginTop: "8px" }}>
+          <div className="chips">
+            <button
+              type="button"
+              className={`chip ${idx < 0 ? "on" : ""}`}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIdx(-1);
+              }}
+            >
+              Unidad
+            </button>
+            {shown.map((o, i) => (
+              <button
+                key={o.key}
+                type="button"
+                className={`chip ${i === idx ? "on" : ""}`}
+                title={o.allowed ? undefined : "Precio mayorista"}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIdx(i);
+                }}
+              >
+                {o.label}
+              </button>
+            ))}
+            {more > 0 ? (
+              <span className="chip" style={{ opacity: 0.7 }}>
+                +{more} en la ficha
+              </span>
+            ) : null}
+          </div>
+          {sel ? (
+            <p style={{ marginTop: "6px", fontSize: "12px", color: "var(--muted)" }}>
+              {sel.label}:{" "}
+              <strong style={{ color: "var(--ink)" }}>
+                {ars((sel.allowed ? withIva(sel.net) : sel.net) * sel.units)}
+              </strong>{" "}
+              {sel.allowed ? "IVA incl." : "+ IVA"} · {sel.units} u
+            </p>
+          ) : (
+            <p style={{ marginTop: "6px", fontSize: "11px", color: "var(--muted)" }}>
+              + Envío desde {ars(SHIPPING_FROM)}
+            </p>
+          )}
+          {blocked ? <WholesaleCta compact onClick={(e) => e.stopPropagation()} /> : null}
+        </div>
+      ) : (
         <p style={{ marginTop: "6px", fontSize: "11px", color: "var(--muted)" }}>
           + Envío desde {ars(SHIPPING_FROM)}
         </p>
-      ) : null}
+      )}
     </>
   );
 }

@@ -68,7 +68,19 @@ export default defineType({
           name: "orderItem",
           fields: [
             defineField({ name: "name", title: "Producto", type: "string" }),
-            defineField({ name: "sku", title: "SKU", type: "string" }),
+            defineField({
+              name: "sku",
+              title: "SKU",
+              type: "string",
+              description:
+                "SKU de lo que se compró: si eligió una presentación (caja / pallet / paquete por color) es el SKU de esa fila de la planilla; si compró por unidad, el del producto.",
+            }),
+            defineField({
+              name: "baseSku",
+              title: "SKU del producto base",
+              type: "string",
+              description: "Solo cuando la línea es una presentación: el SKU del producto (unidad).",
+            }),
             defineField({ name: "bultos", title: "Bultos", type: "number" }),
             defineField({ name: "unidades", title: "Unidades", type: "number" }),
             defineField({ name: "precioUnitario", title: "Precio unitario", type: "number" }),

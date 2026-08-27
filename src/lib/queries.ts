@@ -21,7 +21,7 @@ export const productsQuery = groq`
     saleStartDate,
     saleEndDate,
     presentations,
-    presentationPricing[]{ sku, label, variant, unitsPerBulk },
+    presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic },
     unitsPerBulk,
     unitsPerPallet,
     deliveryTime,
@@ -109,7 +109,7 @@ export const ordersByUserQuery = groq`
   *[_type == "order" && clerkUserId == $uid] | order(createdAt desc)[0...50] {
     _id, orderNumber, createdAt, priceBasis,
     subtotal, iva, total, paymentStatus, fulfillmentStatus, origin, notes,
-    items[]{ name, sku, bultos, unidades, precioUnitario, subtotal }
+    items[]{ name, sku, baseSku, bultos, unidades, precioUnitario, subtotal }
   }
 `;
 
@@ -126,7 +126,7 @@ export const orderByNaveExternalIdQuery = groq`
   *[_type == "order" && naveExternalId == $eid][0]{
     _id, orderNumber, paymentStatus, total, navePaymentRequestId,
     customerName, customerCompany, customerEmail, customerPhone,
-    items[]{ name, sku, bultos, unidades, precioUnitario, subtotal }
+    items[]{ name, sku, baseSku, bultos, unidades, precioUnitario, subtotal }
   }
 `;
 
@@ -138,7 +138,7 @@ export const pendingNaveOrdersQuery = groq`
     | order(createdAt desc)[0...25]{
     _id, orderNumber, paymentStatus, total, navePaymentRequestId,
     customerName, customerCompany, customerEmail, customerPhone,
-    items[]{ name, sku, bultos, unidades, precioUnitario, subtotal }
+    items[]{ name, sku, baseSku, bultos, unidades, precioUnitario, subtotal }
   }
 `;
 
@@ -162,7 +162,7 @@ export const featuredProductsQuery = groq`
     _id, sku, name, "slug": slug.current, sortOrder, homeFeatured,
     pricePublic, priceWholesale, pricePublicOld,
     isOnSale, salePrice, saleStartDate, saleEndDate,
-    presentations, unitsPerBulk, unitsPerPallet, presentationPricing[]{ sku, label, variant, unitsPerBulk }, deliveryTime, stockLevel, badges,
+    presentations, unitsPerBulk, unitsPerPallet, presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic }, deliveryTime, stockLevel, badges,
     "image": coalesce(images[0].asset->url, legacyImageUrl),
     "category": category->name
   }
@@ -400,6 +400,8 @@ export interface SanityBlogPost {
 export interface SanityOrderItem {
   name?: string;
   sku?: string;
+  /** SKU del producto base cuando `sku` es el de una presentación */
+  baseSku?: string;
   bultos?: number;
   unidades?: number;
   precioUnitario?: number;

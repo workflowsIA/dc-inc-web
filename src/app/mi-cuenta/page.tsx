@@ -31,8 +31,14 @@ export default async function MiCuentaPage() {
     : [];
 
   // Para "repetir pedido" resolvemos los productos/combos actuales por SKU/slug.
+  // Una línea de presentación (caja/pallet/paquete) lleva el SKU de la fila en
+  // `sku` y el del producto en `baseSku`: el producto se resuelve por el base.
   const allKeys = Array.from(
-    new Set(orders.flatMap((o) => (o.items ?? []).map((i) => i.sku).filter(Boolean) as string[])),
+    new Set(
+      orders.flatMap(
+        (o) => (o.items ?? []).map((i) => i.baseSku || i.sku).filter(Boolean) as string[],
+      ),
+    ),
   );
   const [products, combos] = allKeys.length
     ? await Promise.all([
@@ -47,19 +53,30 @@ export default async function MiCuentaPage() {
     const out: RepeatItem[] = [];
     for (const it of o.items ?? []) {
       if (!it.sku) continue;
-      const prod = productBySku.get(it.sku);
+      const prod = productBySku.get(it.baseSku || it.sku);
       if (prod) {
+        // Si la línea fue una presentación, la repetimos como tal (misma fila
+        // de la planilla → mismo precio por unidad y mismo SKU en el pedido).
+        const pres = it.baseSku
+          ? prod.presentationPricing?.find((pp) => pp.sku === it.sku)
+          : undefined;
         const snapshot: ProductSnapshot = {
           id: prod.slug ?? prod.sku,
           name: prod.name,
           sku: prod.sku,
-          pub: prod.pricePublic,
-          may: prod.priceWholesale,
-          bulto: prod.unitsPerBulk,
+          pub: pres?.pricePublic ?? prod.pricePublic,
+          may: pres?.priceWholesale ?? prod.priceWholesale,
+          bulto: pres?.unitsPerBulk ?? 1,
           pallet: prod.unitsPerPallet,
           imageUrl: prod.image,
+          ...(pres
+            ? {
+                presentationSku: pres.sku,
+                presentationLabel: [pres.label, pres.variant].filter(Boolean).join(" · "),
+              }
+            : {}),
         };
-        out.push({ snapshot, qty: it.unidades ?? prod.unitsPerBulk ?? 1 });
+        out.push({ snapshot, qty: it.unidades ?? pres?.unitsPerBulk ?? 1 });
         continue;
       }
       const combo = comboBySlug.get(it.sku);

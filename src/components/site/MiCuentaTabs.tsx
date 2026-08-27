@@ -8,6 +8,7 @@ type Tab = "pedidos" | "datos" | "vendedor";
 
 const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
   visitor: { label: "Visitante", cls: "badge" },
+  customer: { label: "Cliente", cls: "badge" },
   pending: { label: "En revisión", cls: "badge badge-low" },
   wholesale: { label: "Mayorista aprobado", cls: "badge badge-best" },
   admin: { label: "Admin", cls: "badge badge-deco" },
@@ -22,7 +23,7 @@ export default function MiCuentaTabs() {
   }
   if (!user) return null;
 
-  const role = (user.publicMetadata?.role as string | undefined) ?? "pending";
+  const role = (user.publicMetadata?.role as string | undefined) ?? "customer";
   const isAdmin = role === "admin";
   const empresa = (user.unsafeMetadata?.empresa as string | undefined) ?? "";
   const badge = ROLE_BADGE[role] ?? ROLE_BADGE.visitor;

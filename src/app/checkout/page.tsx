@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser, useClerk } from "@clerk/nextjs";
-import { useCart } from "@/lib/cart-store";
+import { useCart, lineKey } from "@/lib/cart-store";
 
 type ClerkUser = NonNullable<ReturnType<typeof useUser>["user"]>;
 import { ars } from "@/lib/format";
@@ -140,6 +140,11 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
         body: JSON.stringify(buildPayload()),
       });
       const data = await res.json().catch(() => null);
+      if (res.status === 400 && data?.error === "presentation_wholesale_only") {
+        setBuyError(String(data.message ?? "Esa presentación es solo para clientes mayoristas."));
+        setBuying(false);
+        return;
+      }
       if (!res.ok || !data?.ok || !data.id) {
         setBuyError("No pudimos generar el pedido. Probá de nuevo o cerralo por WhatsApp.");
         setBuying(false);
@@ -178,6 +183,11 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
         body: JSON.stringify(buildPayload()),
       });
       const data = await res.json().catch(() => null);
+      if (res.status === 400 && data?.error === "presentation_wholesale_only") {
+        setNaveError(String(data.message ?? "Esa presentación es solo para clientes mayoristas."));
+        setPayingNave(false);
+        return;
+      }
       if (res.status === 409 && data?.error === "out_of_stock") {
         const skus = Array.isArray(data.skus) ? data.skus.join(", ") : "";
         setNaveError(`Hay productos sin stock${skus ? `: ${skus}` : ""}. Quitalos del carrito para continuar.`);
@@ -353,7 +363,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
           </h3>
           <div style={{ display: "grid", gap: "8px", fontSize: "14px" }}>
             {items.map((i) => (
-              <div key={i.id} style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+              <div key={lineKey(i)} style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
                 <span style={{ color: "var(--muted)" }}>
                   {i.qty}× {i.name}
                 </span>

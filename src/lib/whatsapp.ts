@@ -106,7 +106,12 @@ function orderBody(
         : step > 1
           ? `${bultos} ${bultos === 1 ? "bulto" : "bultos"} (${i.qty} u)`
           : `${i.qty} u`;
-    msg += `• ${qtyLabel} — ${i.name}${i.deco ? " (+ decorado)" : ""} — ${ars(sub)}\n`;
+    // Presentación elegida (caja / pallet / paquete por color) y su SKU de la
+    // planilla, que es el ítem que Marce tiene en su sistema.
+    const pres = i.presentationLabel
+      ? ` · ${i.presentationLabel}${i.presentationSku ? ` [${i.presentationSku}]` : ""}`
+      : "";
+    msg += `• ${qtyLabel} — ${i.name}${pres}${i.deco ? " (+ decorado)" : ""} — ${ars(sub)}\n`;
   }
   msg += `\nSubtotal: ${ars(t.sub)}`;
   if (t.rate > 0) msg += `\nDescuento volumen (${t.rate * 100}%): -${ars(t.disc)}`;
