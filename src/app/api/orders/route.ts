@@ -157,25 +157,22 @@ export async function POST(req: Request) {
         unitNet = typeof combo.pricePublicFrom === "number" ? combo.pricePublicFrom : 0;
         totalBultos += it.qty; // 1 bulto por combo
       } else if (it.kind === "deco") {
-        // Decorado: el SKU es un tramo de la tarifa (DBC1124…) o el montaje
-        // (DCMYM1/2). Se reprecia contra la tarifa de Sanity: el tramo se
-        // recalcula por la cantidad real de piezas (nunca se confía en el precio
-        // del cliente). Sin tarifa o SKU desconocido → se descarta la línea.
+        // Decorado: el SKU es un tramo de la tarifa (DBC1124…). Se reprecia
+        // contra la tarifa de Sanity: el tramo se recalcula por la cantidad real
+        // de piezas (nunca se confía en el precio del cliente). Sin tarifa o SKU
+        // desconocido → se descarta la línea. El montaje (DCMYM1/2) ya no se
+        // cobra aparte (incluido en la tarifa por pieza): si un carrito viejo
+        // trae esa línea, se descarta.
         const opt = decoPricing?.options.find(
           (o) => o.setupSku === it.sku || o.tiers.some((t) => t.sku === it.sku),
         );
         if (!opt || !it.sku) continue;
-        if (opt.setupSku === it.sku) {
-          unitNet = opt.setupPrice ?? 0;
-          sku = it.sku;
-          name = it.name || `Montaje y horneado (${opt.label})`;
-        } else {
-          const q = decoQuote(opt, it.qty);
-          if (!q) continue; // por debajo del tramo mínimo → no se cotiza
-          unitNet = q.perUnit;
-          sku = q.tier.sku;
-          name = it.name || `Decorado ${opt.label}`;
-        }
+        if (opt.setupSku === it.sku) continue; // línea de montaje de un carrito viejo → se descarta
+        const q = decoQuote(opt, it.qty);
+        if (!q) continue; // por debajo del tramo mínimo → no se cotiza
+        unitNet = q.perUnit;
+        sku = q.tier.sku;
+        name = it.name || `Decorado ${opt.label}`;
         // servicio: no suma bultos para el envío
       } else {
         const prod = it.sku ? productBySku.get(it.sku) : undefined;

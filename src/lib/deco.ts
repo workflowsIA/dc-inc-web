@@ -9,15 +9,19 @@
  *   DG111xx / DG121xx  botellón 1 L
  *   DG211xx / DG221xx  botellón 2 L
  *   DC11xx             cristalería, 1 color (DC12..15 = 2-5 colores, fase 2)
- *   DCMYM1 / DCMYM2    montaje y horneado por trabajo (1 cara / 2 caras)
+ *   DCMYM1 / DCMYM2    montaje y horneado por trabajo (1 cara / 2 caras) —
+ *                      NO se cobra en la web: la tarifa por pieza "1 cara /
+ *                      1 color" ya incluye gráfica + montaje + horneado. Esas
+ *                      filas solo aplican cuando DC decora con una gráfica del
+ *                      cliente que ya tiene en stock (casi nunca; Marce, 28-ago).
  * OJO: los dígitos del SKU NO siempre son las unidades (DG12124 es el tramo de
  * 15 u): la cantidad mínima del tramo es la columna UxB.
  *
  * El sync arma con esto el singleton `decoPricing` en Sanity (solo lectura) y
  * cada producto dice a qué familia pertenece (`decoFamily`, inferida por
  * scripts/assign-deco-family.ts y editable en el Studio). La ficha cotiza con
- * `decoQuote()` y agrega el decorado como líneas aparte del carrito (SKU del
- * tramo + montaje), que es como Marce lo tiene en su sistema.
+ * `decoQuote()` y agrega el decorado como una línea aparte del carrito (SKU del
+ * tramo, qty = piezas), que es como Marce lo tiene en su sistema.
  */
 
 export type DecoFamily =
@@ -47,7 +51,9 @@ export interface DecoOption {
   /** 1 = una cara, 2 = dos caras (siempre 1 color en fase 1) */
   sides: 1 | 2;
   label: string;
-  /** montaje y horneado, una vez por trabajo (DCMYM1 / DCMYM2) */
+  /** Legado: montaje y horneado (DCMYM1 / DCMYM2). Desde el 28-ago no se
+   *  carga ni se cobra (incluido en la tarifa por pieza); quedan opcionales
+   *  para leer documentos viejos del singleton sin romper. */
   setupSku?: string;
   setupPrice?: number;
   tiers: DecoTier[];
@@ -78,11 +84,10 @@ export function buildDecoPricing(
   rows: { sku: string; unitsPerBulk: number | null; price: number | null }[],
 ): DecoPricing {
   const byKey = new Map<string, DecoOption>();
-  const setup: Partial<Record<1 | 2, { sku: string; price: number }>> = {};
   for (const r of rows) {
     if (!r.sku || r.price === null) continue;
-    if (r.sku === "DCMYM1") setup[1] = { sku: r.sku, price: r.price };
-    if (r.sku === "DCMYM2") setup[2] = { sku: r.sku, price: r.price };
+    // DCMYM1/2 (montaje y horneado) se ignoran a propósito: ya está incluido
+    // en la tarifa por pieza. Ver nota de cabecera.
     const p = PREFIXES.find((x) => x.re.test(r.sku));
     if (!p || r.unitsPerBulk === null || r.unitsPerBulk <= 1) continue;
     const key = `${p.family}#${p.sides}`;
@@ -96,14 +101,7 @@ export function buildDecoPricing(
     }
   }
   const options = [...byKey.values()];
-  for (const o of options) {
-    o.tiers.sort((a, b) => a.minUnits - b.minUnits);
-    const s = setup[o.sides];
-    if (s) {
-      o.setupSku = s.sku;
-      o.setupPrice = s.price;
-    }
-  }
+  for (const o of options) o.tiers.sort((a, b) => a.minUnits - b.minUnits);
   options.sort((a, b) => a.family.localeCompare(b.family) || a.sides - b.sides);
   return { options };
 }
@@ -116,9 +114,9 @@ export interface DecoQuote {
   perUnit: number;
   /** neto del decorado de todas las piezas */
   piecesTotal: number;
-  /** neto de montaje y horneado */
+  /** neto de montaje y horneado — siempre 0 (incluido en la tarifa por pieza) */
   setup: number;
-  /** neto total (piezas + montaje) */
+  /** neto total del decorado (= piezas) */
   total: number;
 }
 
@@ -143,8 +141,8 @@ export function decoQuote(option: DecoOption, units: number): DecoQuote | null {
   for (const t of option.tiers) if (units >= t.minUnits) tier = t;
   if (!tier) return null;
   const piecesTotal = tier.pricePerUnit * units;
-  const setup = option.setupPrice ?? 0;
-  return { option, tier, units, perUnit: tier.pricePerUnit, piecesTotal, setup, total: piecesTotal + setup };
+  // Montaje y horneado NO se suma: la tarifa por pieza ya lo incluye.
+  return { option, tier, units, perUnit: tier.pricePerUnit, piecesTotal, setup: 0, total: piecesTotal };
 }
 
 /**

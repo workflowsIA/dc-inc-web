@@ -82,7 +82,7 @@ export default function ProductBuyBox({
   const [color, setColor] = useState<string>(colorOptions[0] ?? "");
   // DECORADO (serigrafía) como extra: -1 = sin decorado; si no, índice en
   // decoOptions. Se cotiza por tramo según la cantidad total de piezas y se
-  // agrega como líneas aparte (tramo + montaje). Ver src/lib/deco.ts.
+  // agrega como línea aparte (SKU del tramo). Ver src/lib/deco.ts.
   const [decoIdx, setDecoIdx] = useState(-1);
 
   const sel = hasPres ? presList[idx] : null;
@@ -156,8 +156,9 @@ export default function ProductBuyBox({
       unitsTotal,
       !!decoQ,
     );
-    // Decorado: una línea por el tramo (qty = piezas) y una por montaje y
-    // horneado (qty 1). /api/orders reprecia por SKU contra la tarifa.
+    // Decorado: una línea por el tramo (qty = piezas). /api/orders reprecia
+    // por SKU contra la tarifa. Montaje y horneado ya va incluido en la tarifa
+    // por pieza (no se agrega línea aparte; Marce, 28-ago).
     if (decoQ) {
       const tag = `${decoQ.option.label} — ${product.name}`;
       add(
@@ -173,21 +174,6 @@ export default function ProductBuyBox({
         },
         unitsTotal,
       );
-      if (decoQ.option.setupSku && decoQ.setup > 0) {
-        add(
-          {
-            id: `deco-setup-${product.id}-${decoQ.option.sides}`,
-            name: `Montaje y horneado — ${product.name}`,
-            sku: decoQ.option.setupSku,
-            pub: decoQ.setup,
-            may: decoQ.setup,
-            bulto: 1,
-            kind: "deco",
-            decoFor: product.id,
-          },
-          1,
-        );
-      }
     }
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
@@ -301,11 +287,13 @@ export default function ProductBuyBox({
           <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--line)" }}>
             <div style={{ fontSize: "12px", color: "var(--muted)" }}>
               + Decorado {decoQ.option.label}: {ars(decoQ.perUnit * decoFactor)} por pieza × {unitsTotal} u
-              {decoQ.setup > 0 ? ` + montaje y horneado ${ars(decoQ.setup * decoFactor)}` : ""}
             </div>
             <div style={{ fontFamily: "var(--display)", fontSize: "22px", fontWeight: 700, color: "var(--ink)", marginTop: "2px" }}>
               {ars(decoQ.total * decoFactor)}{" "}
               <span style={{ fontSize: "13px", color: "var(--muted)" }}>{ivaTag} de decorado</span>
+            </div>
+            <div style={{ marginTop: "2px", fontSize: "12px", color: "var(--muted)" }}>
+              Incluye gráfica, montaje y horneado.
             </div>
             <div style={{ marginTop: "6px", fontSize: "13px", color: "var(--ink)" }}>
               Con decorado: <strong>{ars((unitsPerSel > 1 ? bultoPrice * qty : unitPrice * qty) + decoQ.total * decoFactor)}</strong>{" "}

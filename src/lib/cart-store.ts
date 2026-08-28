@@ -18,8 +18,8 @@ export interface CartItem {
   deco?: boolean;
   /** "combo" = ítem armado a precio cerrado (no se vende por bulto).
    *  "deco" = línea de decorado (serigrafía) de otro producto del carrito:
-   *  qty = piezas decoradas, pub/may = neto por pieza del tramo; o la línea de
-   *  montaje y horneado (qty 1). Ver src/lib/deco.ts. */
+   *  qty = piezas decoradas, pub/may = neto por pieza del tramo (incluye
+   *  montaje y horneado). Ver src/lib/deco.ts. */
   kind?: "combo" | "deco";
   /** deco: id (slug) del producto que decora */
   decoFor?: string;
