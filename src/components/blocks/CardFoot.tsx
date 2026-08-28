@@ -76,7 +76,8 @@ function RetailFoot({
     const net = row?.pricePublic ?? product.pub;
     return { ...o, net, allowed: retailCanBuyPresentation(net, o.units) };
   });
-  const [idx, setIdx] = useState(-1); // -1 = unidad
+  // -1 = unidad. Productos por color (tapas): sin unidad, arranca en el paquete.
+  const [idx, setIdx] = useState(product.bulkOnly && opts.length ? 0 : -1);
   const sel = idx >= 0 ? opts[idx] : undefined;
   const blocked = !!sel && !sel.allowed;
   // En la card mostramos hasta 4 presentaciones (las tapas por color tienen
@@ -125,17 +126,19 @@ function RetailFoot({
           style={{ position: "relative", zIndex: 2, marginTop: "8px" }}
         >
           <div className="chips">
-            <button
-              type="button"
-              className={`chip ${idx < 0 ? "on" : ""}`}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIdx(-1);
-              }}
-            >
-              Unidad
-            </button>
+            {!product.bulkOnly && (
+              <button
+                type="button"
+                className={`chip ${idx < 0 ? "on" : ""}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIdx(-1);
+                }}
+              >
+                Unidad
+              </button>
+            )}
             {shown.map((o, i) => (
               <button
                 key={o.key}
@@ -252,7 +255,8 @@ function WholesaleFoot({
   // Si la planilla no tiene fila de caja, no se ofrece caja. El precio por
   // unidad sale del mapa mayorista fresco (entry.pres, por SKU de fila o por
   // unidades); si falta, cae al unitario base.
-  const opts: PresOpt[] = [{ units: 1, label: "Unidad", perUnit: may }];
+  // Productos por color (tapas): sin "Unidad", solo las presentaciones de la planilla.
+  const opts: PresOpt[] = product.bulkOnly ? [] : [{ units: 1, label: "Unidad", perUnit: may }];
   for (const o of presentationOptions(pp)) {
     opts.push({
       units: o.units,
@@ -264,6 +268,7 @@ function WholesaleFoot({
       sku: o.sku,
     });
   }
+  if (!opts.length) opts.push({ units: 1, label: "Unidad", perUnit: may }); // sin filas: fallback
   const minPerUnit = Math.min(...opts.map((o) => o.perUnit));
   // Default: el bulto mas chico (units > 1); si no hay, unidad.
   const firstBulto = opts.findIndex((o) => o.units > 1);

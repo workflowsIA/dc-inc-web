@@ -280,6 +280,15 @@ export default defineType({
       validation: (r) => r.required().integer().positive(),
     }),
     defineField({
+      name: "soldByBulkOnly",
+      title: "Se vende solo por presentación cerrada",
+      type: "boolean",
+      group: "presentacion",
+      description:
+        "Sin opción 'Unidad' en la web: solo paquete/caja/pallet de la planilla. Lo marca el sync en los productos por color (tapas corona).",
+      initialValue: false,
+    }),
+    defineField({
       name: "unitsPerPallet",
       title: "Unidades por pallet",
       type: "number",

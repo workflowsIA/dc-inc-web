@@ -72,6 +72,10 @@ async function main() {
     for (const o of r.decoOptions)
       console.log(`   ${o.family.padEnd(16)} ${o.sides} cara(s)  ${o.tiers} tramos${o.setup != null ? `  montaje $${o.setup}` : ""}`);
   }
+  if (r.variantProducts.length) {
+    console.log(`\n🎨 Productos por color (tapas corona): ${r.variantProducts.length}`);
+    for (const v of r.variantProducts) console.log(`   ${v.sku.padEnd(14)} ← ${v.baseKey}  ${v.variant}`);
+  }
   if (r.unlinkedVariants.length) {
     console.log(
       `\n⚠️  Filas de presentación (UxB > 1) sin fila base en la planilla (${r.unlinkedVariants.length}) — no se ofrecen en la web:`,

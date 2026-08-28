@@ -187,6 +187,17 @@ export async function POST(req: Request) {
           it.presentationSku && prod.presentationPricing
             ? prod.presentationPricing.find((pp) => pp.sku === it.presentationSku)
             : undefined;
+        // Producto por color (tapas): solo presentación cerrada de la planilla.
+        if (prod.soldByBulkOnly && !pres) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: "bulk_only",
+              message: `«${prod.name}» se vende solo por paquete/caja cerrada. Elegí una presentación.`,
+            },
+            { status: 400 },
+          );
+        }
         const basePub = pres?.pricePublic ?? prod.pricePublic;
         const baseMay = pres?.priceWholesale ?? prod.priceWholesale;
         // TOPE MINORISTA (server-side, espeja al buy-box): el cliente final no

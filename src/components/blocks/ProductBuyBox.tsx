@@ -19,6 +19,8 @@ interface Props {
   presentationPricing?: PresentationPricing[];
   /** opciones de decorado con precio para este producto (1 cara / 2 caras); vacío = sin decorado en la ficha */
   decoOptions?: DecoOption[];
+  /** se vende solo por presentación cerrada (productos por color, tapas corona): sin "Individual" */
+  bulkOnly?: boolean;
 }
 
 interface Pres {
@@ -33,6 +35,7 @@ export default function ProductBuyBox({
   deli,
   presentationPricing: presentationPricingProp,
   decoOptions = [],
+  bulkOnly = false,
 }: Props) {
   const add = useCart((s) => s.add);
   // El rol y los precios mayoristas se resuelven en el cliente (ver
@@ -65,11 +68,16 @@ export default function ProductBuyBox({
   // Individual (units:1) y queda como default. Mayorista compra solo por bulto cerrado.
   // Unidad disponible para todos: DC habilitó comprar por unidad también al por
   // mayor. Antes el mayorista solo veía bultos cerrados (sin "Individual").
-  const presList: Pres[] = [{ label: "Individual", units: 1 }, ...bultoPres];
+  // Productos por color (tapas corona): solo presentación cerrada, sin Individual.
+  const presList: Pres[] = bulkOnly
+    ? bultoPres
+    : [{ label: "Individual", units: 1 }, ...bultoPres];
   const hasPres = presList.length > 0;
   // Mayorista abre en el primer bulto (compra típica); minorista, en Individual.
   const firstBultoIdx = presList.findIndex((p) => p.units > 1);
-  const [idx, setIdx] = useState(wholesale && firstBultoIdx > 0 ? firstBultoIdx : 0);
+  const [idx, setIdx] = useState(
+    (wholesale || bulkOnly) && firstBultoIdx >= 0 ? firstBultoIdx : 0,
+  );
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   // COLOR / TERMINACIÓN: las tapas corona tienen paquetes x100 por color (filas

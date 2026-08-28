@@ -35,6 +35,9 @@ export interface Product {
   /** fin de la oferta (ISO) — opcional */
   saleEnd?: string;
   bulto: number;
+  /** se vende solo por presentación cerrada de la planilla (sin "Unidad") —
+   *  productos por color (tapas corona). */
+  bulkOnly?: boolean;
   pallet: number;
   deli: string;
   stock: StockLevel;

@@ -57,6 +57,34 @@ export interface LinkResult {
   presentations: Map<string, LinkedPresentation[]>;
   /** variantes (UxB > 1) sin ninguna fila base que sea prefijo → no se ofrecen */
   unlinked: SheetPriceRow[];
+  /** Productos "por color" desprendidos de un base (ver SPLIT_VARIANTS_RE):
+   *  su `sku` ya está en `bases` (fila sintética) y en `presentations`. */
+  variantProducts: VariantProduct[];
+}
+
+export interface VariantProduct {
+  /** SKU del producto nuevo = SKU de la fila más chica del color (ej. TC27CLNB) */
+  sku: string;
+  /** clave del producto base del que se desprende (ej. TC27C) */
+  baseKey: string;
+  /** distintivo (color / terminación), ej. "Lisa Negra" */
+  variant: string;
+}
+
+/**
+ * Familias cuyas variantes con distintivo (color / terminación) son PRODUCTOS
+ * propios y no presentaciones del base (decisión de Marce, 28-ago-2026: "que
+ * cada color de tapa sea un producto y no variante"). Hoy: tapas corona (TC…).
+ * Todas las filas del mismo (base, distintivo) se agrupan en un producto cuyo
+ * SKU es el de la fila más chica (el paquete x100) y se venden SOLO por
+ * presentación cerrada (el sync marca `soldByBulkOnly`). Si la planilla suma
+ * filas de caja o unidad por color, se cuelgan solas del mismo producto.
+ * El base genérico (TC27C: unidad y caja sin color) sigue existiendo aparte.
+ */
+export const SPLIT_VARIANTS_RE = /^TC\d/;
+
+export function isSplitVariantBase(baseKey: string): boolean {
+  return SPLIT_VARIANTS_RE.test(baseKey);
 }
 
 /** Excepciones de linkeo: prefijo de variante → SKU base real. Solo para las
@@ -244,8 +272,48 @@ export function linkPresentations(allRows: SheetPriceRow[]): LinkResult {
     }
     list.push(entry);
   }
+  // 4) Colores como productos propios (tapas corona): las variantes con
+  //    distintivo de un base TC… salen de la lista del base y pasan a ser un
+  //    producto cada una, agrupadas por (base, distintivo).
+  const variantProducts: VariantProduct[] = [];
+  for (const list of new Set(presentations.values())) {
+    const keys = [...presentations.entries()].filter(([, l]) => l === list).map(([k]) => k);
+    const baseKey = keys[0];
+    if (!baseKey || !isSplitVariantBase(baseKey)) continue;
+    const base = bases.get(baseKey);
+    if (!base) continue;
+    const groups = new Map<string, LinkedPresentation[]>();
+    for (const e of list) {
+      if (!e.variant) continue;
+      const g = groups.get(e.variant);
+      if (g) g.push(e);
+      else groups.set(e.variant, [e]);
+    }
+    if (!groups.size) continue;
+    // El base se queda solo con las presentaciones sin color (caja genérica…).
+    const keep = list.filter((e) => !e.variant);
+    list.splice(0, list.length, ...keep);
+    for (const [variant, rows] of groups) {
+      rows.sort((a, b) => a.unitsPerBulk - b.unitsPerBulk || a.sku.localeCompare(b.sku));
+      const first = rows[0];
+      const synthetic: SheetPriceRow = {
+        sku: first.sku,
+        name: `${base.name.replace(/\s+-\s+unidad$/i, "")} - ${variant}`,
+        unitsPerBulk: first.unitsPerBulk,
+        price: first.price,
+      };
+      bases.set(first.sku, synthetic);
+      // Dentro del producto por color el distintivo ya es el nombre → las
+      // presentaciones quedan como "Paquete x100", sin repetir el color.
+      presentations.set(
+        first.sku,
+        rows.map(({ variant: _v, ...e }) => e),
+      );
+      variantProducts.push({ sku: first.sku, baseKey, variant });
+    }
+  }
   for (const list of new Set(presentations.values())) {
     list.sort((a, b) => a.unitsPerBulk - b.unitsPerBulk || a.sku.localeCompare(b.sku));
   }
-  return { bases, presentations, unlinked };
+  return { bases, presentations, unlinked, variantProducts };
 }

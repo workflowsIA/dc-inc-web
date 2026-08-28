@@ -139,6 +139,7 @@ export default async function ProductPage({ params }: Props) {
               deli={product.deli}
               presentationPricing={product.presentationPricing}
               decoOptions={decoOptions}
+              bulkOnly={product.bulkOnly}
               pricing={{
                 pub: product.pub,
                 may: product.may,

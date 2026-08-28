@@ -54,6 +54,8 @@ export interface SyncSummary {
    *  prefijo de su SKU → no se pueden ofrecer como presentación. Para revisar
    *  con Marce (SKU mal formado o base que falta). */
   unlinkedVariants: { sku: string; name: string; unitsPerBulk: number | null }[];
+  /** Productos "por color" desprendidos de un base (tapas corona). */
+  variantProducts: { sku: string; baseKey: string; variant: string }[];
   /** Tarifa de decorado cargada (opciones familia×caras y tramos). */
   decoOptions: { family: string; sides: number; tiers: number; setup?: number }[];
 }
@@ -230,6 +232,31 @@ function deriveStockLevel(
   return "ok";
 }
 
+/** Campos del producto padre que hereda un producto "por color" al crearse. */
+interface ParentSnapshot {
+  name?: string;
+  category?: unknown;
+  subtypes?: unknown[];
+  description?: string;
+  specs?: unknown[];
+  deliveryTime?: string;
+  images?: unknown[];
+  decoAvailable?: boolean;
+  seoDescription?: string;
+}
+
+function cloneParentFields(p: ParentSnapshot): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (p.category) out.category = p.category;
+  if (p.subtypes?.length) out.subtypes = p.subtypes;
+  if (p.description) out.description = p.description;
+  if (p.specs?.length) out.specs = p.specs;
+  if (p.deliveryTime) out.deliveryTime = p.deliveryTime;
+  if (p.images?.length) out.images = p.images;
+  if (typeof p.decoAvailable === "boolean") out.decoAvailable = p.decoAvailable;
+  return out;
+}
+
 // ---- main ----
 
 export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<SyncSummary> {
@@ -252,6 +279,22 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
     await sanityWriteClient.fetch(
       `*[_type == "product" && defined(sku)]{ _id, sku, name, "slug": slug.current }`,
     );
+  // Padres de los productos "por color" (tapas): de ellos se clonan categoría,
+  // subtipos, descripción, ficha y fotos al crear el borrador del color, y su
+  // nombre en Sanity (más prolijo que el de la planilla) arma el del color.
+  const variantBySku = new Map(linked.variantProducts.map((v) => [v.sku, v]));
+  const parentKeys = [...new Set(linked.variantProducts.map((v) => v.baseKey))];
+  const parents: Record<string, ParentSnapshot> = {};
+  if (parentKeys.length) {
+    const rows: (ParentSnapshot & { sku: string })[] = await sanityWriteClient.fetch(
+      `*[_type == "product" && sku in $skus && !(_id in path("drafts.**"))]{
+        sku, name, category, subtypes, description, specs, deliveryTime, images,
+        decoAvailable, seoDescription
+      }`,
+      { skus: parentKeys },
+    );
+    for (const r of rows) parents[r.sku] = r;
+  }
 
   let patched = 0;
   let skipped = 0;
@@ -281,6 +324,12 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
       // Público y mayorista = mismo neto (ver toPriceRows).
       set.pricePublic = price.price;
       set.priceWholesale = price.price;
+      // Producto "por color" (fila sintética con UxB > 1): se vende solo por
+      // presentación cerrada. Ver SPLIT_VARIANTS_RE en sheet-presentations.ts.
+      if (variantBySku.has(p.sku) && (price.unitsPerBulk ?? 1) > 1) {
+        set.unitsPerBulk = price.unitsPerBulk;
+        set.soldByBulkOnly = true;
+      }
       // Precio por presentación (caja/pallet/paquete…) del producto base →
       // descuento por volumen en el buy-box. Se pisa SIEMPRE que la fila base
       // matchee (aunque quede vacío) para que no sobrevivan presentaciones
@@ -330,7 +379,10 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
     // SKU del draft: la clave "pelada" si la fila tiene alias (NAJT0340, no
     // NAJT0340UN); si no, el SKU de la fila tal cual.
     const sku = baseAliases(price.sku).find((a) => priceMap.get(a) === price) ?? key;
-    const name = price.name || sku;
+    const vp = variantBySku.get(sku);
+    const parent = vp ? parents[vp.baseKey] : undefined;
+    // Producto por color: "<nombre del padre en Sanity> · <color>".
+    const name = vp && parent?.name ? `${parent.name} · ${vp.variant}` : price.name || sku;
     const stock = stockMap.get(sku) ?? stockMap.get(price.sku);
     const level = deriveStockLevel(stock?.stockQty ?? null, stock?.stockMin ?? null);
     createdDrafts.push({ sku, name });
@@ -356,6 +408,12 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
       ...(stock?.stockQty != null ? { stockQty: stock.stockQty } : {}),
       ...(stock?.stockMin != null ? { stockMin: stock.stockMin } : {}),
       ...(level ? { stockLevel: level } : {}),
+      // Producto por color: hereda la ficha del padre (foto genérica incluida,
+      // para reemplazar por la del color) y se vende solo por paquete cerrado.
+      ...(vp && (price.unitsPerBulk ?? 1) > 1
+        ? { unitsPerBulk: price.unitsPerBulk, soldByBulkOnly: true }
+        : {}),
+      ...(parent ? cloneParentFields(parent) : {}),
       fromSheet: true,
     });
   }
@@ -395,6 +453,7 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
     dryRun,
     changes: dryRun ? changes : undefined,
     createdDrafts,
+    variantProducts: linked.variantProducts,
     unlinkedVariants: linked.unlinked.map((r) => ({
       sku: r.sku,
       name: r.name,
