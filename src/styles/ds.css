@@ -212,6 +212,7 @@ p{ margin:0; }
 .search svg{ width:17px; height:17px; flex:none; }
 .search input{ background:none; border:none; outline:none; color:#fff; font-family:var(--body); font-size:14px; width:100%; }
 .search input::placeholder{ color:#9d9d99; }
+.hdr .mobile-only{ display:none; }
 .icon-btn{
   position:relative; width:42px; height:42px; border-radius:10px; border:1px solid rgba(255,255,255,.12);
   background:rgba(255,255,255,.05); color:#fff; display:inline-flex; align-items:center; justify-content:center;
@@ -442,6 +443,13 @@ textarea.input{ resize:vertical; min-height:96px; line-height:1.5; }
   :root{ --header-h:62px; }
   .nav, .search, .hdr .desktop-only{ display:none; }
   .hdr-burger{ display:inline-flex; }
+  /* Buscador mobile: pill angosto entre el logo y la cuenta, ocupa lo que sobra. */
+  .hdr-top{ gap:8px; }
+  .hdr .logo{ --logo-size:30px; }
+  .hdr .mobile-only{ display:block; flex:1 1 auto; min-width:0; }
+  .search-compact .search{ display:flex; width:100%; padding:8px 11px; gap:6px; }
+  .search-compact .search svg{ width:16px; height:16px; }
+  .search-compact .search input{ font-size:14px; min-width:0; }
   .grid-4{ grid-template-columns:repeat(2,1fr); }
   .grid-3{ grid-template-columns:repeat(2,1fr); }
   .ftr-grid{ grid-template-columns:1fr 1fr; gap:30px; }

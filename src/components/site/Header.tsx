@@ -52,6 +52,9 @@ export default function Header() {
             />
           </span>
         </Link>
+        {/* Mobile: el buscador va entre el logo y la cuenta (pedido de Marce,
+            28-ago). En desktop se oculta; ahí vive el de .hdr-actions. */}
+        <SearchBox className="mobile-only" compact />
         <nav className="nav">
           {NAV.map((n) => (
             <Link key={n.href} href={n.href}>

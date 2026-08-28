@@ -12,7 +12,15 @@ export interface SearchItem {
   sku?: string;
 }
 
-export default function SearchBox({ className = "" }: { className?: string }) {
+export default function SearchBox({
+  className = "",
+  compact = false,
+}: {
+  className?: string;
+  /** Versión angosta para el header mobile: placeholder corto y dropdown a
+   *  ancho de pantalla (anclado al header sticky) en vez de al ancho del pill. */
+  compact?: boolean;
+}) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<SearchItem[]>([]);
@@ -49,7 +57,7 @@ export default function SearchBox({ className = "" }: { className?: string }) {
 
   return (
     <div
-      className={`search-wrap ${className}`}
+      className={`search-wrap ${compact ? "search-compact" : ""} ${className}`}
       style={{ position: "relative" }}
       onFocus={() => {
         if (blurTimer.current) clearTimeout(blurTimer.current);
@@ -65,7 +73,8 @@ export default function SearchBox({ className = "" }: { className?: string }) {
         <input
           name="q"
           value={q}
-          placeholder="Buscar productos, categorías…"
+          placeholder={compact ? "Buscar" : "Buscar productos, categorías…"}
+          aria-label="Buscar productos"
           autoComplete="off"
           onChange={(e) => {
             loadIndex();
@@ -78,7 +87,11 @@ export default function SearchBox({ className = "" }: { className?: string }) {
       {open && qn.length >= 2 && (
         <div
           className="search-dd"
-          style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, minWidth: "300px" }}
+          style={
+            compact
+              ? { position: "fixed", top: "calc(var(--header-h) + 4px)", left: 12, right: 12 }
+              : { position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, minWidth: "300px" }
+          }
         >
           {matches.length > 0 ? (
             <>
