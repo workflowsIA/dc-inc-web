@@ -5,7 +5,10 @@ name: Conciliar pagos Nave pendientes
 # (ej: el cliente pagó y cerró la pestaña antes de la confirmación).
 #
 # Reusa el secret SYNC_CRON_SECRET (el mismo del sync de stock).
-# ⚠️ Al migrar el dominio, actualizar la URL acá (junto con SYNC_ENDPOINT_URL).
+# La URL base sale de la variable de Actions APP_BASE_URL (Settings → Secrets
+# and variables → Actions → Variables); si no está, cae a la URL de Vercel v3.
+# Al migrar (subdominio tienda. / dominio real): setear APP_BASE_URL, sin commit.
+# (SYNC_ENDPOINT_URL del sync sigue siendo un secret aparte: actualizarlo también.)
 
 on:
   schedule:
@@ -24,15 +27,17 @@ jobs:
       - name: Trigger reconcile endpoint
         env:
           SYNC_CRON_SECRET: ${{ secrets.SYNC_CRON_SECRET }}
+          APP_BASE_URL: ${{ vars.APP_BASE_URL || 'https://dc-inc-web-v3.vercel.app' }}
         run: |
           set -euo pipefail
           if [ -z "${SYNC_CRON_SECRET:-}" ]; then
             echo "❌ Falta el secret SYNC_CRON_SECRET."
             exit 1
           fi
+          echo "Base: ${APP_BASE_URL}"
           code=$(curl -sS --max-time 120 -o /tmp/out.json -w "%{http_code}" \
             -H "Authorization: Bearer ${SYNC_CRON_SECRET}" \
-            "https://dc-inc-web-v3.vercel.app/api/nave/reconcile-pending")
+            "${APP_BASE_URL%/}/api/nave/reconcile-pending")
           echo "HTTP ${code}"
           cat /tmp/out.json || true
           [ "${code}" = "200" ]
