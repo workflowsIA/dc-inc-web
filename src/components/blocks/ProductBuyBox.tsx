@@ -140,6 +140,13 @@ export default function ProductBuyBox({
       ? decoOptions[decoIdx]
       : undefined;
   const decoQ = decoSel ? decoQuote(decoSel, unitsTotal) : null;
+  // Opción de decorado elegida (aunque todavía no llegue al mínimo de SU tramo)
+  // y cuántas piezas faltan para habilitarla. Se recalcula solo con la cantidad
+  // total, así reacciona en vivo al tocar +/- o cambiar de presentación.
+  const decoSelectedOption = decoIdx >= 0 ? decoOptions[decoIdx] : undefined;
+  const decoMissing = decoSelectedOption
+    ? Math.max(0, decoMinUnits(decoSelectedOption) - unitsTotal)
+    : 0;
   const decoFactor = finalConsumer && !retailBlocked ? 1 + 0.21 : 1;
   // Sufijo de IVA según el tipo de usuario.
   const ivaTag = finalConsumer && !retailBlocked ? "IVA incl." : "+ IVA";
@@ -333,17 +340,18 @@ export default function ProductBuyBox({
               Sin decorado
             </button>
             {decoOptions.map((o, i) => {
-              // Deshabilitado hasta llegar al tramo mínimo de ESA opción.
+              // Elegible siempre: si todavía no llega al tramo mínimo de ESTA
+              // opción, se puede igual seleccionar (para ver el cartel de
+              // cuánto falta) pero no se cotiza ni se agrega al carrito hasta
+              // alcanzarlo (ver decoSel/decoQ).
               const min = decoMinUnits(o);
               const enabled = unitsTotal >= min;
               return (
                 <button
                   key={`${o.family}-${o.sides}`}
                   type="button"
-                  className={`chip ${i === decoIdx && enabled ? "on" : ""}`}
-                  disabled={!enabled}
+                  className={`chip ${i === decoIdx ? "on" : ""}`}
                   title={enabled ? undefined : `Disponible a partir de ${min} piezas`}
-                  style={enabled ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                   onClick={() => setDecoIdx(i)}
                 >
                   {o.label}
@@ -353,11 +361,19 @@ export default function ProductBuyBox({
             })}
           </div>
 
-          {!decoQ && unitsTotal < Math.min(...decoOptions.map(decoMinUnits)) && (
-            <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--muted)" }}>
-              Se decora a partir de {Math.min(...decoOptions.map(decoMinUnits))} piezas (hoy: {unitsTotal} u).
-              Subí la cantidad o elegí una caja para habilitarlo.
-            </p>
+          {/* Cartel dinámico: cuántas piezas faltan para el mínimo de la
+              opción de decorado elegida. Se recalcula en cada render con
+              unitsTotal, así que sigue en vivo la cantidad (+/-, bultos,
+              presentación). */}
+          {decoSelectedOption && decoMissing > 0 && (
+            <div
+              className="alert alert-err"
+              style={{ marginTop: "10px", fontSize: "14px" }}
+            >
+              Faltan <strong>{decoMissing}</strong> {decoMissing === 1 ? "unidad" : "unidades"} para
+              llegar al mínimo de decorado ({decoMinUnits(decoSelectedOption)} u para{" "}
+              {decoSelectedOption.label}).
+            </div>
           )}
         </div>
       )}
