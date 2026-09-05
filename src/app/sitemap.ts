@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getAllProductSlugs } from "@/lib/sanity-data";
+import { getAllProductSlugs, getCategories } from "@/lib/sanity-data";
 
 const BASE =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.dcinc.com.ar";
@@ -15,7 +15,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/logistica",
     "/faq",
     "/blog",
-    "/cuenta",
+    "/legales/terminos",
+    "/legales/privacidad",
+    "/legales/defensa",
   ];
 
   let productRoutes: string[] = [];
@@ -26,11 +28,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // sin Sanity, solo rutas estáticas
   }
 
+  let categoryRoutes: string[] = [];
+  try {
+    const cats = await getCategories();
+    categoryRoutes = cats
+      .map((c) => (typeof c.slug === "string" ? c.slug : null))
+      .filter((s): s is string => !!s)
+      .map((s) => `/categoria/${s}`);
+  } catch {
+    // sin Sanity, sin categorías
+  }
+
   const now = new Date();
-  return [...staticRoutes, ...productRoutes].map((path) => ({
+  return [...staticRoutes, ...categoryRoutes, ...productRoutes].map((path) => ({
     url: `${BASE}${path}`,
     lastModified: now,
-    changeFrequency: path.startsWith("/productos/") ? "weekly" : "monthly",
-    priority: path === "" ? 1 : path === "/productos" ? 0.9 : 0.6,
+    changeFrequency:
+      path.startsWith("/productos/") || path.startsWith("/categoria/")
+        ? "weekly"
+        : "monthly",
+    priority:
+      path === ""
+        ? 1
+        : path === "/productos"
+          ? 0.9
+          : path.startsWith("/categoria/")
+            ? 0.8
+            : 0.6,
   }));
 }

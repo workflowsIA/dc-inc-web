@@ -17,7 +17,7 @@ import { sanityClient } from "../src/lib/sanity";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
-const PUBLIC_SITE = "https://dc-inc-web-v3.vercel.app";
+const PUBLIC_SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.dcinc.com.ar";
 const BRAND = "DC Inc";
 
 type Row = {
