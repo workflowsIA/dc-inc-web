@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 const BASE =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://dc-inc-web-v3.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.dcinc.com.ar";
 
 export default function robots(): MetadataRoute.Robots {
   return {

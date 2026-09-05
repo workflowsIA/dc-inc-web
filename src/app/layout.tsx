@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   },
   description: SITE_DESC,
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://dcinc.com.ar",
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.dcinc.com.ar",
   ),
   openGraph: {
     type: "website",

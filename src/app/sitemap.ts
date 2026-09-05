@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { getAllProductSlugs } from "@/lib/sanity-data";
 
 const BASE =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://dc-inc-web-v3.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.dcinc.com.ar";
 
 export const revalidate = 3600;
 
