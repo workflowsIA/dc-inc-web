@@ -15,6 +15,7 @@
     "categories:fix": "tsx --env-file=.env.local scripts/fix-categories.ts",
     "enrich:wix": "tsx --env-file=.env.local scripts/enrich-from-wix.ts",
     "export:meta": "tsx --env-file=.env.local scripts/export-meta-catalog.ts",
+    "export:meta:sheet": "tsx --env-file=.env.local scripts/export-meta-catalog-sheet.ts",
     "sync:sheet": "tsx --env-file=.env.local scripts/sync-sheet-to-sanity.ts",
     "backfill:customers": "tsx --env-file=.env.local scripts/backfill-customers.ts",
     "seed:testimonials": "tsx --env-file=.env.local scripts/seed-testimonials.ts",
