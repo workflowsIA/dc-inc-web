@@ -13,18 +13,23 @@
  * de un mismo documento en un solo "producto lógico" antes de comparar
  * (para no confundir draft+published del MISMO doc con un duplicado).
  *
+ * Solo se recomienda auto-borrar cuando el cluster tiene EXACTAMENTE un SKU
+ * pelado y todos los demás son ese SKU + UN/CA. Si dos SKUs sin relación de
+ * sufijo comparten slug/nombre (colisión de datos, no este bug), el cluster
+ * se manda a "revisar a mano" en vez de arriesgar borrar el producto real.
+ *
  * Salida:
- *   - Consola: tabla legible por cluster de duplicados.
- *   - reports/sku-suffix-dupes.csv → mismo formato que espera
- *     scripts/dedup-skus.ts (_id, name, motivo), con el/los "perdedor(es)"
- *     de cada cluster (el que se recomienda borrar). El campo `mantener_id`
- *     extra queda como referencia de cuál es el que se conserva.
+ *   - Consola: tabla legible por cluster, marcado CONFIRMADO o REVISAR A MANO.
+ *   - reports/sku-suffix-dupes-confirmados.csv → mismo formato que espera
+ *     scripts/dedup-skus.ts (_id, name, motivo). Solo los casos seguros.
+ *   - reports/sku-suffix-dupes-revisar.csv → clusters ambiguos, con TODOS
+ *     los miembros listados (no se borra nada solo, hay que elegir a mano).
  *
  * Uso:
  *   npm run sku:find-dupes
  *
- * Después de revisar el CSV con Fede/Marce, para borrar los "perdedores":
- *   cp reports/sku-suffix-dupes.csv reports/sku-fix-eliminar.csv
+ * Después de revisar el CSV confirmados con Fede/Marce, para borrar:
+ *   cp reports/sku-suffix-dupes-confirmados.csv reports/sku-fix-eliminar.csv
  *   npm run sku:dedup -- --dry-run   # confirma la lista una vez más
  *   npm run sku:dedup                # borra en Sanity
  *
@@ -200,18 +205,36 @@ async function main() {
     return;
   }
 
-  const csvRows: string[][] = [];
-  let totalPerdedores = 0;
+  // Clasificación: SOLO se recomienda auto-borrar cuando hay un único miembro
+  // con SKU pelado (sin sufijo) y TODOS los demás son ese mismo SKU + UN/CA.
+  // Si dos miembros del cluster tienen SKU pelado (sin relación de sufijo
+  // entre sí) es una colisión de slug entre productos DISTINTOS — no se toca
+  // automático, va a "revisar".
+  function classify(members: Logical[]): { keep: Logical; losers: Logical[] } | null {
+    const bare = members.filter((m) => stripSuffix(m.sku).suffix === null);
+    if (bare.length !== 1) return null;
+    const keep = bare[0];
+    const losers = members.filter((m) => m.id !== keep.id);
+    const allAreSuffixOfKeep = losers.every((m) => stripSuffix(m.sku).base === keep.sku);
+    if (!allAreSuffixOfKeep) return null;
+    return { keep, losers };
+  }
+
+  const confirmedRows: string[][] = [];
+  const revisarRows: string[][] = [];
+  let totalConfirmados = 0;
+  let totalRevisar = 0;
 
   for (const c of clusters) {
-    const ranked = [...c.members].sort((a, b) => keepScore(b) - keepScore(a));
-    const keep = ranked[0];
-    const losers = ranked.slice(1);
-    totalPerdedores += losers.length;
+    const resolved = classify(c.members);
+    const ranked = resolved
+      ? [resolved.keep, ...resolved.losers]
+      : [...c.members].sort((a, b) => keepScore(b) - keepScore(a));
+    const keep = resolved ? resolved.keep : null;
 
-    console.log(`— Cluster (${c.reason}): ${c.key}`);
+    console.log(`— Cluster (${c.reason}) [${resolved ? "✔ CONFIRMADO" : "⚠️  REVISAR A MANO"}]: ${c.key}`);
     for (const m of ranked) {
-      const tag = m.id === keep.id ? "✅ CONSERVAR" : "🗑️  BORRAR   ";
+      const tag = !resolved ? "❓ ???      " : m.id === keep!.id ? "✅ CONSERVAR" : "🗑️  BORRAR   ";
       const pub = m.hasPublished ? "pub" : "—";
       const drf = m.hasDraft ? "draft" : "—";
       console.log(
@@ -222,29 +245,57 @@ async function main() {
     }
     console.log("");
 
-    for (const loser of losers) {
-      csvRows.push([
-        loser.editId,
-        loser.name,
-        `duplicado de ${keep.editId} (sku ${keep.sku}) — ${c.reason}`,
-      ]);
+    if (resolved) {
+      totalConfirmados += resolved.losers.length;
+      for (const loser of resolved.losers) {
+        confirmedRows.push([
+          loser.editId,
+          loser.name,
+          `duplicado de ${resolved.keep.editId} (sku ${resolved.keep.sku}) — ${c.reason}`,
+        ]);
+      }
+    } else {
+      totalRevisar++;
+      for (const m of c.members) {
+        revisarRows.push([
+          m.editId,
+          m.name,
+          `${c.reason} — slug/nombre compartido entre SKUs sin relación de sufijo, elegir a mano cuál conservar`,
+        ]);
+      }
     }
   }
 
   const dir = join(process.cwd(), "reports");
   mkdirSync(dir, { recursive: true });
-  const path = join(dir, "sku-suffix-dupes.csv");
-  const head =
-    `# Duplicados por SKU pelado vs SKU+UN/CA (o slug repetido). Generado: ${new Date().toISOString()}\n` +
-    `# Revisar con Fede/Marce ANTES de borrar. Para aplicar:\n` +
-    `#   cp reports/sku-suffix-dupes.csv reports/sku-fix-eliminar.csv && npm run sku:dedup -- --dry-run\n` +
-    `_id,name,motivo\n`;
-  const body = csvRows.map((r) => r.map(escapeCsv).join(",")).join("\n");
-  writeFileSync(path, head + body + "\n", "utf-8");
 
-  console.log(`   Clusters con duplicados: ${clusters.length}`);
-  console.log(`   Documentos a revisar para borrar: ${totalPerdedores}`);
-  console.log(`   📄 ${path}\n`);
+  const confirmedPath = join(dir, "sku-suffix-dupes-confirmados.csv");
+  const confirmedHead =
+    `# Duplicados CONFIRMADOS (SKU pelado + su copia SKU+UN/CA, mismo producto). Generado: ${new Date().toISOString()}\n` +
+    `# Para aplicar:\n` +
+    `#   cp reports/sku-suffix-dupes-confirmados.csv reports/sku-fix-eliminar.csv && npm run sku:dedup -- --dry-run\n` +
+    `_id,name,motivo\n`;
+  writeFileSync(
+    confirmedPath,
+    confirmedHead + confirmedRows.map((r) => r.map(escapeCsv).join(",")).join("\n") + "\n",
+    "utf-8",
+  );
+
+  const revisarPath = join(dir, "sku-suffix-dupes-revisar.csv");
+  const revisarHead =
+    `# Colisiones de slug/nombre entre SKUs SIN relación de sufijo UN/CA — decidir a mano cuál conservar.\n` +
+    `# Generado: ${new Date().toISOString()}\n` +
+    `_id,name,motivo\n`;
+  writeFileSync(
+    revisarPath,
+    revisarHead + revisarRows.map((r) => r.map(escapeCsv).join(",")).join("\n") + "\n",
+    "utf-8",
+  );
+
+  console.log(`   Clusters confirmados (auto): ${clusters.length - totalRevisar}  → ${totalConfirmados} documentos a borrar`);
+  console.log(`   Clusters a revisar a mano:   ${totalRevisar}`);
+  console.log(`   📄 ${confirmedPath}`);
+  console.log(`   📄 ${revisarPath}\n`);
   console.log("   (Esto NO borró nada. Es solo el diagnóstico.)\n");
 }
 
