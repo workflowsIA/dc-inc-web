@@ -22,6 +22,7 @@
     "sku:propose": "tsx --env-file=.env.local scripts/propose-sku-fix.ts",
     "sku:apply": "tsx --env-file=.env.local scripts/apply-sku-fix.ts",
     "sku:dedup": "tsx --env-file=.env.local scripts/dedup-skus.ts",
+    "sku:find-dupes": "tsx --env-file=.env.local scripts/find-sku-suffix-dupes.ts",
     "sku:lookup": "tsx --env-file=.env.local scripts/lookup-precio.ts",
     "stock:check": "tsx --env-file=.env.local scripts/check-stock.ts",
     "csv:import": "tsx --env-file=.env.local scripts/import-products-csv.ts",
