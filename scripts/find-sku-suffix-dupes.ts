@@ -129,13 +129,31 @@ function keepScore(p: Logical): number {
 async function main() {
   console.log("\n🔎 Buscando productos duplicados (SKU pelado vs SKU+UN/CA)\n");
 
+  // perspective:"raw" fuerza que devuelva CADA documento tal cual está en el
+  // dataset (drafts.xxx y xxx como filas separadas). Sin esto, el cliente
+  // puede resolver un solo documento "visible" por identidad y esconder los
+  // borradores que nunca se publicaron — que son justo los que buscamos.
   const raw: RawProduct[] = await sanityWriteClient.fetch(
     `*[_type == "product" && defined(sku) && defined(name)]{
       _id, sku, name, "slug": slug.current, pricePublic, priceWholesale, stockQty,
       "hasImage": count(images) > 0, "categoryName": category->name, _updatedAt
     }`,
+    {},
+    { perspective: "raw" },
   );
-  console.log(`   Documentos producto (draft+published): ${raw.length}`);
+  console.log(`   Documentos producto (draft+published, perspective raw): ${raw.length}`);
+  const draftCount = raw.filter((r) => r._id.startsWith("drafts.")).length;
+  console.log(`   … de los cuales borradores (drafts.*): ${draftCount}`);
+
+  if (process.env.DEBUG_NAME) {
+    const needle = norm(process.env.DEBUG_NAME);
+    const hits = raw.filter((r) => norm(r.name).includes(needle));
+    console.log(`\n   🐛 DEBUG_NAME="${process.env.DEBUG_NAME}" → ${hits.length} filas crudas:`);
+    for (const h of hits) {
+      console.log(`      ${h._id.padEnd(45)} sku=${h.sku ?? "?"}  "${h.name}"`);
+    }
+    console.log("");
+  }
 
   const products = collapse(raw);
   console.log(`   Productos lógicos (colapsando draft/published del mismo doc): ${products.length}\n`);
