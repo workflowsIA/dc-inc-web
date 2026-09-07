@@ -67,6 +67,7 @@ async function main() {
   const { sheets, drive } = await getClients();
 
   let spreadsheetId = process.env.META_CATALOG_SHEET_ID?.trim();
+  let createdNew = false;
 
   if (!spreadsheetId) {
     console.log("[export:meta:sheet] META_CATALOG_SHEET_ID no seteado → creando Sheet nuevo...");
@@ -77,6 +78,7 @@ async function main() {
       },
     });
     spreadsheetId = created.data.spreadsheetId!;
+    createdNew = true;
     console.log(`[export:meta:sheet] Sheet creado: ${spreadsheetId}`);
 
     // Cualquiera con el link puede VER (necesario para que Meta lo pueda leer).
@@ -103,22 +105,36 @@ async function main() {
     }
   } else {
     console.log(`[export:meta:sheet] Reusando Sheet existente: ${spreadsheetId}`);
+  }
+
+  // No asumimos el nombre de la pestaña: si el Sheet lo creó a mano Fede (o Google
+  // Sheets con el locale en español), la primera pestaña puede llamarse "Hoja 1",
+  // no "feed". Resolvemos el nombre real de la primera pestaña siempre.
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties",
+  });
+  const firstSheet = meta.data.sheets?.[0]?.properties;
+  const actualTabName = firstSheet?.title ?? TAB_NAME;
+  const gid = firstSheet?.sheetId ?? 0;
+
+  if (!createdNew) {
     // Limpia el contenido previo antes de reescribir (por si el CSV tiene menos filas que antes).
     await sheets.spreadsheets.values.clear({
       spreadsheetId,
-      range: TAB_NAME,
+      range: actualTabName,
     });
   }
 
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${TAB_NAME}!A1`,
+    range: `${actualTabName}!A1`,
     valueInputOption: "RAW",
     requestBody: { values: rows },
   });
-  console.log(`[export:meta:sheet] ${rows.length - 1} filas escritas en la pestaña "${TAB_NAME}".`);
+  console.log(`[export:meta:sheet] ${rows.length - 1} filas escritas en la pestaña "${actualTabName}".`);
 
-  const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=0`;
+  const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${gid}`;
   const editUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
 
   console.log("\n✓ Listo.");
