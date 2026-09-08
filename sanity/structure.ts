@@ -71,6 +71,14 @@ export const structure: StructureResolver = (S) =>
                             .filter('_type == "product" && !defined(images) && !defined(legacyImageUrl)'),
                         ),
                       S.listItem()
+                        .title("SIN CATEGORÍA (no salen en la web)")
+                        .icon(WarningOutlineIcon)
+                        .child(
+                          S.documentList()
+                            .title("Productos sin categoría — la web no los muestra")
+                            .filter('_type == "product" && !defined(category)'),
+                        ),
+                      S.listItem()
                         .title("Categoría: Otros")
                         .icon(WarningOutlineIcon)
                         .child(

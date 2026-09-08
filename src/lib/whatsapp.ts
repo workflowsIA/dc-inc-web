@@ -66,15 +66,18 @@ export function totalsFor(
   const finalConsumer = !wholesale;
   const shipping = shippingEstimate({ cp, batuZone, bultos: totalBultos(items), wholesale }, cfg);
   // IVA 21% sobre productos + envío (el flete también tributa IVA).
-  const iva = (net + shipping) * 0.21;
-  const total = net + shipping + iva;
+  // Redondeo a centavos: espeja a round2() de /api/orders para que lo que ve el
+  // cliente en el carrito sea exactamente lo que se guarda y se le cobra.
+  const r2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+  const iva = r2((net + shipping) * 0.21);
+  const total = r2(net + shipping + iva);
   return {
-    sub,
+    sub: r2(sub),
     rate,
-    disc,
-    net,
+    disc: r2(disc),
+    net: r2(net),
     iva,
-    shipping,
+    shipping: r2(shipping),
     total,
     hasDeco: items.some((i) => i.deco),
     finalConsumer,

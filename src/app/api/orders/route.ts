@@ -15,6 +15,11 @@ import { getDecoPricing, getShippingConfig } from "@/lib/sanity-data";
 import { decoQuote } from "@/lib/deco";
 import { guard, LIMITS } from "@/lib/rate-limit";
 
+/** Redondea a centavos. Los totales se guardaban en float crudo (ej.
+ *  121602.05728) y ese mismo número se le manda a Nave como `amount` y se le
+ *  muestra a Marce en el panel. Todo lo que sea plata pasa por acá. */
+const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+
 /**
  * POST /api/orders — crea un pedido (`order`) en Sanity desde el checkout.
  *
@@ -233,7 +238,7 @@ export async function POST(req: Request) {
         totalBultos += bultos;
       }
 
-      const lineSub = (unitNet ?? 0) * it.qty;
+      const lineSub = round2((unitNet ?? 0) * it.qty);
       sub += lineSub;
       lines.push({
         _type: "orderItem",
@@ -263,8 +268,8 @@ export async function POST(req: Request) {
       },
       shipCfg,
     );
-    const iva = (net + shipping) * IVA_RATE;
-    const total = net + shipping + iva;
+    const iva = round2((net + shipping) * IVA_RATE);
+    const total = round2(net + shipping + iva);
 
     const doc = {
       _type: "order",
@@ -277,11 +282,11 @@ export async function POST(req: Request) {
       customerCompany: body.customerCompany ?? "",
       customerPhone: body.customerPhone ?? "",
       items: lines,
-      subtotal: sub,
+      subtotal: round2(sub),
       iva,
       cpDestino: body.cp ?? "",
       zonaBatu: body.batuZone ?? null,
-      envioEstimado: shipping,
+      envioEstimado: round2(shipping),
       total,
       paymentStatus: "no_pagado",
       fulfillmentStatus: "no_procesado",
