@@ -108,6 +108,33 @@ export default defineType({
     defineField({ name: "iva", title: "IVA", type: "number" }),
     defineField({ name: "total", title: "Total", type: "number" }),
 
+    // ---- Envío ----
+    // Los escribe /api/orders al crear el pedido (estimado server-side por CP o
+    // por zona Batu, ver src/lib/shipping.ts). Solos de lectura: el precio ya se
+    // cobró con este valor, editarlo acá no recotiza nada.
+    defineField({
+      name: "cpDestino",
+      title: "CP de destino",
+      type: "string",
+      description: "Código postal que cargó el cliente en el checkout.",
+      readOnly: true,
+    }),
+    defineField({
+      name: "zonaBatu",
+      title: "Zona Batu",
+      type: "number",
+      description:
+        "Zona de reparto propio (1 a 4) si el cliente eligió Batu. Vacío si se estimó por banda de CP.",
+      readOnly: true,
+    }),
+    defineField({
+      name: "envioEstimado",
+      title: "Envío estimado",
+      type: "number",
+      description: "Costo de envío calculado al momento del pedido, ya incluido en el total.",
+      readOnly: true,
+    }),
+
     // ---- Estados ----
     defineField({
       name: "paymentStatus",
