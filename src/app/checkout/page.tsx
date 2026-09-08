@@ -250,7 +250,12 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       cp: info.cp,
       batuZone: info.batuZone ?? undefined,
       notes: info.notas,
-      origin: "web" as const,
+      // Este pedido nace del botón "Prefiero coordinar por WhatsApp", NO del
+      // checkout online. Marcarlo como "web" hacía que en el panel (y en la
+      // columna Origen de Monday) fuera indistinguible de un pago abandonado:
+      // Marce veía un montón de pedidos "no pagados" que en realidad se estaban
+      // cerrando por WhatsApp. Ver el schema `order` → campo `origin`.
+      origin: "whatsapp" as const,
     };
     // fire-and-forget: no await, no preventDefault. Errores solo a consola.
     fetch("/api/orders", {
