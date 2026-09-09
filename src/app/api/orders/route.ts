@@ -173,7 +173,7 @@ export async function POST(req: Request) {
         );
         if (!opt || !it.sku) continue;
         if (opt.setupSku === it.sku) continue; // línea de montaje de un carrito viejo → se descarta
-        const q = decoQuote(opt, it.qty);
+        const q = decoQuote(opt, it.qty, wholesale);
         if (!q) continue; // por debajo del tramo mínimo → no se cotiza
         unitNet = q.perUnit;
         sku = q.tier.sku;

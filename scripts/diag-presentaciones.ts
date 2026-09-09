@@ -25,6 +25,7 @@ import { sanityWriteClient } from "../src/lib/sanity";
 import { parsePresentationUnits } from "../src/lib/presentations";
 import { matchesSearch } from "../src/lib/search";
 import { linkPresentations, type SheetPriceRow } from "../src/lib/sheet-presentations";
+import { toPriceRows } from "../src/lib/sheet-sync";
 
 const SHEET_PRECIOS_ID =
   process.env.SHEET_PRECIOS_ID ?? "1rQoHe-bx5x8tBcEWgGGwyWIQi3zfUvYM5b7wYiLjdf0";
@@ -119,14 +120,8 @@ async function main() {
     return;
   }
   const rows = await readSheet();
-  const priceRows: SheetPriceRow[] = rows
-    .map((r) => ({
-      sku: String(r["sku"] ?? r["codigo"] ?? "").trim(),
-      name: String(r["insumos: unidad, caja y pallet"] ?? r["descripcion"] ?? "").trim(),
-      unitsPerBulk: toNum(r["uxb"] ?? r["unidad por bulto"]),
-      price: toNum(r["precio unitario"]),
-    }))
-    .filter((r) => r.sku && normKey(r.sku) !== "sku");
+  // Mismo mapeo que el sync (columnas → dos netos por unidad), sin duplicarlo.
+  const priceRows: SheetPriceRow[] = toPriceRows(rows);
   const linked = linkPresentations(priceRows);
 
   for (const p of products) {

@@ -139,7 +139,7 @@ export default function ProductBuyBox({
     decoIdx >= 0 && decoOptions[decoIdx] && unitsTotal >= decoMinUnits(decoOptions[decoIdx])
       ? decoOptions[decoIdx]
       : undefined;
-  const decoQ = decoSel ? decoQuote(decoSel, unitsTotal) : null;
+  const decoQ = decoSel ? decoQuote(decoSel, unitsTotal, wholesale) : null;
   // Opción de decorado elegida (aunque todavía no llegue al mínimo de SU tramo)
   // y cuántas piezas faltan para habilitarla. Se recalcula solo con la cantidad
   // total, así reacciona en vivo al tocar +/- o cambiar de presentación.

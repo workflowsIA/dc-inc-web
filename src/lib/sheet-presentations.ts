@@ -33,10 +33,18 @@
 
 export interface SheetPriceRow {
   sku: string;
-  /** "Insumos: Unidad, Caja y Pallet" — descripción de la fila */
+  /** Descripción de la fila (columna "Familia" de la planilla) */
   name: string;
   unitsPerBulk: number | null;
-  price: number | null;
+  /**
+   * Neto POR UNIDAD, mayorista. Es la columna más completa de la planilla, así
+   * que es la que decide si la fila es utilizable: sin mayorista, la fila no se
+   * ofrece. La normalización desde las cuatro columnas de precio del Sheet vive
+   * en toPriceRows() (src/lib/sheet-sync.ts).
+   */
+  priceWholesale: number | null;
+  /** Neto POR UNIDAD, minorista. null = la planilla no le puso precio de cliente final. */
+  pricePublic: number | null;
 }
 
 export interface LinkedPresentation {
@@ -47,7 +55,10 @@ export interface LinkedPresentation {
   /** Distintivo dentro del mismo tipo (ej. color de tapa "Lisa Negra"), si hay */
   variant?: string;
   unitsPerBulk: number;
-  price: number;
+  /** neto POR UNIDAD, mayorista */
+  priceWholesale: number;
+  /** neto POR UNIDAD, minorista (null = esta presentación no se vende a cliente final) */
+  pricePublic: number | null;
 }
 
 export interface LinkResult {
@@ -210,12 +221,12 @@ export function linkPresentations(allRows: SheetPriceRow[]): LinkResult {
 
   // 1) Filas base por su SKU tal cual. Primera fila con precio gana.
   for (const r of rows) {
-    if (!r.sku || !isBaseRow(r) || r.price === null || isFakeCajaBase(r)) continue;
+    if (!r.sku || !isBaseRow(r) || r.priceWholesale === null || isFakeCajaBase(r)) continue;
     if (!bases.has(r.sku)) bases.set(r.sku, r);
   }
   // 2) Alias (NAJT0340UN → NAJT0340…) solo si el SKU pelado no es fila propia.
   for (const r of rows) {
-    if (!r.sku || !isBaseRow(r) || r.price === null || isFakeCajaBase(r)) continue;
+    if (!r.sku || !isBaseRow(r) || r.priceWholesale === null || isFakeCajaBase(r)) continue;
     for (const a of baseAliases(r.sku)) {
       if (!rawSkus.has(a) && !bases.has(a)) bases.set(a, r);
     }
@@ -246,7 +257,7 @@ export function linkPresentations(allRows: SheetPriceRow[]): LinkResult {
   const unlinked: SheetPriceRow[] = [];
   const seen = new Set<string>();
   for (const r of rows) {
-    if (!r.sku || isBaseRow(r) || r.price === null || r.unitsPerBulk === null) continue;
+    if (!r.sku || isBaseRow(r) || r.priceWholesale === null || r.unitsPerBulk === null) continue;
     if (seen.has(r.sku)) continue;
     seen.add(r.sku);
     const prefix = prefixes.find((p) => r.sku.startsWith(p) && r.sku !== p);
@@ -262,7 +273,8 @@ export function linkPresentations(allRows: SheetPriceRow[]): LinkResult {
       label: presentationLabel(r.name, suffix),
       ...(variant ? { variant } : {}),
       unitsPerBulk: r.unitsPerBulk,
-      price: r.price,
+      priceWholesale: r.priceWholesale,
+      pricePublic: r.pricePublic,
     };
     const keys = keysByRow.get(base) ?? [];
     let list = presentations.get(keys[0]);
@@ -300,7 +312,8 @@ export function linkPresentations(allRows: SheetPriceRow[]): LinkResult {
         sku: first.sku,
         name: `${base.name.replace(/\s+-\s+unidad$/i, "")} - ${variant}`,
         unitsPerBulk: first.unitsPerBulk,
-        price: first.price,
+        priceWholesale: first.priceWholesale,
+        pricePublic: first.pricePublic,
       };
       bases.set(first.sku, synthetic);
       // Dentro del producto por color el distintivo ya es el nombre → las

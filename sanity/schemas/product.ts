@@ -124,13 +124,22 @@ export default defineType({
     // como información. Si un precio está mal, se corrige en la planilla.
     defineField({
       name: "pricePublic",
-      title: "Precio unitario NETO (sin IVA) — desde la planilla",
+      title: "Precio unitario MINORISTA, NETO (sin IVA) — desde la planilla",
       type: "number",
       group: "precios",
       readOnly: true,
       description:
-        "Precio por unidad SIN IVA que trae la planilla de precios (columna «Precio unitario» de ProductosDC-Todos). No se edita acá: lo pisa la sincronización diaria. En la web, el cliente final lo ve con IVA incluido (× 1,21) y el mayorista lo ve neto + IVA.",
+        "Precio por unidad SIN IVA para CLIENTE FINAL. Sale de las columnas «Precio unitario MINORISTA» / «Precio bulto MINORISTA» de ProductosDC-Todos y ya trae incorporado el recargo de Nave. No se edita acá: lo pisa la sincronización. En la web el cliente final lo ve con IVA incluido (× 1,21). Si la planilla no trae precio minorista, acá queda el neto mayorista y el producto se marca «Solo mayorista».",
       validation: (r) => r.required().positive(),
+    }),
+    defineField({
+      name: "wholesaleOnly",
+      title: "Solo mayorista (la planilla no le puso precio minorista)",
+      type: "boolean",
+      group: "precios",
+      readOnly: true,
+      description:
+        "Lo marca la sincronización cuando la planilla no trae precio minorista para este producto. No se edita acá: se corrige cargando el precio minorista en la planilla.",
     }),
     defineField({
       name: "priceWholesale",

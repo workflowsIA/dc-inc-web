@@ -2,8 +2,11 @@
  * Decorado (serigrafía) como extra de la ficha — fase 1 (ago-2026).
  *
  * La planilla de precios tiene la tarifa de decorado POR TRAMO de cantidad:
- * una fila por tramo con SKU = prefijo de familia/caras + dígitos, UxB = unidades
- * mínimas del tramo y "Precio unitario" = precio por pieza decorada en ese tramo.
+ * una fila por tramo con SKU = prefijo de familia/caras + dígitos y UxB =
+ * unidades mínimas del tramo.
+ * OJO (sep-2026): en la planilla nueva las columnas de precio de esas filas
+ * traen el TOTAL DEL TRAMO, no el precio por pieza. toPriceRows() ya lo divide
+ * por UxB, así que acá los precios llegan siempre POR PIEZA.
  *   DBC11xx / DBC21xx  botellas 330-500 ml, 1 cara / 2 caras (1 color)
  *   DBG11xx / DBG21xx  botellas 660-1000 ml
  *   DG111xx / DG121xx  botellón 1 L
@@ -42,8 +45,13 @@ export const DECO_FAMILY_LABEL: Record<DecoFamily, string> = {
 export interface DecoTier {
   sku: string;
   minUnits: number;
-  /** precio NETO por pieza decorada en este tramo */
+  /** precio NETO por pieza decorada en este tramo — MAYORISTA */
   pricePerUnit: number;
+  /**
+   * Precio NETO por pieza — MINORISTA (ya trae incorporado el recargo de Nave).
+   * Si la planilla no lo trae para ese tramo, se cotiza con el mayorista.
+   */
+  pricePerUnitPublic?: number;
 }
 
 export interface DecoOption {
@@ -81,11 +89,16 @@ export function decoOptionLabel(sides: 1 | 2): string {
 
 /** Arma la tarifa a partir de las filas de la planilla (sku, UxB, precio). */
 export function buildDecoPricing(
-  rows: { sku: string; unitsPerBulk: number | null; price: number | null }[],
+  rows: {
+    sku: string;
+    unitsPerBulk: number | null;
+    pricePublic: number | null;
+    priceWholesale: number | null;
+  }[],
 ): DecoPricing {
   const byKey = new Map<string, DecoOption>();
   for (const r of rows) {
-    if (!r.sku || r.price === null) continue;
+    if (!r.sku || r.priceWholesale === null) continue;
     // DCMYM1/2 (montaje y horneado) se ignoran a propósito: ya está incluido
     // en la tarifa por pieza. Ver nota de cabecera.
     const p = PREFIXES.find((x) => x.re.test(r.sku));
@@ -97,7 +110,12 @@ export function buildDecoPricing(
       byKey.set(key, opt);
     }
     if (!opt.tiers.some((t) => t.sku === r.sku)) {
-      opt.tiers.push({ sku: r.sku, minUnits: r.unitsPerBulk, pricePerUnit: r.price });
+      opt.tiers.push({
+        sku: r.sku,
+        minUnits: r.unitsPerBulk,
+        pricePerUnit: r.priceWholesale,
+        ...(r.pricePublic != null ? { pricePerUnitPublic: r.pricePublic } : {}),
+      });
     }
   }
   const options = [...byKey.values()];
@@ -136,13 +154,18 @@ export function decoMinUnits(option: DecoOption): number {
  * alto cuyo mínimo no supere la cantidad. Devuelve null si la cantidad está
  * por debajo del primer tramo.
  */
-export function decoQuote(option: DecoOption, units: number): DecoQuote | null {
+export function decoQuote(
+  option: DecoOption,
+  units: number,
+  wholesale = false,
+): DecoQuote | null {
   let tier: DecoTier | undefined;
   for (const t of option.tiers) if (units >= t.minUnits) tier = t;
   if (!tier) return null;
-  const piecesTotal = tier.pricePerUnit * units;
+  const perUnit = wholesale ? tier.pricePerUnit : (tier.pricePerUnitPublic ?? tier.pricePerUnit);
+  const piecesTotal = perUnit * units;
   // Montaje y horneado NO se suma: la tarifa por pieza ya lo incluye.
-  return { option, tier, units, perUnit: tier.pricePerUnit, piecesTotal, setup: 0, total: piecesTotal };
+  return { option, tier, units, perUnit, piecesTotal, setup: 0, total: piecesTotal };
 }
 
 /**

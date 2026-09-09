@@ -45,7 +45,16 @@ export default defineType({
                   fields: [
                     { name: "sku", title: "SKU (planilla)", type: "string" },
                     { name: "minUnits", title: "Desde (unidades)", type: "number" },
-                    { name: "pricePerUnit", title: "Precio neto por pieza", type: "number" },
+                    {
+                      name: "pricePerUnit",
+                      title: "Precio neto por pieza (mayorista)",
+                      type: "number",
+                    },
+                    {
+                      name: "pricePerUnitPublic",
+                      title: "Precio neto por pieza (minorista)",
+                      type: "number",
+                    },
                   ],
                   preview: {
                     select: { sku: "sku", min: "minUnits", price: "pricePerUnit" },

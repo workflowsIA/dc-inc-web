@@ -5,7 +5,8 @@
  *
  * Fuentes (ver vault: entregables/mapeo-sheet-sanity-junio-2026.md):
  *   PRECIOS → "Lista de precios productos - DC Inc 2026" / `ProductosDC-Todos`
- *     Sku → sku · Precio unitario (NETO) → pricePublic = priceWholesale · UxB → unitsPerBulk
+ *     Sku → sku · UxB → unitsPerBulk · las 4 columnas de precio → pricePublic
+ *     y priceWholesale, dos netos POR UNIDAD distintos (ver toPriceRows)
  *   STOCK   → "Presupuestos | inventario | Actual" / `Productos_Inventario_DC`
  *     Sku → sku · Stock Venta (fila base) → stockQty · Minimos stock → stockMin
  *
@@ -32,7 +33,9 @@ const SHEET_PRECIOS_ID =
   process.env.SHEET_PRECIOS_ID ?? "1rQoHe-bx5x8tBcEWgGGwyWIQi3zfUvYM5b7wYiLjdf0";
 const SHEET_INVENTARIO_ID =
   process.env.SHEET_INVENTARIO_ID ?? "1IArDR92PfChhzAHHKsI-6KLY0xo63ERr7u07vNP_U8M";
-const TAB_PRECIOS = "ProductosDC-Todos";
+// Permite apuntar el sync a una COPIA de la pestaña para probar sin tocar la
+// que está en producción (ej. SHEET_TAB_PRECIOS="Copia de ProductosDC-Todos").
+const TAB_PRECIOS = process.env.SHEET_TAB_PRECIOS ?? "ProductosDC-Todos";
 const TAB_INVENTARIO = "Productos_Inventario_DC";
 
 export interface SyncSummary {
@@ -144,21 +147,85 @@ async function readTab(
   return rowsToObjects((res.data.values ?? []) as unknown[][]);
 }
 
-/** Filas de la planilla de precios normalizadas (ver sheet-presentations.ts). */
-function toPriceRows(rows: Record<string, unknown>[]): SheetPriceRow[] {
+/**
+ * Filas de la planilla normalizadas a DOS precios NETOS POR UNIDAD (minorista y
+ * mayorista). Toda la rareza del Sheet vive acá: de este punto para abajo nadie
+ * vuelve a pensar en qué columna ni en qué tipo de fila.
+ *
+ * Layout NUEVO (sep-2026), cuatro columnas de precio:
+ *   H "Precio unitario MINORISTA"   I "Precio bulto MINORISTA"
+ *   K "Precio unitario MAYORISTA"   J "Precios MAYORISTAS" (= bulto)
+ * Las MISMAS columnas significan cosas distintas según el tipo de fila:
+ *  - TARIFA (decorado/despacho, isTariffSku): H y J son el TOTAL DEL TRAMO, no
+ *    el precio por pieza → se dividen por UxB (las piezas del tramo).
+ *  - UNIDAD (UxB ≤ 1): el número ya es por unidad. El mayorista está en K en las
+ *    filas migradas a las columnas nuevas (cristalería) y quedó en J en las que
+ *    Marce no llegó a migrar (envases) → `K ?? J`. Por eso mismo esas filas de
+ *    envases todavía no tienen el recargo de Nave en el minorista.
+ *  - BULTO (UxB > 1): I y J son el total del bulto → se dividen por UxB.
+ *
+ * Layout VIEJO (una sola columna "Precio unitario", por unidad en todas las
+ * filas): se detecta por los encabezados y se mapea como antes, público =
+ * mayorista. Así el orden entre deployar y renombrar la pestaña no importa.
+ *
+ * Un precio en null significa "la planilla no lo trae", NO cero: el sync no
+ * pisa nada con null.
+ */
+export function toPriceRows(rows: Record<string, unknown>[]): SheetPriceRow[] {
+  const newLayout = rows.some(
+    (r) => "precio bulto minorista" in r || "precio unitario mayorista" in r,
+  );
   const out: SheetPriceRow[] = [];
   for (const r of rows) {
     const sku = cleanSku(r["sku"] ?? r["codigo"]);
     if (!sku || normKey(sku) === "sku") continue; // subtítulos "Sku | Cristaleria Bultos"
-    // Fuente: pestaña "ProductosDC-Todos". "Precio unitario" es el precio NETO
-    // (sin IVA) por unidad de cada presentación (fila base + variantes). Es la
-    // fuente única: público y mayorista salen del mismo neto (el cliente final
-    // muestra +IVA una sola vez; el mayorista muestra neto). Ver dc-inc-web-iva-doble.
+
+    const unitsPerBulk = toNum(r["uxb"] ?? r["unidad por bulto"]);
+    const units = unitsPerBulk && unitsPerBulk > 0 ? unitsPerBulk : 1;
+    const perUnit = (total: number | null) => (total === null ? null : total / units);
+    // En la planilla el 0 significa "no hay precio", NO "gratis": las celdas
+    // vacías y los ceros literales conviven en las mismas columnas (una fila de
+    // caja sin precio minorista puede venir "" o 0 según cómo la haya cargado
+    // Marce). Si un 0 pasara como precio válido, el cliente final vería —y
+    // podría comprar— esa presentación a $0.
+    const price = (v: unknown) => {
+      const n = toNum(v);
+      return n !== null && n > 0 ? n : null;
+    };
+
+    let pricePublic: number | null;
+    let priceWholesale: number | null;
+    if (!newLayout) {
+      priceWholesale = price(r["precio unitario"]);
+      pricePublic = priceWholesale;
+    } else {
+      const unitRetail = price(r["precio unitario minorista"]);
+      const bulkRetail = price(r["precio bulto minorista"]);
+      const unitWholesale = price(r["precio unitario mayorista"]);
+      const bulkWholesale = price(r["precios mayoristas"]);
+      if (isTariffSku(sku)) {
+        pricePublic = perUnit(unitRetail);
+        priceWholesale = perUnit(bulkWholesale);
+      } else if (units <= 1) {
+        pricePublic = unitRetail ?? bulkRetail;
+        priceWholesale = unitWholesale ?? bulkWholesale;
+      } else {
+        pricePublic = perUnit(bulkRetail);
+        priceWholesale = unitWholesale ?? perUnit(bulkWholesale);
+      }
+    }
+
     out.push({
       sku,
-      name: String(r["insumos: unidad, caja y pallet"] ?? r["descripcion"] ?? "").trim(),
-      unitsPerBulk: toNum(r["uxb"] ?? r["unidad por bulto"]),
-      price: toNum(r["precio unitario"]),
+      // El encabezado real de la columna de descripción es "Familia" (fila 1).
+      // "Insumos: Unidad, Caja y Pallet" es el SEGUNDO header (fila 2), que el
+      // sync nunca lee: se dejan las dos claves para no depender de eso.
+      name: String(
+        r["familia"] ?? r["insumos: unidad, caja y pallet"] ?? r["descripcion"] ?? "",
+      ).trim(),
+      unitsPerBulk,
+      pricePublic,
+      priceWholesale,
     });
   }
   return out;
@@ -192,8 +259,8 @@ function toPresentationPricing(e: LinkedPresentation): PresentationPricing {
     label: e.label,
     ...(e.variant ? { variant: e.variant } : {}),
     unitsPerBulk: e.unitsPerBulk,
-    pricePublic: e.price,
-    priceWholesale: e.price,
+    pricePublic: e.pricePublic,
+    priceWholesale: e.priceWholesale,
   };
 }
 
@@ -320,10 +387,14 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
       continue;
     }
     const set: Record<string, unknown> = {};
-    if (price?.price != null) {
-      // Público y mayorista = mismo neto (ver toPriceRows).
-      set.pricePublic = price.price;
-      set.priceWholesale = price.price;
+    if (price?.priceWholesale != null) {
+      // Desde sep-2026 son dos precios distintos (ver toPriceRows). Cuando la
+      // planilla no trae minorista, el producto queda marcado como SOLO
+      // MAYORISTA y pricePublic se deja en el neto mayorista para no romper el
+      // render ni la validación del schema: el gate real es `wholesaleOnly`.
+      set.priceWholesale = price.priceWholesale;
+      set.pricePublic = price.pricePublic ?? price.priceWholesale;
+      set.wholesaleOnly = price.pricePublic == null;
       // Producto "por color" (fila sintética con UxB > 1): se vende solo por
       // presentación cerrada. Ver SPLIT_VARIANTS_RE en sheet-presentations.ts.
       if (variantBySku.has(p.sku) && (price.unitsPerBulk ?? 1) > 1) {
@@ -401,7 +472,13 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
       sku,
       name,
       slug: { _type: "slug", current: slug || idSafe.toLowerCase() },
-      ...(price.price != null ? { pricePublic: price.price, priceWholesale: price.price } : {}),
+      ...(price.priceWholesale != null
+        ? {
+            priceWholesale: price.priceWholesale,
+            pricePublic: price.pricePublic ?? price.priceWholesale,
+            wholesaleOnly: price.pricePublic == null,
+          }
+        : {}),
       ...(presentationPricingMap.get(sku)?.length
         ? { presentationPricing: presentationPricingMap.get(sku)!.map(withKey) }
         : {}),
