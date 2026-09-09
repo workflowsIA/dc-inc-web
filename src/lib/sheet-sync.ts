@@ -204,8 +204,13 @@ export function toPriceRows(rows: Record<string, unknown>[]): SheetPriceRow[] {
       const unitWholesale = price(r["precio unitario mayorista"]);
       const bulkWholesale = price(r["precios mayoristas"]);
       if (isTariffSku(sku)) {
-        pricePublic = perUnit(unitRetail);
-        priceWholesale = perUnit(bulkWholesale);
+        // Las filas de tarifa traen el TOTAL DEL TRAMO, no el precio por pieza.
+        // Decorado (DBC/DBG/DG1/DG2/DCA/DCT/DC1x): el total va en la columna de
+        // BULTO y UxB son las piezas del tramo. Despachos (DBZ/DLT/DTT): el
+        // precio va en la de UNIDAD y UxB = 1 (son por viaje, no por pieza).
+        // Se aceptan las dos y se divide por UxB, que en los despachos es 1.
+        pricePublic = perUnit(bulkRetail ?? unitRetail);
+        priceWholesale = perUnit(bulkWholesale ?? unitWholesale);
       } else if (units <= 1) {
         pricePublic = unitRetail ?? bulkRetail;
         priceWholesale = unitWholesale ?? bulkWholesale;
