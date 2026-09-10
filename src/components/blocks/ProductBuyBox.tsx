@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useCart, type ProductSnapshot } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
 import { resolveDisplayPrice, type PricingInput } from "@/lib/pricing";
-import { SHIPPING_FROM } from "@/lib/shipping";
+import { aforadoKg, SHIPPING_FROM } from "@/lib/shipping";
 import type { PresentationPricing } from "@/lib/queries";
 import { useWholesaleEntry } from "@/lib/wholesale-prices";
 import { decoMinUnits, decoQuote, type DecoOption } from "@/lib/deco";
@@ -24,6 +24,9 @@ interface Props {
   /** la planilla no le puso precio minorista: el cliente final ve el precio
    *  neto "+ IVA" pero no lo puede agregar. Ver wholesaleOnly en sheet-sync.ts */
   wholesaleOnly?: boolean;
+  /** peso y medidas del bulto BASE (planilla de inventario). Fallback cuando la
+   *  fila de la presentación elegida no los trae. Sin esto el envío se cotiza. */
+  bultoDims?: { pesoKg?: number; largoCm?: number; anchoCm?: number; altoCm?: number };
 }
 
 interface Pres {
@@ -40,6 +43,7 @@ export default function ProductBuyBox({
   decoOptions = [],
   bulkOnly = false,
   wholesaleOnly: wholesaleOnlyProduct = false,
+  bultoDims,
 }: Props) {
   const add = useCart((s) => s.add);
   // El rol y los precios mayoristas se resuelven en el cliente (ver
@@ -117,6 +121,16 @@ export default function ProductBuyBox({
       : null;
   // La presentación elegida ya trae color propio (paquete por color) → no se pide.
   const needsColor = colorOptions.length > 0 && !presMatch?.variant;
+  // Peso facturable de UN bulto de la presentación elegida: primero el de la
+  // fila de la planilla (cada caja/pallet tiene el suyo), y si esa fila no lo
+  // trae, el del producto base. undefined → el envío se cotiza aparte.
+  const dimsSel = presMatch?.pesoKg != null || presMatch?.largoCm != null ? presMatch : bultoDims;
+  const bultoAforado =
+    aforadoKg(dimsSel?.pesoKg, {
+      largo: dimsSel?.largoCm,
+      ancho: dimsSel?.anchoCm,
+      alto: dimsSel?.altoCm,
+    }) ?? undefined;
   const selPricing: PricingInput =
     presMatch && presMatch.pricePublic != null
       ? { ...pricing, pub: presMatch.pricePublic, may: presMatch.priceWholesale ?? pricing.may }
@@ -166,6 +180,7 @@ export default function ProductBuyBox({
         pub: selPricing.pub,
         may: selPricing.may,
         bulto: unitsPerSel,
+        aforadoKg: bultoAforado,
         presentationSku: presMatch?.sku,
         presentationLabel: presMatch ? sel?.label : undefined,
         variant: needsColor && color ? color : undefined,

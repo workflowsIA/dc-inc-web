@@ -2,7 +2,7 @@ import type { CartItem } from "./cart-store";
 import { ars } from "./format";
 import {
   shippingEstimate,
-  needsShippingQuote,
+  type Bulto,
   DEFAULT_SHIPPING_CONFIG,
   type BatuZone,
   type ShippingConfig,
@@ -44,6 +44,29 @@ export function volumeRate(_subtotal: number): number {
  *  de caja cuenta sus cajas (qty / unidades por bulto); combos e individuales
  *  cuentan como 1 bulto por línea. Mínimo 1. */
 export function totalBultos(items: CartItem[]): number {
+  return bultosDetalle(items).reduce((a, b) => a + b.cantidad, 0) || 1;
+}
+
+/** Desglose de bultos con su peso FACTURABLE, para la tarifa de Andreani (que
+ *  se cobra por paquete, no por pedido). Una entrada por línea del carrito.
+ *  kg = null → ese producto no tiene peso cargado en la planilla y el envío
+ *  entero pasa a "a cotizar". Ver andreaniQuote() en shipping.ts. */
+export function bultosDetalle(items: CartItem[]): Bulto[] {
+  const out: Bulto[] = [];
+  for (const i of items) {
+    if (i.kind === "deco") continue; // servicio: no ocupa bulto
+    const cantidad =
+      i.kind === "combo"
+        ? i.qty
+        : i.bulto > 1
+          ? Math.max(1, Math.round(i.qty / i.bulto))
+          : 1;
+    out.push({ kg: typeof i.aforadoKg === "number" && i.aforadoKg > 0 ? i.aforadoKg : null, cantidad });
+  }
+  return out;
+}
+
+function totalBultosLegacy(items: CartItem[]): number {
   const n = items.reduce((acc, i) => {
     if (i.kind === "deco") return acc; // servicio: no ocupa bulto
     if (i.kind === "combo") return acc + i.qty;
@@ -67,9 +90,13 @@ export function totalsFor(
   // Cliente final: envío estimado. Batu (zona × bultos) si eligió zona CABA/GBA;
   // si no, banda de CP (interior). Mayorista: "a cotizar", no se suma.
   const finalConsumer = !wholesale;
-  const bultos = totalBultos(items);
-  const shipping = shippingEstimate({ cp, batuZone, bultos, wholesale }, cfg);
-  const shippingQuote = needsShippingQuote(bultos, wholesale);
+  const bultos = totalBultosLegacy(items);
+  const quote = shippingEstimate(
+    { cp, batuZone, bultos, wholesale, detalle: bultosDetalle(items) },
+    cfg,
+  );
+  const shipping = quote.total;
+  const shippingQuote = quote.toQuote;
   // IVA 21% sobre productos + envío (el flete también tributa IVA).
   // Redondeo a centavos: espeja a round2() de /api/orders para que lo que ve el
   // cliente en el carrito sea exactamente lo que se guarda y se le cobra.

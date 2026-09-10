@@ -61,6 +61,8 @@ export interface SyncSummary {
   variantProducts: { sku: string; baseKey: string; variant: string }[];
   /** Tarifa de decorado cargada (opciones familia×caras y tramos). */
   decoOptions: { family: string; sides: number; colors: number; tiers: number; setup?: number }[];
+  /** SKUs de la planilla de inventario con peso o medidas cargadas (envío por peso). */
+  dimsRead: number;
 }
 
 // ---- helpers ----
@@ -259,9 +261,18 @@ export interface PresentationPricing {
   unitsPerBulk: number;
   pricePublic: number | null;
   priceWholesale: number | null;
+  /** Peso y medidas del bulto (planilla de inventario) → envío por peso. */
+  pesoKg?: number;
+  largoCm?: number;
+  anchoCm?: number;
+  altoCm?: number;
 }
 
-function toPresentationPricing(e: LinkedPresentation): PresentationPricing {
+function toPresentationPricing(
+  e: LinkedPresentation,
+  dims?: Map<string, DimRow>,
+): PresentationPricing {
+  const d = dims?.get(e.sku);
   return {
     sku: e.sku,
     label: e.label,
@@ -269,6 +280,10 @@ function toPresentationPricing(e: LinkedPresentation): PresentationPricing {
     unitsPerBulk: e.unitsPerBulk,
     pricePublic: e.pricePublic,
     priceWholesale: e.priceWholesale,
+    ...(d?.pesoKg != null ? { pesoKg: d.pesoKg } : {}),
+    ...(d?.largoCm != null ? { largoCm: d.largoCm } : {}),
+    ...(d?.anchoCm != null ? { anchoCm: d.anchoCm } : {}),
+    ...(d?.altoCm != null ? { altoCm: d.altoCm } : {}),
   };
 }
 
@@ -279,6 +294,44 @@ function withKey(e: PresentationPricing): PresentationPricing & { _key: string }
 interface StockRow {
   stockQty: number | null;
   stockMin: number | null;
+}
+
+/** Peso y medidas del BULTO, columnas A-D de `Productos_Inventario_DC`.
+ *  Es la misma pestaña de la que ya salía el stock: Marce las mantiene ahí
+ *  desde siempre y hasta el 10-sep-2026 no las leía nadie. Con esto el envío
+ *  se calcula por peso facturable en vez de una tarifa plana por carrito. */
+interface DimRow {
+  pesoKg: number | null;
+  largoCm: number | null;
+  anchoCm: number | null;
+  altoCm: number | null;
+}
+
+function buildDimMap(rows: Record<string, unknown>[]): Map<string, DimRow> {
+  const map = new Map<string, DimRow>();
+  for (const r of rows) {
+    const sku = cleanSku(r["sku"]);
+    if (!sku || map.has(sku)) continue;
+    const pesoKg = toNum(r["peso"]);
+    let largoCm = toNum(r["largo"]);
+    let anchoCm = toNum(r["ancho"]);
+    let altoCm = toNum(r["alto"]);
+    // La planilla mezcla unidades: las cajas y mangas van en CM y los pallets
+    // en METROS (así lo dice su propia hoja de referencia). Si las tres medidas
+    // son chicas es un pallet en metros → se pasa a cm, si no el volumen daría
+    // ridículamente bajo y un pallet podría cotizar como paquete.
+    if (largoCm !== null && anchoCm !== null && altoCm !== null &&
+        largoCm < 10 && anchoCm < 10 && altoCm < 10) {
+      largoCm *= 100;
+      anchoCm *= 100;
+      altoCm *= 100;
+    }
+    // Fila sin ningún dato útil: no la guardamos, así `has()` sigue
+    // significando "de este SKU sabemos algo".
+    if (pesoKg === null && largoCm === null) continue;
+    map.set(sku, { pesoKg, largoCm, anchoCm, altoCm });
+  }
+  return map;
 }
 
 function buildStockMap(rows: Record<string, unknown>[]): Map<string, StockRow> {
@@ -345,9 +398,10 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
   const linked = linkPresentations(sheetRows);
   const priceMap = linked.bases; // clave de producto (SKU de Sanity o alias) → fila base
   const stockMap = buildStockMap(stockRows);
+  const dimMap = buildDimMap(stockRows);
   const presentationPricingMap = new Map<string, PresentationPricing[]>();
   for (const [key, list] of linked.presentations) {
-    presentationPricingMap.set(key, list.map(toPresentationPricing));
+    presentationPricingMap.set(key, list.map((e) => toPresentationPricing(e, dimMap)));
   }
 
   const products: { _id: string; sku: string; name?: string; slug?: string }[] =
@@ -417,6 +471,11 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
     }
     if (stock?.stockQty != null) set.stockQty = stock.stockQty;
     if (stock?.stockMin != null) set.stockMin = stock.stockMin;
+    const dim = dimMap.get(p.sku);
+    if (dim?.pesoKg != null) set.pesoKg = dim.pesoKg;
+    if (dim?.largoCm != null) set.largoCm = dim.largoCm;
+    if (dim?.anchoCm != null) set.anchoCm = dim.anchoCm;
+    if (dim?.altoCm != null) set.altoCm = dim.altoCm;
     const level = deriveStockLevel(stock?.stockQty ?? null, stock?.stockMin ?? null);
     if (level) set.stockLevel = level;
 
@@ -531,6 +590,7 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
   return {
     pricesRead: new Set(priceMap.values()).size,
     stockRead: stockMap.size,
+    dimsRead: dimMap.size,
     productsInSanity: products.length,
     patched,
     skipped,

@@ -10,7 +10,7 @@ import {
   type OrderPricingCombo,
 } from "@/lib/queries";
 import { IVA_RATE, isSaleActive, retailCartExceeded } from "@/lib/pricing";
-import { needsShippingQuote, shippingEstimate, type BatuZone } from "@/lib/shipping";
+import { aforadoKg, shippingEstimate, type BatuZone, type Bulto } from "@/lib/shipping";
 import { getDecoPricing, getShippingConfig } from "@/lib/sanity-data";
 import { decoQuote } from "@/lib/deco";
 import { guard, LIMITS } from "@/lib/rate-limit";
@@ -148,6 +148,10 @@ export async function POST(req: Request) {
     const lines: Line[] = [];
     let sub = 0;
     let totalBultos = 0; // para el envío Batu (zona × bultos)
+    // Desglose de bultos con su peso FACTURABLE, para la tarifa de Andreani
+    // (que se cobra por paquete, no por pedido). Se arma con los datos de
+    // Sanity, nunca con lo que manda el cliente.
+    const bultosDetalle: Bulto[] = [];
 
     for (const it of body.items) {
       let name = it.name ?? "";
@@ -163,6 +167,8 @@ export async function POST(req: Request) {
         sku = combo.slug;
         unitNet = typeof combo.pricePublicFrom === "number" ? combo.pricePublicFrom : 0;
         totalBultos += it.qty; // 1 bulto por combo
+        // Un combo no tiene peso propio cargado → obliga a cotizar el envío.
+        bultosDetalle.push({ kg: null, cantidad: it.qty });
       } else if (it.kind === "deco") {
         // Decorado: el SKU es un tramo de la tarifa (DBC1124…). Se reprecia
         // contra la tarifa de Sanity: el tramo se recalcula por la cantidad real
@@ -239,6 +245,17 @@ export async function POST(req: Request) {
         const step = stepUnits > 0 ? stepUnits : 1;
         bultos = Math.max(1, Math.round(it.qty / step));
         totalBultos += bultos;
+        // Peso facturable de UN bulto: el de la fila de la presentación si lo
+        // trae, si no el del producto base. Sin dato → envío a cotizar.
+        const dims = pres?.pesoKg != null || pres?.largoCm != null ? pres : prod;
+        bultosDetalle.push({
+          kg: aforadoKg(dims.pesoKg, {
+            largo: dims.largoCm,
+            ancho: dims.anchoCm,
+            alto: dims.altoCm,
+          }),
+          cantidad: bultos,
+        });
       }
 
       const lineSub = round2((unitNet ?? 0) * it.qty);
@@ -276,15 +293,17 @@ export async function POST(req: Request) {
     // Envío estimado server-side: Batu (zona × bultos) si el cliente eligió zona
     // CABA/GBA; si no, banda de CP (interior). Mayorista → 0.
     const shipCfg = await getShippingConfig();
-    const shipping = shippingEstimate(
+    const quote = shippingEstimate(
       {
         cp: body.cp,
         batuZone: body.batuZone as BatuZone | undefined,
         bultos: Math.max(1, totalBultos),
         wholesale,
+        detalle: bultosDetalle,
       },
       shipCfg,
     );
+    const shipping = quote.total;
     const iva = round2((net + shipping) * IVA_RATE);
     const total = round2(net + shipping + iva);
 
@@ -306,9 +325,10 @@ export async function POST(req: Request) {
       cpDestino: body.cp ?? "",
       zonaBatu: body.batuZone ?? null,
       envioEstimado: round2(shipping),
-      // Pasó el techo de bultos: no se cobró envío, hay que cotizarlo. Se guarda
-      // para que ventas lo vea en el panel y no interprete el 0 como "sin cargo".
-      shippingToQuote: needsShippingQuote(Math.max(1, totalBultos), wholesale),
+      // No se pudo estimar el envío (producto sin peso cargado, o un bulto de
+      // más de 50 kg facturables → corresponde pallet, no paquetería). Se
+      // guarda para que ventas lo vea en el panel y no lea el 0 como "gratis".
+      shippingToQuote: quote.toQuote,
       total,
       paymentStatus: "no_pagado",
       fulfillmentStatus: "no_procesado",

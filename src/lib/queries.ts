@@ -21,7 +21,8 @@ export const productsQuery = groq`
     saleStartDate,
     saleEndDate,
     presentations,
-    presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic },
+    presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic, pesoKg, largoCm, anchoCm, altoCm },
+    pesoKg, largoCm, anchoCm, altoCm,
     unitsPerBulk,
     soldByBulkOnly,
     wholesaleOnly,
@@ -52,7 +53,8 @@ export const productBySlugQuery = groq`
     saleStartDate,
     saleEndDate,
     presentations,
-    presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic, priceWholesale },
+    presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic, priceWholesale, pesoKg, largoCm, anchoCm, altoCm },
+    pesoKg, largoCm, anchoCm, altoCm,
     unitsPerBulk,
     soldByBulkOnly,
     wholesaleOnly,
@@ -96,7 +98,8 @@ export const productsBySkusQuery = groq`
     pricePublic, priceWholesale,
     isOnSale, salePrice, saleStartDate, saleEndDate,
     unitsPerBulk, soldByBulkOnly, wholesaleOnly, unitsPerPallet,
-    presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic, priceWholesale },
+    presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic, priceWholesale, pesoKg, largoCm, anchoCm, altoCm },
+    pesoKg, largoCm, anchoCm, altoCm,
     "image": coalesce(images[0].asset->url, legacyImageUrl)
   }
 `;
@@ -169,7 +172,7 @@ export const featuredProductsQuery = groq`
     _id, sku, name, "slug": slug.current, sortOrder, homeFeatured,
     pricePublic, priceWholesale, pricePublicOld,
     isOnSale, salePrice, saleStartDate, saleEndDate,
-    presentations, unitsPerBulk, soldByBulkOnly, wholesaleOnly, unitsPerPallet, presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic }, deliveryTime, stockLevel, badges,
+    presentations, unitsPerBulk, soldByBulkOnly, wholesaleOnly, unitsPerPallet, presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic, pesoKg, largoCm, anchoCm, altoCm }, pesoKg, largoCm, anchoCm, altoCm, deliveryTime, stockLevel, badges,
     "image": coalesce(images[0].asset->url, legacyImageUrl),
     "category": category->name
   }
@@ -288,6 +291,13 @@ export interface PresentationPricing {
   unitsPerBulk: number;
   pricePublic?: number;
   priceWholesale?: number;
+  /** Peso y medidas del BULTO (planilla de inventario) → envío por peso
+   *  facturable. Faltan en buena parte del catálogo: sin esto el envío de ese
+   *  producto va "a cotizar". Ver src/lib/shipping.ts. */
+  pesoKg?: number;
+  largoCm?: number;
+  anchoCm?: number;
+  altoCm?: number;
 }
 
 export interface SanityProduct {
@@ -306,6 +316,13 @@ export interface SanityProduct {
   presentations?: string[];
   presentationPricing?: PresentationPricing[];
   unitsPerBulk: number;
+  /** Peso y medidas del BULTO (planilla de inventario) → envío por peso
+   *  facturable. Faltan en buena parte del catálogo: sin esto el envío de ese
+   *  producto va "a cotizar". Ver src/lib/shipping.ts. */
+  pesoKg?: number;
+  largoCm?: number;
+  anchoCm?: number;
+  altoCm?: number;
   /** se vende solo por presentación cerrada (sin "Unidad") */
   soldByBulkOnly?: boolean;
   /** la planilla no le puso precio minorista → no se vende a cliente final */
@@ -481,6 +498,13 @@ export interface OrderPricingProduct {
   wholesaleOnly?: boolean;
   unitsPerPallet?: number;
   presentationPricing?: PresentationPricing[];
+  /** Peso y medidas del BULTO (planilla de inventario) → envío por peso
+   *  facturable. Faltan en buena parte del catálogo: sin esto el envío de ese
+   *  producto va "a cotizar". Ver src/lib/shipping.ts. */
+  pesoKg?: number;
+  largoCm?: number;
+  anchoCm?: number;
+  altoCm?: number;
   image?: string;
 }
 

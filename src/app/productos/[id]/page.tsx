@@ -141,6 +141,12 @@ export default async function ProductPage({ params }: Props) {
               decoOptions={decoOptions}
               bulkOnly={product.bulkOnly}
               wholesaleOnly={product.wholesaleOnly}
+              bultoDims={{
+                pesoKg: product.pesoKg,
+                largoCm: product.largoCm,
+                anchoCm: product.anchoCm,
+                altoCm: product.altoCm,
+              }}
               pricing={{
                 pub: product.pub,
                 may: product.may,

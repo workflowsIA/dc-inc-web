@@ -254,6 +254,15 @@ export default defineType({
               description: "Lo que esa fila agrega respecto de la base, ej. «Lisa Negra» en una tapa corona.",
             },
             { name: "unitsPerBulk", title: "Unidades por bulto", type: "number" },
+            {
+              name: "pesoKg",
+              title: "Peso del bulto (kg)",
+              type: "number",
+              description: "Peso real del bulto, de la planilla de inventario. Con las medidas define el peso facturable del envío.",
+            },
+            { name: "largoCm", title: "Largo (cm)", type: "number" },
+            { name: "anchoCm", title: "Ancho (cm)", type: "number" },
+            { name: "altoCm", title: "Alto (cm)", type: "number" },
             { name: "pricePublic", title: "Precio por unidad NETO (sin IVA)", type: "number" },
             {
               name: "priceWholesale",
@@ -287,6 +296,36 @@ export default defineType({
       group: "presentacion",
       description: "Cuántas unidades trae una caja/bulto.",
       validation: (r) => r.required().integer().positive(),
+    }),
+    defineField({
+      name: "pesoKg",
+      title: "Peso del bulto (kg)",
+      type: "number",
+      group: "presentacion",
+      readOnly: true,
+      description:
+        "Lo carga la sincronización desde la planilla de inventario (columna Peso). Junto con las medidas define el peso facturable del envío: Andreani cobra el mayor entre el peso real y el volumen ÷ 3000. Si falta, el envío de ese producto va «a cotizar» — se completa en la planilla, no acá.",
+    }),
+    defineField({
+      name: "largoCm",
+      title: "Largo del bulto (cm)",
+      type: "number",
+      group: "presentacion",
+      readOnly: true,
+    }),
+    defineField({
+      name: "anchoCm",
+      title: "Ancho del bulto (cm)",
+      type: "number",
+      group: "presentacion",
+      readOnly: true,
+    }),
+    defineField({
+      name: "altoCm",
+      title: "Alto del bulto (cm)",
+      type: "number",
+      group: "presentacion",
+      readOnly: true,
     }),
     defineField({
       name: "soldByBulkOnly",

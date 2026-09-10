@@ -12,15 +12,17 @@ import Link from "next/link";
  *  - que el pedido está sujeto a disponibilidad de stock.
  *
  * El aviso de envío no aplica al mayorista: su envío ya figura "a cotizar".
- * Cuando el pedido pasa el techo de bultos (ver SHIPPING_QUOTE_OVER_BULTOS en
- * shipping.ts) el mensaje cambia: no hay estimado, se cotiza.
+ * Cuando el pedido no se puede estimar (un producto sin peso cargado, o un
+ * bulto de más de 50 kg facturables, donde corresponde pallet y no paquetería)
+ * el mensaje cambia: no hay estimado, se cotiza. Ver andreaniQuote() en
+ * shipping.ts.
  */
 export function OrderNotices({
   finalConsumer,
   shippingQuote = false,
 }: {
   finalConsumer: boolean;
-  /** el pedido pasó el techo de bultos: el envío no se estima, se cotiza */
+  /** no se pudo estimar el envío (sin peso, o bulto fuera de paquetería) */
   shippingQuote?: boolean;
 }) {
   return (
@@ -37,9 +39,10 @@ export function OrderNotices({
       {finalConsumer &&
         (shippingQuote ? (
           <p style={{ margin: 0 }}>
-            <strong>Este pedido lleva envío a cotizar.</strong> Por el volumen, el costo
-            depende del transporte y del embalaje, así que lo calculamos con vos antes de
-            despachar en lugar de mostrarte un estimado que puede quedar corto.{" "}
+            <strong>Este pedido lleva envío a cotizar.</strong> Por el volumen conviene
+            despacharlo por transporte o pallet, que sale bastante menos que la
+            paquetería, así que lo calculamos con vos antes de despachar en lugar de
+            mostrarte un número que va a quedar mal.{" "}
             <Link href="/logistica" style={{ textDecoration: "underline" }}>
               Cómo trabajamos los envíos
             </Link>
