@@ -9,7 +9,7 @@ import {
   type OrderPricingProduct,
   type OrderPricingCombo,
 } from "@/lib/queries";
-import { IVA_RATE, isSaleActive, retailCanBuyPresentation } from "@/lib/pricing";
+import { IVA_RATE, isSaleActive, retailCartExceeded } from "@/lib/pricing";
 import { shippingEstimate, type BatuZone } from "@/lib/shipping";
 import { getDecoPricing, getShippingConfig } from "@/lib/sanity-data";
 import { decoQuote } from "@/lib/deco";
@@ -205,18 +205,6 @@ export async function POST(req: Request) {
         }
         const basePub = pres?.pricePublic ?? prod.pricePublic;
         const baseMay = pres?.priceWholesale ?? prod.priceWholesale;
-        // TOPE MINORISTA (server-side, espeja al buy-box): el cliente final no
-        // puede comprar una presentación cerrada que supere el tope con IVA.
-        if (!wholesale && pres && !retailCanBuyPresentation(basePub, pres.unitsPerBulk)) {
-          return NextResponse.json(
-            {
-              ok: false,
-              error: "presentation_wholesale_only",
-              message: `«${prod.name} — ${pres.label ?? "presentación"} x${pres.unitsPerBulk}» es solo para clientes mayoristas. Pedí tu alta mayorista o comprá por unidad.`,
-            },
-            { status: 400 },
-          );
-        }
         if (pres?.sku) {
           sku = pres.sku;
           baseSku = prod.sku;
@@ -256,6 +244,20 @@ export async function POST(req: Request) {
     // Totales (misma fórmula que totalsFor de whatsapp.ts).
     const rate = volumeRate(sub);
     const net = sub - sub * rate;
+    // TOPE MINORISTA (server-side, espeja al carrito y al checkout): el cliente
+    // final no puede confirmar un pedido cuyo subtotal de PRODUCTOS supere el
+    // tope. Se mide sin envío, igual que en el front. Ver pricing.ts.
+    if (!wholesale && retailCartExceeded(net)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "retail_cart_max",
+          message:
+            "Tu pedido supera el máximo de compra minorista. Para llevar esta cantidad necesitás una cuenta mayorista, o podés pedirnos el pedido por WhatsApp.",
+        },
+        { status: 400 },
+      );
+    }
     // Envío estimado server-side: Batu (zona × bultos) si el cliente eligió zona
     // CABA/GBA; si no, banda de CP (interior). Mayorista → 0.
     const shipCfg = await getShippingConfig();

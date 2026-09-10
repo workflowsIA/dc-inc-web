@@ -3,11 +3,10 @@ import { presentationOptions } from "@/lib/presentations";
 import { useState } from "react";
 import { useCart, type ProductSnapshot } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
-import { resolveDisplayPrice, retailCanBuyPresentation, type PricingInput } from "@/lib/pricing";
+import { resolveDisplayPrice, type PricingInput } from "@/lib/pricing";
 import { SHIPPING_FROM } from "@/lib/shipping";
 import type { PresentationPricing } from "@/lib/queries";
 import { useWholesaleEntry } from "@/lib/wholesale-prices";
-import WholesaleCta from "./WholesaleCta";
 import { decoMinUnits, decoQuote, type DecoOption } from "@/lib/deco";
 
 interface Props {
@@ -117,18 +116,9 @@ export default function ProductBuyBox({
     presMatch && presMatch.pricePublic != null
       ? { ...pricing, pub: presMatch.pricePublic, may: presMatch.priceWholesale ?? pricing.may }
       : pricing;
-  // TOPE MINORISTA: el cliente final compra por unidad, o una presentación
-  // cerrada solo si su total con IVA no pasa RETAIL_PRESENTATION_MAX. Por
-  // encima, la presentación se ve con el precio mayorista (neto + IVA) pero no
-  // se puede agregar: se lo invita a pedir el alta. Ver pricing.ts.
-  const retailBlocked =
-    !wholesale && unitsPerSel > 1 && !retailCanBuyPresentation(selPricing.pub, unitsPerSel);
-  // Bloqueado → misma vista que el mayorista (neto, "+ IVA"), para que vea el
-  // precio al que accedería con el alta.
-  const dp = resolveDisplayPrice(
-    retailBlocked ? { ...selPricing, may: selPricing.pub } : selPricing,
-    wholesale || retailBlocked,
-  );
+  // El cliente final agrega cualquier presentación: el tope pasó a ser por
+  // CARRITO y se chequea al confirmar el pedido, no acá. Ver pricing.ts.
+  const dp = resolveDisplayPrice(selPricing, wholesale);
   const unitPrice = dp.display;
   const bultoPrice = unitPrice * unitsPerSel;
   const total = unitPrice * unitsTotal;
@@ -147,9 +137,9 @@ export default function ProductBuyBox({
   const decoMissing = decoSelectedOption
     ? Math.max(0, decoMinUnits(decoSelectedOption) - unitsTotal)
     : 0;
-  const decoFactor = finalConsumer && !retailBlocked ? 1 + 0.21 : 1;
+  const decoFactor = finalConsumer ? 1 + 0.21 : 1;
   // Sufijo de IVA según el tipo de usuario.
-  const ivaTag = finalConsumer && !retailBlocked ? "IVA incl." : "+ IVA";
+  const ivaTag = finalConsumer ? "IVA incl." : "+ IVA";
   // Tachado por unidad (oferta o precio anterior), en la misma base que unitPrice.
   const strikeUnit = dp.strike;
 
@@ -194,7 +184,7 @@ export default function ProductBuyBox({
     setTimeout(() => setAdded(false), 1600);
   }
 
-  const mayoristaBadge = wholesale || retailBlocked ? (
+  const mayoristaBadge = wholesale ? (
     <span
       style={{
         marginLeft: "10px",
@@ -318,16 +308,14 @@ export default function ProductBuyBox({
         )}
         {/* Envío: cliente final ve estimado; mayorista, a cotizar */}
         <div style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
-          {finalConsumer && !retailBlocked
+          {finalConsumer
             ? `Envío desde ${ars(SHIPPING_FROM)} — según destino, lo calculás en el carrito`
             : "Envío a cotizar"}
         </div>
       </div>
 
-      {retailBlocked && <WholesaleCta />}
-
       {/* DECORADO (opcional) — solo productos con tarifa de la planilla */}
-      {decoOptions.length > 0 && !retailBlocked && (
+      {decoOptions.length > 0 && (
         <div style={{ marginTop: "18px", padding: "16px", border: "1px solid var(--line)", borderRadius: "var(--r-lg)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", flexWrap: "wrap" }}>
             <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Decorado con tu marca (opcional)</span>
@@ -382,7 +370,7 @@ export default function ProductBuyBox({
       <div
         style={{
           marginTop: "18px",
-          display: retailBlocked ? "none" : "flex",
+          display: "flex",
           gap: "12px",
           alignItems: "flex-end",
           flexWrap: "wrap",
@@ -423,17 +411,13 @@ export default function ProductBuyBox({
         type="button"
         className="btn btn-primary btn-lg btn-block"
         style={{ marginTop: "16px" }}
-        disabled={pricesPending || retailBlocked}
+        disabled={pricesPending}
         onClick={handleAdd}
       >
-        {retailBlocked
-          ? "Solo para clientes mayoristas"
-          : added
-            ? "✓ Agregado al carrito"
-            : "Agregar al carrito"}
+        {added ? "✓ Agregado al carrito" : "Agregar al carrito"}
       </button>
 
-      {unitsPerSel > 1 && !retailBlocked && (
+      {unitsPerSel > 1 && (
         <p style={{ marginTop: "10px", fontSize: "12px", color: "var(--muted)", textAlign: "center" }}>
           {finalConsumer
             ? `Comprás un bulto cerrado de ${unitsPerSel} u. Para unidades sueltas elegí «Individual».`

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { OrderNotices } from "@/components/blocks/OrderNotices";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser, useClerk } from "@clerk/nextjs";
@@ -7,6 +8,7 @@ import { useCart, lineKey } from "@/lib/cart-store";
 
 type ClerkUser = NonNullable<ReturnType<typeof useUser>["user"]>;
 import { ars } from "@/lib/format";
+import { retailCartExceeded } from "@/lib/pricing";
 import { totalsFor, unitPrice, waCheckoutURL, type CheckoutInfo } from "@/lib/whatsapp";
 import {
   BATU_ZONE_OPTIONS,
@@ -76,6 +78,10 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   }, []);
 
   const t = totalsFor(items, wholesale, info.cp, info.batuZone, shipCfg);
+  // Tope minorista por carrito: pasado el monto no se puede pagar. El aviso con
+  // el motivo lo pone <RetailCapNotice/> arriba del resumen; el servidor lo
+  // vuelve a chequear en /api/orders, nunca confía en esto.
+  const capped = !wholesale && retailCartExceeded(t.net);
   const set = (k: keyof CheckoutInfo) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setInfo((s) => ({ ...s, [k]: e.target.value }));
 
@@ -391,6 +397,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
             <Row label="Envío" value="a cotizar" muted />
           )}
           <Row label="Total estimado" value={money(t.total)} strong />
+          <OrderNotices finalConsumer={t.finalConsumer} />
 
           {naveEnabled && (
             <>
@@ -399,9 +406,13 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
                 className="btn btn-primary btn-lg btn-block"
                 style={{ marginTop: "20px" }}
                 onClick={payWithNave}
-                disabled={payingNave}
+                disabled={payingNave || capped}
               >
-                {payingNave ? "Redirigiendo al pago…" : "Pagar con Nave"}
+                {capped
+                  ? "Supera el máximo minorista"
+                  : payingNave
+                    ? "Redirigiendo al pago…"
+                    : "Pagar con Nave"}
               </button>
               {naveError && (
                 <p style={{ marginTop: "10px", fontSize: "13px", color: "var(--danger, #c0392b)" }}>

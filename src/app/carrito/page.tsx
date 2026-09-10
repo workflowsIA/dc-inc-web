@@ -1,8 +1,10 @@
 "use client";
 import Link from "next/link";
+import { OrderNotices } from "@/components/blocks/OrderNotices";
 import { useEffect, useState } from "react";
 import { useCart, lineKey } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
+import { RETAIL_CART_MAX, retailCartExceeded } from "@/lib/pricing";
 import { totalsFor, unitPrice, waOrderURL } from "@/lib/whatsapp";
 import {
   bandForCp,
@@ -49,6 +51,9 @@ export default function CarritoPage() {
   }, []);
 
   const t = totalsFor(items, wholesale, cp, batuZone, shipCfg);
+  // Tope minorista por carrito: pasado el monto no se puede seguir al checkout.
+  // El aviso con el motivo lo pone <RetailCapNotice/> arriba del resumen.
+  const capped = !wholesale && retailCartExceeded(t.net);
 
   if (items.length === 0) {
     return (
@@ -252,11 +257,7 @@ export default function CarritoPage() {
             )}
             <Row label="Total estimado" value={money(t.total)} strong />
           </dl>
-          {t.finalConsumer && (
-            <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--muted)" }}>
-              Envío estimado — se confirma al cerrar el pedido.
-            </p>
-          )}
+          <OrderNotices finalConsumer={t.finalConsumer} />
           {t.hasDeco && (
             <p style={{ marginTop: "16px", fontSize: "13px", color: "var(--muted)" }}>
               Incluye decorado — coordinamos arte por WhatsApp.
@@ -339,13 +340,25 @@ export default function CarritoPage() {
             )}
           </div>
 
-          <Link
-            className="btn btn-primary btn-lg btn-block"
-            style={{ marginTop: "20px" }}
-            href="/checkout"
-          >
-            Continuar →
-          </Link>
+          {capped ? (
+            <button
+              type="button"
+              className="btn btn-primary btn-lg btn-block"
+              style={{ marginTop: "20px" }}
+              disabled
+              title={`El máximo de compra minorista es ${ars(RETAIL_CART_MAX)} IVA incluido`}
+            >
+              Supera el máximo minorista
+            </button>
+          ) : (
+            <Link
+              className="btn btn-primary btn-lg btn-block"
+              style={{ marginTop: "20px" }}
+              href="/checkout"
+            >
+              Continuar →
+            </Link>
+          )}
           <a
             className="btn btn-wa btn-block"
             style={{ marginTop: "10px" }}

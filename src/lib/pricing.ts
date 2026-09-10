@@ -20,20 +20,28 @@ export function withIva(price: number): number {
 }
 
 /**
- * Tope del cliente final (decisión Fede, 26-ago-2026): $150.000 con IVA
- * incluido. Históricamente era el MÍNIMO de compra mayorista; ahora también es
- * el TECHO de lo que un cliente final (minorista logueado o visitante) puede
- * agregar como presentación cerrada. Por unidad compra siempre; una caja/pack
- * la puede agregar solo si su total con IVA no supera este monto. Por encima,
- * la presentación se muestra con el precio mayorista (neto "+ IVA") pero
- * deshabilitada, con la invitación a pedir el alta mayorista.
+ * Tope de compra del cliente final — POR CARRITO (decisión Fede, 9-sep-2026).
+ * $150.000 NETOS, o sea $181.500 con IVA. Se mide sobre el subtotal de
+ * PRODUCTOS (ya con el descuento por volumen) y SIN envío: el flete no puede
+ * empujar a nadie por encima del tope.
+ *
+ * Reemplaza al tope POR PRESENTACIÓN que rigió desde ago-2026, que fallaba en
+ * las dos direcciones: dejaba pasar un carrito enorme armado con muchas
+ * presentaciones chicas, y a la vez bloqueaba una sola caja cara. Ahora los
+ * ítems se agregan libremente y el freno está una sola vez, al confirmar.
  */
-export const RETAIL_PRESENTATION_MAX = 150_000;
+export const RETAIL_CART_MAX_NET = 150_000;
+/** El mismo tope con IVA — es el número que se le muestra al cliente. */
+export const RETAIL_CART_MAX = withIva(RETAIL_CART_MAX_NET);
 
-/** ¿Un cliente final puede comprar esta presentación (bulto cerrado)? */
-export function retailCanBuyPresentation(netPerUnit: number, units: number): boolean {
-  if (units <= 1) return true;
-  return withIva(netPerUnit) * units <= RETAIL_PRESENTATION_MAX;
+/**
+ * ¿El carrito del cliente final pasó el tope y por lo tanto no se puede
+ * confirmar? `netProducts` = subtotal NETO de productos, sin envío. Se compara
+ * en neto a propósito: multiplicar por 1,21 de los dos lados solo agrega ruido
+ * de punto flotante.
+ */
+export function retailCartExceeded(netProducts: number): boolean {
+  return netProducts > RETAIL_CART_MAX_NET;
 }
 
 /** Forma mínima de producto que necesita el cálculo de precio de vista. */

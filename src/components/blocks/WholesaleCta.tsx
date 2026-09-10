@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { ars } from "@/lib/format";
-import { RETAIL_PRESENTATION_MAX, withIva } from "@/lib/pricing";
+import { RETAIL_CART_MAX, retailCartExceeded } from "@/lib/pricing";
 
 /**
  * Invitación al alta mayorista que ve el cliente final (minorista logueado o
@@ -13,15 +13,16 @@ import { RETAIL_PRESENTATION_MAX, withIva } from "@/lib/pricing";
  * alta (logueado → sus datos de empresa; anónimo → registro).
  */
 /**
- * Aviso NO bloqueante en carrito y checkout (decisión Fede, 27-ago-2026): el
- * tope de $150k es por presentación; si la SUMA del pedido lo supera, no se
- * frena la compra, se avisa e invita al alta mayorista.
- * `netProducts` = subtotal neto de productos (después del descuento por
- * volumen, sin envío); se compara con IVA incluido.
+ * Aviso BLOQUEANTE en carrito y checkout (decisión Fede, 9-sep-2026): el tope
+ * pasó a ser por CARRITO y, pasado el monto, el pedido no se puede confirmar —
+ * antes solo se avisaba y se dejaba seguir. Los botones de continuar y de pagar
+ * se deshabilitan aparte, en cada página; acá vive el mensaje.
+ * `netProducts` = subtotal neto de productos (con el descuento por volumen ya
+ * aplicado, sin envío).
  */
 export function RetailCapNotice({ netProducts, wholesale }: { netProducts: number; wholesale: boolean }) {
   const { isSignedIn } = useUser();
-  if (wholesale || withIva(netProducts) <= RETAIL_PRESENTATION_MAX) return null;
+  if (wholesale || !retailCartExceeded(netProducts)) return null;
   const href = isSignedIn ? "/mi-cuenta" : "/cuenta?tab=registro";
   return (
     <div
@@ -35,10 +36,14 @@ export function RetailCapNotice({ netProducts, wholesale }: { netProducts: numbe
         marginBottom: "16px",
       }}
     >
-      <strong>Tu pedido supera los {ars(RETAIL_PRESENTATION_MAX)} (IVA incl.).</strong>{" "}
+      <strong>
+        Tu pedido supera los {ars(RETAIL_CART_MAX)} (IVA incl.), que es el máximo de
+        compra minorista.
+      </strong>{" "}
       <span style={{ color: "var(--muted)" }}>
-        Podés seguir igual, pero con una cuenta mayorista accedés a mejores precios por
-        caja y pallet.
+        Para llevar esta cantidad necesitás una cuenta mayorista: la aprobamos en 1 día
+        hábil y accedés a mejores precios por caja y pallet. Mientras tanto podés sacar
+        artículos del carrito, o pedirnos el pedido por WhatsApp.
       </span>{" "}
       <Link href={href} prefetch={false} style={{ fontWeight: 700, color: "var(--ink)" }}>
         {isSignedIn ? "Solicitar alta mayorista →" : "Registrarme como mayorista →"}
@@ -83,8 +88,8 @@ export default function WholesaleCta({
     >
       <strong>Esta presentación es para clientes mayoristas.</strong>
       <p style={{ marginTop: "4px", color: "var(--muted)" }}>
-        Como cliente final podés comprar por unidad, o packs de hasta{" "}
-        {ars(RETAIL_PRESENTATION_MAX)} IVA incluido. Si comprás por volumen, pedí tu
+        Como cliente final podés comprar hasta {ars(RETAIL_CART_MAX)} IVA incluido por
+        pedido. Si comprás por volumen, pedí tu
         alta mayorista: la aprobamos en 1 día hábil y accedés a estos precios.
       </p>
       <Link href={href} prefetch={false} className="btn btn-primary btn-sm" style={{ marginTop: "10px" }}>
