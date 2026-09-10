@@ -130,7 +130,8 @@ export const ordersByUserStatsQuery = groq`
 export const orderByNaveExternalIdQuery = groq`
   *[_type == "order" && naveExternalId == $eid][0]{
     _id, orderNumber, paymentStatus, total, navePaymentRequestId, stockAppliedAt,
-    customerName, customerCompany, customerEmail, customerPhone,
+    customerName, customerCompany, customerEmail, customerPhone, customerTaxId, customerAddress,
+    notes, cpDestino, shippingToQuote,
     items[]{ name, sku, baseSku, bultos, unidades, precioUnitario, subtotal }
   }
 `;
@@ -142,7 +143,8 @@ export const pendingNaveOrdersQuery = groq`
     && dateTime(createdAt) > dateTime(now()) - 60*60*72]
     | order(createdAt desc)[0...25]{
     _id, orderNumber, paymentStatus, total, navePaymentRequestId, stockAppliedAt,
-    customerName, customerCompany, customerEmail, customerPhone,
+    customerName, customerCompany, customerEmail, customerPhone, customerTaxId, customerAddress,
+    notes, cpDestino, shippingToQuote,
     items[]{ name, sku, baseSku, bultos, unidades, precioUnitario, subtotal }
   }
 `;
@@ -449,6 +451,14 @@ export interface SanityOrder {
   navePaymentRequestId?: string;
   /** cuándo se sumaron las unidades a "Pedidos WEB" (sello de idempotencia) */
   stockAppliedAt?: string;
+  /** CUIT o DNI para facturar */
+  customerTaxId?: string;
+  /** dirección de entrega */
+  customerAddress?: string;
+  /** CP destino que eligió el cliente */
+  cpDestino?: string;
+  /** el pedido superó el techo de bultos: el envío se cotiza aparte */
+  shippingToQuote?: boolean;
   notes?: string;
   items?: SanityOrderItem[];
 }

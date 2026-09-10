@@ -60,6 +60,8 @@ const OrderSchema = z.object({
   customerEmail: z.string().trim().max(160).optional(),
   customerCompany: z.string().trim().max(160).optional(),
   customerPhone: z.string().trim().max(40).optional(),
+  customerTaxId: z.string().trim().max(20).optional(),
+  customerAddress: z.string().trim().max(200).optional(),
   items: z.array(ItemSchema).min(1).max(200),
   cp: z.string().trim().max(12).optional(), // CP destino → banda de envío (interior)
   batuZone: z.number().int().min(1).max(4).optional(), // zona CABA/GBA (envío propio Batu)
@@ -296,6 +298,8 @@ export async function POST(req: Request) {
       customerEmail: body.customerEmail ?? "",
       customerCompany: body.customerCompany ?? "",
       customerPhone: body.customerPhone ?? "",
+      customerTaxId: body.customerTaxId ?? "",
+      customerAddress: body.customerAddress ?? "",
       items: lines,
       subtotal: round2(sub),
       iva,

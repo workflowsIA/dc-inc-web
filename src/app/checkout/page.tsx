@@ -53,6 +53,8 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       user?.emailAddresses?.[0]?.emailAddress ??
       "",
     telefono: md.telefono ?? user?.primaryPhoneNumber?.phoneNumber ?? "",
+    cuit: md.cuit ?? "",
+    direccion: "",
     cp: "",
     // Default a Batu Zona 1 (CABA, la más barata) en vez de caer a Andreani AMBA
     // ($23k). El cliente del interior cambia a "Al interior / uso CP".
@@ -114,6 +116,8 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
     customerEmail: info.email,
     customerCompany: info.empresa,
     customerPhone: info.telefono,
+    customerTaxId: info.cuit,
+    customerAddress: info.direccion,
     items: items.map((i) => ({
       sku: i.sku,
       slug: i.id,
@@ -252,6 +256,8 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       customerEmail: info.email,
       customerCompany: info.empresa,
       customerPhone: info.telefono,
+    customerTaxId: info.cuit,
+    customerAddress: info.direccion,
       items: orderItems,
       cp: info.cp,
       batuZone: info.batuZone ?? undefined,
@@ -311,9 +317,11 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
           </p>
           <div style={{ display: "grid", gap: "14px" }}>
             <In label="Nombre" value={info.nombre} onChange={set("nombre")} required />
-            <In label="Empresa" value={info.empresa} onChange={set("empresa")} />
+                    <In label="Empresa / Razón social" value={info.empresa} onChange={set("empresa")} />
+            <In label="CUIT o DNI (para la factura)" value={info.cuit} onChange={set("cuit")} required />
             <In label="Email" value={info.email} onChange={set("email")} required type="email" />
             <In label="Teléfono" value={info.telefono} onChange={set("telefono")} required type="tel" />
+                    <In label="Dirección de entrega" value={info.direccion} onChange={set("direccion")} required />
             <In label="Código postal (para estimar envío)" value={info.cp} onChange={set("cp")} />
             <label style={{ display: "grid", gap: "6px" }}>
               <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
@@ -469,6 +477,10 @@ function validateCheckout(info: CheckoutInfo): string | null {
   if (!email) return "Completá tu email para continuar.";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Revisá el email: no parece válido.";
   if (!info.telefono?.trim()) return "Completá tu teléfono para continuar.";
+  // Pedido de Marce (10-sep-2026): los pedidos llegaban sin datos para facturar
+  // ni dirección para despachar, y había que perseguir al cliente por WhatsApp.
+  if (!info.cuit?.trim()) return "Completá tu CUIT o DNI: lo necesitamos para facturar.";
+  if (!info.direccion?.trim()) return "Completá la dirección de entrega para continuar.";
   return null;
 }
 

@@ -155,6 +155,10 @@ export function waOrderURL(
 
 export interface CheckoutInfo {
   nombre?: string;
+  /** CUIT o DNI para facturar (pedido de Marce, 10-sep-2026) */
+  cuit?: string;
+  /** dirección de entrega — antes solo se pedía el CP y no alcanzaba para despachar */
+  direccion?: string;
   empresa?: string;
   email?: string;
   telefono?: string;

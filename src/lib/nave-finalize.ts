@@ -41,6 +41,11 @@ export async function finalizePaidOrder(
       customerCompany: order.customerCompany,
       customerEmail: order.customerEmail,
       customerPhone: order.customerPhone,
+      customerTaxId: order.customerTaxId,
+      customerAddress: order.customerAddress,
+      cpDestino: order.cpDestino,
+      notes: order.notes,
+      shippingToQuote: order.shippingToQuote,
       paymentId: String(paymentId ?? ""),
       items: order.items,
     });

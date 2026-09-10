@@ -197,6 +197,16 @@ export interface OrderPaidNotification {
   customerCompany?: string;
   customerEmail?: string;
   customerPhone?: string;
+  /** CUIT o DNI para facturar (pedido de Marce, 10-sep) */
+  customerTaxId?: string;
+  /** dirección de entrega + CP */
+  customerAddress?: string;
+  cpDestino?: string;
+  /** lo que escribió el cliente en "Notas del pedido" — antes se guardaba en
+   *  Sanity pero NO llegaba a Monday, así que ventas nunca lo veía. */
+  notes?: string;
+  /** el pedido superó el techo de bultos: hay que cotizar el envío */
+  shippingToQuote?: boolean;
   paymentId?: string;
   items?: { name?: string; sku?: string; bultos?: number; unidades?: number; subtotal?: number }[];
 }
@@ -212,8 +222,10 @@ function orderUpdateBody(o: OrderPaidNotification): string {
     "💰 VENTA WEB — pago confirmado por Nave.",
     "",
     `Cliente: ${[o.customerName, o.customerCompany].filter(Boolean).join(" · ") || "—"}`,
+    `CUIT / DNI: ${o.customerTaxId || "—"}`,
     `Email: ${o.customerEmail || "—"}`,
     `Teléfono: ${o.customerPhone || "—"}`,
+    `Entrega: ${[o.customerAddress, o.cpDestino ? `CP ${o.cpDestino}` : ""].filter(Boolean).join(" · ") || "—"}`,
     "",
     "Detalle:",
     ...(o.items ?? []).map(
@@ -224,6 +236,10 @@ function orderUpdateBody(o: OrderPaidNotification): string {
     "",
     `TOTAL: ${arsMonday(o.total)}`,
   ];
+  if (o.shippingToQuote) {
+    lines.push("", "⚠️ ENVÍO A COTIZAR — el pedido superó el techo de bultos, no se le cobró envío.");
+  }
+  if (o.notes?.trim()) lines.push("", `📝 Nota del cliente: ${o.notes.trim()}`);
   if (o.paymentId) lines.push(`Pago Nave: ${o.paymentId}`);
   if (site) lines.push("", `Pedido en el panel: ${site}/admin/pedidos`);
   return lines.join("\n");
@@ -257,9 +273,13 @@ export async function notifyOrderPaid(o: OrderPaidNotification): Promise<string 
     const colVenta = findCol(cols, ["venta"], "numbers");
     const colOrigen = findCol(cols, ["origen"], "status");
     const colEmail = findCol(cols, ["email", "mail"], "email");
+    const colCuitVenta = findCol(cols, ["cuit"]);
+    const colEmpresaVenta = findCol(cols, ["empresa", "razon social"]);
     const colPhone = findCol(cols, ["telefono", "teléfono", "celular", "phone"], "phone");
     if (colVenta && typeof o.total === "number") values[colVenta.id] = String(Math.round(o.total));
     if (colOrigen) values[colOrigen.id] = { label: "Web" };
+    if (colCuitVenta && o.customerTaxId) values[colCuitVenta.id] = o.customerTaxId;
+    if (colEmpresaVenta && o.customerCompany) values[colEmpresaVenta.id] = o.customerCompany;
     if (colEmail && o.customerEmail) values[colEmail.id] = { email: o.customerEmail, text: o.customerEmail };
     if (colPhone && o.customerPhone)
       values[colPhone.id] = { phone: o.customerPhone.replace(/[^\d+]/g, ""), countryShortName: "AR" };

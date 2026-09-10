@@ -128,6 +128,20 @@ export default defineType({
       readOnly: true,
     }),
     defineField({
+      name: "customerTaxId",
+      title: "CUIT o DNI",
+      type: "string",
+      description: "Lo carga el cliente en el checkout. Necesario para facturar.",
+      readOnly: true,
+    }),
+    defineField({
+      name: "customerAddress",
+      title: "Dirección de entrega",
+      type: "string",
+      description: "Lo carga el cliente en el checkout, junto con el código postal.",
+      readOnly: true,
+    }),
+    defineField({
       name: "shippingToQuote",
       title: "Envío a cotizar",
       type: "boolean",
