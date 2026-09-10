@@ -10,7 +10,7 @@ import {
   type OrderPricingCombo,
 } from "@/lib/queries";
 import { IVA_RATE, isSaleActive, retailCartExceeded } from "@/lib/pricing";
-import { shippingEstimate, type BatuZone } from "@/lib/shipping";
+import { needsShippingQuote, shippingEstimate, type BatuZone } from "@/lib/shipping";
 import { getDecoPricing, getShippingConfig } from "@/lib/sanity-data";
 import { decoQuote } from "@/lib/deco";
 import { guard, LIMITS } from "@/lib/rate-limit";
@@ -192,6 +192,19 @@ export async function POST(req: Request) {
           it.presentationSku && prod.presentationPricing
             ? prod.presentationPricing.find((pp) => pp.sku === it.presentationSku)
             : undefined;
+        // Solo mayorista: la planilla no le puso precio minorista, así que el
+        // cliente final no lo puede comprar (el pricePublic que tiene cargado
+        // es el neto mayorista, ver sheet-sync.ts).
+        if (!wholesale && prod.wholesaleOnly) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: "wholesale_only",
+              message: `«${prod.name}» se vende solo a clientes mayoristas. Pedí tu alta mayorista o consultanos por WhatsApp.`,
+            },
+            { status: 400 },
+          );
+        }
         // Producto por color (tapas): solo presentación cerrada de la planilla.
         if (prod.soldByBulkOnly && !pres) {
           return NextResponse.json(
@@ -289,6 +302,9 @@ export async function POST(req: Request) {
       cpDestino: body.cp ?? "",
       zonaBatu: body.batuZone ?? null,
       envioEstimado: round2(shipping),
+      // Pasó el techo de bultos: no se cobró envío, hay que cotizarlo. Se guarda
+      // para que ventas lo vea en el panel y no interprete el 0 como "sin cargo".
+      shippingToQuote: needsShippingQuote(Math.max(1, totalBultos), wholesale),
       total,
       paymentStatus: "no_pagado",
       fulfillmentStatus: "no_procesado",

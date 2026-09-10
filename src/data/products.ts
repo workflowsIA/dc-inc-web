@@ -38,6 +38,10 @@ export interface Product {
   /** se vende solo por presentación cerrada de la planilla (sin "Unidad") —
    *  productos por color (tapas corona). */
   bulkOnly?: boolean;
+  /** la planilla no le puso precio minorista: NO se vende a cliente final.
+   *  El precio que trae `pub` es el neto mayorista (queda cargado para no
+   *  romper el render); el gate real es este flag. Ver sheet-sync.ts. */
+  wholesaleOnly?: boolean;
   pallet: number;
   deli: string;
   stock: StockLevel;

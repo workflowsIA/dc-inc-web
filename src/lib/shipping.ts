@@ -149,6 +149,30 @@ export function batuShipping(
  *  - Si eligió zona Batu (CABA/GBA) → tarifa propia por zona × bultos.
  *  - Si no → banda de CP (interior / fallback).
  */
+/**
+ * Techo de bultos del envío estimado. Pasado este número NO mostramos un
+ * estimado: el envío pasa a "a cotizar", igual que el del mayorista.
+ *
+ * Por qué 20: las tarifas que tenemos cargadas dejan de ser válidas ahí arriba
+ * y en las dos puntas. Batu (CABA/GBA) define tramos HASTA 20 bultos, y por
+ * encima el cálculo cae al precio del tramo de 20 en vez de escalar. Andreani
+ * (interior) es tarifa PLANA por banda de CP asumiendo ≤10 kg, y nunca se
+ * cargó la escala real más allá de eso.
+ *
+ * Caso que lo motivó: un pedido de 23 bultos de cristalería a Neuquén se cobró
+ * $54.222, la misma tarifa que un paquete de 1 kg.
+ *
+ * Es una barrera, no la solución: el fix de fondo es calcular por PESO real,
+ * que espera los pesos de cristalería de Marce.
+ */
+export const SHIPPING_QUOTE_OVER_BULTOS = 20;
+
+/** ¿Este pedido queda fuera de las tarifas que tenemos y hay que cotizarlo? */
+export function needsShippingQuote(bultos: number, wholesale = false): boolean {
+  if (wholesale) return false; // el mayorista ya cotiza siempre
+  return bultos > SHIPPING_QUOTE_OVER_BULTOS;
+}
+
 export function shippingEstimate(
   opts: {
     cp?: string | null;
@@ -160,6 +184,9 @@ export function shippingEstimate(
 ): number {
   const { cp, batuZone, bultos = 1, wholesale = false } = opts;
   if (wholesale) return 0;
+  // Fuera de tabla: 0 y se muestra "a cotizar". Mejor no cobrar envío que
+  // cobrar uno que sabemos mal.
+  if (needsShippingQuote(bultos)) return 0;
   if (batuZone) return batuShipping(batuZone, bultos, cfg);
   return shippingForCp(cp, wholesale, cfg);
 }

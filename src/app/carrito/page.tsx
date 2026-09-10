@@ -250,14 +250,14 @@ export default function CarritoPage() {
               <Row label={`Descuento volumen (${t.rate * 100}%)`} value={`-${money(t.disc)}`} muted />
             )}
             <Row label="IVA 21%" value={money(t.iva)} muted />
-            {t.finalConsumer ? (
+            {t.finalConsumer && !t.shippingQuote ? (
               <Row label="Envío estimado" value={ars(t.shipping)} muted />
             ) : (
               <Row label="Envío" value="a cotizar" muted />
             )}
             <Row label="Total estimado" value={money(t.total)} strong />
           </dl>
-          <OrderNotices finalConsumer={t.finalConsumer} />
+          <OrderNotices finalConsumer={t.finalConsumer} shippingQuote={t.shippingQuote} />
           {t.hasDeco && (
             <p style={{ marginTop: "16px", fontSize: "13px", color: "var(--muted)" }}>
               Incluye decorado — coordinamos arte por WhatsApp.

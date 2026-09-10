@@ -391,13 +391,13 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
           <Row label="Subtotal (neto)" value={money(t.sub)} />
           {t.rate > 0 && <Row label={`Descuento (${t.rate * 100}%)`} value={`-${money(t.disc)}`} muted />}
           <Row label="IVA 21%" value={money(t.iva)} muted />
-          {t.finalConsumer ? (
+          {t.finalConsumer && !t.shippingQuote ? (
             <Row label="Envío estimado" value={ars(t.shipping)} muted />
           ) : (
             <Row label="Envío" value="a cotizar" muted />
           )}
           <Row label="Total estimado" value={money(t.total)} strong />
-          <OrderNotices finalConsumer={t.finalConsumer} />
+          <OrderNotices finalConsumer={t.finalConsumer} shippingQuote={t.shippingQuote} />
 
           {naveEnabled && (
             <>

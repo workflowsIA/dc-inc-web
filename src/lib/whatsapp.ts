@@ -2,6 +2,7 @@ import type { CartItem } from "./cart-store";
 import { ars } from "./format";
 import {
   shippingEstimate,
+  needsShippingQuote,
   DEFAULT_SHIPPING_CONFIG,
   type BatuZone,
   type ShippingConfig,
@@ -22,6 +23,8 @@ interface Totals {
   hasDeco: boolean;
   /** true = cliente final (precio final con IVA incluido + envío estimado) */
   finalConsumer: boolean;
+  /** true = el pedido pasó el techo de bultos y el envío va "a cotizar" */
+  shippingQuote: boolean;
 }
 
 /** Precio unitario según el rol del usuario. */
@@ -64,7 +67,9 @@ export function totalsFor(
   // Cliente final: envío estimado. Batu (zona × bultos) si eligió zona CABA/GBA;
   // si no, banda de CP (interior). Mayorista: "a cotizar", no se suma.
   const finalConsumer = !wholesale;
-  const shipping = shippingEstimate({ cp, batuZone, bultos: totalBultos(items), wholesale }, cfg);
+  const bultos = totalBultos(items);
+  const shipping = shippingEstimate({ cp, batuZone, bultos, wholesale }, cfg);
+  const shippingQuote = needsShippingQuote(bultos, wholesale);
   // IVA 21% sobre productos + envío (el flete también tributa IVA).
   // Redondeo a centavos: espeja a round2() de /api/orders para que lo que ve el
   // cliente en el carrito sea exactamente lo que se guarda y se le cobra.
@@ -81,6 +86,7 @@ export function totalsFor(
     total,
     hasDeco: items.some((i) => i.deco),
     finalConsumer,
+    shippingQuote,
   };
 }
 

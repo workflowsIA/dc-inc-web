@@ -24,6 +24,7 @@ export const productsQuery = groq`
     presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic },
     unitsPerBulk,
     soldByBulkOnly,
+    wholesaleOnly,
     unitsPerPallet,
     deliveryTime,
     stockLevel,
@@ -54,6 +55,7 @@ export const productBySlugQuery = groq`
     presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic, priceWholesale },
     unitsPerBulk,
     soldByBulkOnly,
+    wholesaleOnly,
     unitsPerPallet,
     deliveryTime,
     stockLevel,
@@ -93,7 +95,7 @@ export const productsBySkusQuery = groq`
     sku, name, "slug": slug.current,
     pricePublic, priceWholesale,
     isOnSale, salePrice, saleStartDate, saleEndDate,
-    unitsPerBulk, soldByBulkOnly, unitsPerPallet,
+    unitsPerBulk, soldByBulkOnly, wholesaleOnly, unitsPerPallet,
     presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic, priceWholesale },
     "image": coalesce(images[0].asset->url, legacyImageUrl)
   }
@@ -165,7 +167,7 @@ export const featuredProductsQuery = groq`
     _id, sku, name, "slug": slug.current, sortOrder, homeFeatured,
     pricePublic, priceWholesale, pricePublicOld,
     isOnSale, salePrice, saleStartDate, saleEndDate,
-    presentations, unitsPerBulk, soldByBulkOnly, unitsPerPallet, presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic }, deliveryTime, stockLevel, badges,
+    presentations, unitsPerBulk, soldByBulkOnly, wholesaleOnly, unitsPerPallet, presentationPricing[]{ sku, label, variant, unitsPerBulk, pricePublic }, deliveryTime, stockLevel, badges,
     "image": coalesce(images[0].asset->url, legacyImageUrl),
     "category": category->name
   }
@@ -304,6 +306,8 @@ export interface SanityProduct {
   unitsPerBulk: number;
   /** se vende solo por presentación cerrada (sin "Unidad") */
   soldByBulkOnly?: boolean;
+  /** la planilla no le puso precio minorista → no se vende a cliente final */
+  wholesaleOnly?: boolean;
   unitsPerPallet?: number;
   deliveryTime: string;
   stockLevel: "ok" | "low" | "out";
@@ -463,6 +467,8 @@ export interface OrderPricingProduct {
   unitsPerBulk: number;
   /** se vende solo por presentación cerrada (sin "Unidad") */
   soldByBulkOnly?: boolean;
+  /** la planilla no le puso precio minorista → no se vende a cliente final */
+  wholesaleOnly?: boolean;
   unitsPerPallet?: number;
   presentationPricing?: PresentationPricing[];
   image?: string;

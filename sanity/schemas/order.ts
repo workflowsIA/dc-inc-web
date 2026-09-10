@@ -128,6 +128,14 @@ export default defineType({
       readOnly: true,
     }),
     defineField({
+      name: "shippingToQuote",
+      title: "Envío a cotizar",
+      type: "boolean",
+      readOnly: true,
+      description:
+        "El pedido superó el techo de bultos de las tarifas cargadas, así que NO se le cobró envío: hay que cotizarlo con el cliente antes de despachar. Es lo mismo que vio en el carrito.",
+    }),
+    defineField({
       name: "envioEstimado",
       title: "Envío estimado",
       type: "number",

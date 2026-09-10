@@ -12,8 +12,17 @@ import Link from "next/link";
  *  - que el pedido está sujeto a disponibilidad de stock.
  *
  * El aviso de envío no aplica al mayorista: su envío ya figura "a cotizar".
+ * Cuando el pedido pasa el techo de bultos (ver SHIPPING_QUOTE_OVER_BULTOS en
+ * shipping.ts) el mensaje cambia: no hay estimado, se cotiza.
  */
-export function OrderNotices({ finalConsumer }: { finalConsumer: boolean }) {
+export function OrderNotices({
+  finalConsumer,
+  shippingQuote = false,
+}: {
+  finalConsumer: boolean;
+  /** el pedido pasó el techo de bultos: el envío no se estima, se cotiza */
+  shippingQuote?: boolean;
+}) {
   return (
     <div
       style={{
@@ -25,16 +34,27 @@ export function OrderNotices({ finalConsumer }: { finalConsumer: boolean }) {
         color: "var(--muted)",
       }}
     >
-      {finalConsumer && (
-        <p style={{ margin: 0 }}>
-          <strong>El envío es un estimado.</strong> Antes de despachar te confirmamos el
-          costo exacto: al interior depende del transporte, del volumen y del embalaje.{" "}
-          <Link href="/logistica" style={{ textDecoration: "underline" }}>
-            Cómo trabajamos los envíos
-          </Link>
-          .
-        </p>
-      )}
+      {finalConsumer &&
+        (shippingQuote ? (
+          <p style={{ margin: 0 }}>
+            <strong>Este pedido lleva envío a cotizar.</strong> Por el volumen, el costo
+            depende del transporte y del embalaje, así que lo calculamos con vos antes de
+            despachar en lugar de mostrarte un estimado que puede quedar corto.{" "}
+            <Link href="/logistica" style={{ textDecoration: "underline" }}>
+              Cómo trabajamos los envíos
+            </Link>
+            .
+          </p>
+        ) : (
+          <p style={{ margin: 0 }}>
+            <strong>El envío es un estimado.</strong> Antes de despachar te confirmamos el
+            costo exacto: al interior depende del transporte, del volumen y del embalaje.{" "}
+            <Link href="/logistica" style={{ textDecoration: "underline" }}>
+              Cómo trabajamos los envíos
+            </Link>
+            .
+          </p>
+        ))}
       <p style={{ margin: 0 }}>
         <strong>Sujeto a disponibilidad de stock.</strong> Si algo no está disponible te
         avisamos antes de despachar y lo resolvemos con vos.

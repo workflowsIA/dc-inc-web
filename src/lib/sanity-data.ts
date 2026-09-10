@@ -69,6 +69,7 @@ export function toLegacyProduct(p: SanityProduct, wholesale = false): Product {
     saleEnd: p.saleEndDate,
     bulto: p.unitsPerBulk || 1,
     bulkOnly: p.soldByBulkOnly === true,
+    wholesaleOnly: p.wholesaleOnly === true,
     pallet: p.unitsPerPallet ?? 0,
     deli: p.deliveryTime || "24-48 hs",
     stock: (p.stockLevel as StockLevel) ?? "ok",

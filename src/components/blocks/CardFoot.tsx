@@ -1,5 +1,6 @@
 "use client";
 import { presentationOptions } from "@/lib/presentations";
+import WholesaleCta from "./WholesaleCta";
 import { useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
@@ -65,7 +66,14 @@ function RetailFoot({
   may: number;
   pricesPending: boolean;
 }) {
-  const dp = resolveDisplayPrice({ ...product, may }, false);
+  // SOLO MAYORISTA: la planilla no le puso precio minorista. Se muestra el
+  // precio neto "+ IVA" (el mismo que vería con el alta) pero no se puede
+  // agregar. Ver wholesaleOnly en sheet-sync.ts.
+  const wholesaleOnly = product.wholesaleOnly === true;
+  const dp = resolveDisplayPrice(
+    wholesaleOnly ? { ...product, may: product.pub } : { ...product, may },
+    wholesaleOnly,
+  );
   // Presentaciones con su neto por unidad (pricePublic de la fila; si falta,
   // el unitario base).
   const opts = presentationOptions(product.presentationPricing).map((o) => {
@@ -96,7 +104,7 @@ function RetailFoot({
           <GoToFichaIcon product={product} />
         ) : (
           <AddToCartIcon
-            disabled={pricesPending}
+            disabled={pricesPending || wholesaleOnly}
             product={{
               id: product.id,
               name: product.name,
@@ -180,6 +188,8 @@ function RetailFoot({
             </p>
           )}
         </div>
+      ) : wholesaleOnly ? (
+        <WholesaleCta compact onClick={(e) => e.stopPropagation()} />
       ) : (
         <p
           style={{ marginTop: "6px", fontSize: "11px", color: "var(--muted)" }}
