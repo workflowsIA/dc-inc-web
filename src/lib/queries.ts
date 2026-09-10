@@ -231,7 +231,7 @@ export const testimonialsQuery = groq`
 /** Tarifa de decorado (singleton _id "deco-pricing", la carga el sync). */
 export const decoPricingQuery = groq`
   *[_type == "decoPricing" && _id == "deco-pricing"][0] {
-    options[]{ family, sides, label, setupSku, setupPrice, tiers[]{ sku, minUnits, pricePerUnit, pricePerUnitPublic } }
+    options[]{ family, sides, colors, label, setupSku, setupPrice, tiers[]{ sku, minUnits, pricePerUnit, pricePerUnitPublic } }
   }
 `;
 

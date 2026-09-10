@@ -5,7 +5,7 @@ import { SparklesIcon } from "@sanity/icons";
  * Tarifa de decorado (serigrafía) por tramo de cantidad — singleton con _id
  * fijo "deco-pricing". NO se edita acá: la carga la sincronización diaria
  * desde las filas de decorado de la planilla de precios (DBC11xx, DBG11xx,
- * DG111xx, DG211xx, DC11xx + montaje DCMYM1/DCMYM2). Ver src/lib/deco.ts.
+ * DG111xx, DG211xx, DC11xx a DC15xx + montaje DCMYM1/DCMYM2). Ver src/lib/deco.ts.
  * Se muestra en Contenido del sitio → Tarifa de decorado, solo para consultar.
  */
 export default defineType({
@@ -22,16 +22,17 @@ export default defineType({
     }),
     defineField({
       name: "options",
-      title: "Opciones (familia × caras)",
+      title: "Opciones (familia × caras × colores)",
       type: "array",
       description:
-        "Una por familia de producto y cantidad de caras. Los precios son NETOS por pieza, según la cantidad decorada (a más piezas, menor precio por unidad). Se edita en la planilla, no acá.",
+        "Una por familia de producto, cantidad de caras y cantidad de colores. Los precios son NETOS por pieza, según la cantidad decorada (a más piezas, menor precio por unidad). Se edita en la planilla, no acá.",
       of: [
         {
           type: "object",
           fields: [
             { name: "family", title: "Familia", type: "string" },
             { name: "sides", title: "Caras", type: "number" },
+            { name: "colors", title: "Colores", type: "number" },
             { name: "label", title: "Opción", type: "string" },
             { name: "setupSku", title: "SKU montaje y horneado", type: "string" },
             { name: "setupPrice", title: "Montaje y horneado (neto, por trabajo)", type: "number" },

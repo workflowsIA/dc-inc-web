@@ -180,7 +180,7 @@ export default function ProductBuyBox({
       const tag = `${decoQ.option.label} — ${product.name}`;
       add(
         {
-          id: `deco-${product.id}-${decoQ.option.sides}`,
+          id: `deco-${product.id}-${decoQ.option.sides}c${decoQ.option.colors}`,
           name: `Decorado ${tag}`,
           sku: decoQ.tier.sku,
           pub: decoQ.perUnit,
@@ -334,7 +334,7 @@ export default function ProductBuyBox({
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", flexWrap: "wrap" }}>
             <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Decorado con tu marca (opcional)</span>
             <span style={{ fontSize: "12px", color: "var(--muted)" }}>
-              Serigrafía 1 color · desde {Math.min(...decoOptions.map(decoMinUnits))} u · el arte se coordina por WhatsApp
+              Serigrafía · desde {Math.min(...decoOptions.map(decoMinUnits))} u · el arte se coordina por WhatsApp
             </span>
           </div>
           <div className="chips" style={{ marginTop: "8px" }}>
@@ -350,7 +350,7 @@ export default function ProductBuyBox({
               const enabled = unitsTotal >= min;
               return (
                 <button
-                  key={`${o.family}-${o.sides}`}
+                  key={`${o.family}-${o.sides}c${o.colors}`}
                   type="button"
                   className={`chip ${i === decoIdx ? "on" : ""}`}
                   title={enabled ? undefined : `Disponible a partir de ${min} piezas`}

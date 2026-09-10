@@ -184,9 +184,11 @@ export async function getDecoPricing(): Promise<DecoPricing | null> {
       {},
       { next: { revalidate: 300 } },
     );
-    const options = (doc?.options ?? []).filter(
-      (o) => o && o.family && (o.sides === 1 || o.sides === 2) && Array.isArray(o.tiers),
-    );
+    const options = (doc?.options ?? [])
+      .filter((o) => o && o.family && (o.sides === 1 || o.sides === 2) && Array.isArray(o.tiers))
+      // `colors` se agregó el 10-sep-2026: los documentos escritos por un sync
+      // anterior no lo traen y ahí siempre era 1 color.
+      .map((o) => ({ ...o, colors: typeof o.colors === "number" && o.colors > 0 ? o.colors : 1 }));
     return options.length ? { options } : null;
   } catch {
     return null;

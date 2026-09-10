@@ -11,7 +11,11 @@
  *   DBG11xx / DBG21xx  botellas 660-1000 ml
  *   DG111xx / DG121xx  botellón 1 L
  *   DG211xx / DG221xx  botellón 2 L
- *   DC11xx             cristalería, 1 color (DC12..15 = 2-5 colores, fase 2)
+ *   DC11xx … DC15xx    cristalería, de 1 a 5 colores (el segundo dígito del
+ *                      bloque es la cantidad de colores). La tarifa de 2 a 5
+ *                      colores estuvo cargada en la planilla desde agosto y sin
+ *                      usar hasta el 10-sep-2026: la ficha ofrecía una sola
+ *                      opción y Marce lo reportó.
  *   DCMYM1 / DCMYM2    montaje y horneado por trabajo (1 cara / 2 caras) —
  *                      NO se cobra en la web: la tarifa por pieza "1 cara /
  *                      1 color" ya incluye gráfica + montaje + horneado. Esas
@@ -56,8 +60,11 @@ export interface DecoTier {
 
 export interface DecoOption {
   family: DecoFamily;
-  /** 1 = una cara, 2 = dos caras (siempre 1 color en fase 1) */
+  /** 1 = una cara, 2 = dos caras. En cristalería siempre 1: ahí el eje son los colores. */
   sides: 1 | 2;
+  /** Cantidad de colores de la impresión. En envases hoy siempre 1; en
+   *  cristalería va de 1 a 5, cada uno con su propia tarifa por tramo. */
+  colors: number;
   label: string;
   /** Legado: montaje y horneado (DCMYM1 / DCMYM2). Desde el 28-ago no se
    *  carga ni se cobra (incluido en la tarifa por pieza); quedan opcionales
@@ -71,20 +78,32 @@ export interface DecoPricing {
   options: DecoOption[];
 }
 
-const PREFIXES: { re: RegExp; family: DecoFamily; sides: 1 | 2 }[] = [
-  { re: /^DBC11\d+$/, family: "botella-chica", sides: 1 },
-  { re: /^DBC21\d+$/, family: "botella-chica", sides: 2 },
-  { re: /^DBG11\d+$/, family: "botella-grande", sides: 1 },
-  { re: /^DBG21\d+$/, family: "botella-grande", sides: 2 },
-  { re: /^DG111\d+$/, family: "botellon-1l", sides: 1 },
-  { re: /^DG121\d+$/, family: "botellon-1l", sides: 2 },
-  { re: /^DG211\d+$/, family: "botellon-2l", sides: 1 },
-  { re: /^DG221\d+$/, family: "botellon-2l", sides: 2 },
-  { re: /^DC11\d+$/, family: "cristaleria", sides: 1 },
+const PREFIXES: { re: RegExp; family: DecoFamily; sides: 1 | 2; colors: number }[] = [
+  { re: /^DBC11\d+$/, family: "botella-chica", sides: 1, colors: 1 },
+  { re: /^DBC21\d+$/, family: "botella-chica", sides: 2, colors: 1 },
+  { re: /^DBG11\d+$/, family: "botella-grande", sides: 1, colors: 1 },
+  { re: /^DBG21\d+$/, family: "botella-grande", sides: 2, colors: 1 },
+  { re: /^DG111\d+$/, family: "botellon-1l", sides: 1, colors: 1 },
+  { re: /^DG121\d+$/, family: "botellon-1l", sides: 2, colors: 1 },
+  { re: /^DG211\d+$/, family: "botellon-2l", sides: 1, colors: 1 },
+  { re: /^DG221\d+$/, family: "botellon-2l", sides: 2, colors: 1 },
+  // Cristalería: DC11 = 1 color … DC15 = 5 colores. El orden importa —
+  // /^DC1\d\d+$/ sería ambiguo, por eso cada una lleva su prefijo completo.
+  { re: /^DC11\d+$/, family: "cristaleria", sides: 1, colors: 1 },
+  { re: /^DC12\d+$/, family: "cristaleria", sides: 1, colors: 2 },
+  { re: /^DC13\d+$/, family: "cristaleria", sides: 1, colors: 3 },
+  { re: /^DC14\d+$/, family: "cristaleria", sides: 1, colors: 4 },
+  { re: /^DC15\d+$/, family: "cristaleria", sides: 1, colors: 5 },
 ];
 
-export function decoOptionLabel(sides: 1 | 2): string {
-  return sides === 2 ? "2 caras · 1 color" : "1 cara · 1 color";
+/**
+ * Etiqueta de la opción. En cristalería el eje es el COLOR (siempre 1 cara), así
+ * que nombrar las caras solo agrega ruido; en envases se nombran las dos cosas.
+ */
+export function decoOptionLabel(sides: 1 | 2, colors: number, family: DecoFamily): string {
+  const c = colors === 1 ? "1 color" : `${colors} colores`;
+  if (family === "cristaleria") return c;
+  return `${sides === 2 ? "2 caras" : "1 cara"} · ${c}`;
 }
 
 /** Arma la tarifa a partir de las filas de la planilla (sku, UxB, precio). */
@@ -103,10 +122,16 @@ export function buildDecoPricing(
     // en la tarifa por pieza. Ver nota de cabecera.
     const p = PREFIXES.find((x) => x.re.test(r.sku));
     if (!p || r.unitsPerBulk === null || r.unitsPerBulk <= 1) continue;
-    const key = `${p.family}#${p.sides}`;
+    const key = `${p.family}#${p.sides}#${p.colors}`;
     let opt = byKey.get(key);
     if (!opt) {
-      opt = { family: p.family, sides: p.sides, label: decoOptionLabel(p.sides), tiers: [] };
+      opt = {
+        family: p.family,
+        sides: p.sides,
+        colors: p.colors,
+        label: decoOptionLabel(p.sides, p.colors, p.family),
+        tiers: [],
+      };
       byKey.set(key, opt);
     }
     if (!opt.tiers.some((t) => t.sku === r.sku)) {
@@ -120,7 +145,9 @@ export function buildDecoPricing(
   }
   const options = [...byKey.values()];
   for (const o of options) o.tiers.sort((a, b) => a.minUnits - b.minUnits);
-  options.sort((a, b) => a.family.localeCompare(b.family) || a.sides - b.sides);
+  options.sort(
+    (a, b) => a.family.localeCompare(b.family) || a.sides - b.sides || a.colors - b.colors,
+  );
   return { options };
 }
 
