@@ -196,6 +196,14 @@ export default defineType({
       readOnly: true,
     }),
     defineField({
+      name: "stockAppliedAt",
+      title: "Unidades registradas en el inventario",
+      type: "datetime",
+      description:
+        "Momento en que las unidades de este pedido se sumaron a la columna «Pedidos WEB» de la planilla de inventario. Lo escribe el sistema al confirmarse el pago y sirve para no contarlas dos veces si la confirmación llega por más de un camino. Vacío = todavía no se registraron.",
+      readOnly: true,
+    }),
+    defineField({
       name: "fulfillmentStatus",
       title: "Estado de procesamiento",
       type: "string",

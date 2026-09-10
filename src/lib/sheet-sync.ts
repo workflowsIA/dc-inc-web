@@ -95,7 +95,10 @@ function rowsToObjects(values: unknown[][]): Record<string, unknown>[] {
   return values.slice(1).map((row) => {
     const obj: Record<string, unknown> = {};
     headers.forEach((h, i) => {
-      if (h) obj[h] = row[i];
+      // Primera coincidencia gana. El inventario tiene DOS columnas "Stock
+      // Venta": la real (H) y un espejo (AR) que se corta en 4 filas. Si ganara
+      // la última, esos 4 productos se leerían sin stock.
+      if (h && !(h in obj)) obj[h] = row[i];
     });
     return obj;
   });
@@ -555,16 +558,33 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
 // ---------------------------------------------------------------------------
 
 /**
- * Descuenta stock en la planilla tras un PAGO CONFIRMADO (webhook Nave o pago
- * simulado). Best-effort: nunca lanza (un fallo acá no puede romper la
+ * Registra las unidades vendidas en la planilla de inventario tras un PAGO
+ * CONFIRMADO. Best-effort: nunca lanza (un fallo acá no puede romper la
  * confirmación del cobro).
  *
- * GATED por STOCK_SALE_ON_PAYMENT=1. Mientras la columna objetivo sea fórmula
- * ("Stock Venta" hoy), applyStockSale la saltea y solo loguea. Cuando Marce dé
- * el OK a la columna "Ventas web": setear STOCK_SALE_COLUMN y listo.
+ * APAGADO hasta definir el destino con Marce (10-sep-2026). Se prende con
+ * STOCK_SALE_ON_PAYMENT=1. Dos cosas sin resolver, ninguna de código:
+ *   1) La columna "Pedidos WEB" del inventario NO la referencia ninguna
+ *      fórmula. "Stock Venta" de una fila de presentación es `Stock Dc −
+ *      Pedidos Oficina`; escribir en "Pedidos WEB" no mueve el disponible.
+ *      Hace falta que Marce le sume `− Pedidos WEB` a esa fórmula.
+ *   2) El stock se lleva POR FILA DE PRESENTACIÓN (pallet, caja): la fila del
+ *      producto es la SUMA de las suyas (`=H3+H4+H5`). Este código escribe en
+ *      la fila del producto, que es justamente la celda calculada. Falta
+ *      definir de qué presentación se descuenta cada venta web.
+ * Mientras eso no esté resuelto, prenderlo solo sellaría los pedidos como
+ * registrados (stockAppliedAt) sin mover nada, y después no se reprocesan.
+ *
+ * IDEMPOTENTE: las tres vías que confirman un pago (polling de /api/nave/status,
+ * webhook y la barredora reconcile-pending) llaman acá. Como la columna destino
+ * ACUMULA (ver applyStockSale), aplicar dos veces duplicaría las unidades. El
+ * pedido se "reserva" con `stockAppliedAt` vía setIfMissing: solo gana el
+ * primero que lo escriba. Si después falla la escritura en la planilla se
+ * libera el sello, así la barredora puede reintentar.
  */
 export async function stockSaleAfterPayment(
   order: {
+    _id?: string;
     orderNumber?: string;
     items?: { sku?: string; baseSku?: string; unidades?: number }[];
   },
@@ -578,15 +598,44 @@ export async function stockSaleAfterPayment(
     .filter((i) => (i.baseSku || i.sku) && (i.unidades ?? 0) > 0)
     .map((i) => ({ sku: (i.baseSku || i.sku) as string, unidades: i.unidades as number }));
   if (items.length === 0) return;
+
+  const ref = order.orderNumber ?? order._id ?? "?";
+  const stamp = new Date().toISOString();
+  if (order._id) {
+    try {
+      const doc = await sanityWriteClient
+        .patch(order._id)
+        .setIfMissing({ stockAppliedAt: stamp })
+        .commit<{ stockAppliedAt?: string }>();
+      if (doc.stockAppliedAt !== stamp) {
+        console.log(
+          `[${tag}] stock-sale pedido ${ref}: ya aplicado el ${doc.stockAppliedAt} — no se repite.`,
+        );
+        return;
+      }
+    } catch (err) {
+      console.error(`[${tag}] stock-sale: no pude reservar el pedido ${ref}:`, err);
+      return; // sin reserva no aplicamos: mejor no descontar que descontar doble
+    }
+  }
+
   try {
     const res = await applyStockSale(items);
     console.log(
-      `[${tag}] stock-sale pedido ${order.orderNumber ?? "?"}: aplicados=${res.applied.length}` +
+      `[${tag}] stock-sale pedido ${ref}: aplicados=${res.applied.length}` +
         (res.skippedFormula.length ? ` fórmula(skip)=${res.skippedFormula.join(",")}` : "") +
         (res.notFound.length ? ` sin fila=${res.notFound.join(",")}` : ""),
     );
   } catch (err) {
-    console.error(`[${tag}] stock-sale falló (pedido ${order.orderNumber ?? "?"}):`, err);
+    console.error(`[${tag}] stock-sale falló (pedido ${ref}):`, err);
+    // Liberamos el sello para que reconcile-pending lo reintente.
+    if (order._id) {
+      await sanityWriteClient
+        .patch(order._id)
+        .unset(["stockAppliedAt"])
+        .commit()
+        .catch(() => {});
+    }
   }
 }
 
@@ -603,21 +652,26 @@ export interface StockSaleResult {
 }
 
 /**
- * Resta `unidades` al stock de cada SKU en `Productos_Inventario_DC`.
- * Escribe sobre la fila base (UxB vacío) en la columna configurada
- * (STOCK_SALE_COLUMN, default "Stock Venta").
+ * Acumula las `unidades` vendidas de cada SKU en `Productos_Inventario_DC`,
+ * sobre la fila base (UxB vacío) y en la columna configurada
+ * (STOCK_SALE_COLUMN, default **"Pedidos WEB"**).
  *
- * NO destructivo: si la celda de stock es una fórmula (ej. suma de depósitos),
- * NO la sobreescribe — la agrega a `skippedFormula` para que se descuente a mano.
- * Cuando confirmemos con Marce que esa columna es escribible (o agreguemos una
- * columna "Ventas web" dedicada), apuntamos STOCK_SALE_COLUMN ahí.
+ * Por qué esa columna y no "Stock Venta": "Stock Venta" es una FÓRMULA que
+ * calcula el disponible a partir de los depósitos menos los pedidos. Escribirle
+ * encima rompería el cálculo. La planilla ya tiene "Pedidos WEB" al lado de
+ * "Pedidos Oficina" justamente para esto: nosotros sumamos ahí y la fórmula de
+ * Marce descuenta sola. (Durante meses esto apuntó a "Stock Venta", detectaba
+ * la fórmula, salteaba y no descontaba nada — ver skippedFormula.)
+ *
+ * NO destructivo: si la celda destino es una fórmula NO la sobreescribe — la
+ * agrega a `skippedFormula` para que se cargue a mano.
  */
 export async function applyStockSale(
   items: SaleItem[],
   opts: { dryRun?: boolean } = {},
 ): Promise<StockSaleResult> {
   const dryRun = !!opts.dryRun;
-  const targetCol = process.env.STOCK_SALE_COLUMN ?? "stock venta";
+  const targetCol = process.env.STOCK_SALE_COLUMN ?? "pedidos web";
   const sheets = await getSheetsClient(false); // scope de escritura
 
   // Leemos valores calculados y fórmulas en paralelo para detectar celdas-fórmula.
@@ -673,13 +727,15 @@ export async function applyStockSale(
       continue;
     }
     const before = toNum(vals[r][colStock]) ?? 0;
-    // Modo "subtract" (default): la columna es el stock → se resta la venta.
-    // Modo "accumulate": la columna es un contador de ventas (ej. "Ventas web")
-    // → se suma; la planilla de Marce descuenta con su propia fórmula.
+    // Modo "accumulate" (DEFAULT): la columna destino es un contador de unidades
+    // pedidas ("Pedidos WEB", igual que "Pedidos Oficina") → se SUMA, y la
+    // fórmula de "Stock Venta" de la planilla ya las descuenta sola.
+    // Modo "subtract" (STOCK_SALE_MODE=subtract): la columna ES el stock → se
+    // resta. Queda como escape si alguna vez se apunta a una columna de stock.
     const after =
-      process.env.STOCK_SALE_MODE === "accumulate"
-        ? before + (Number(unidades) || 0)
-        : Math.max(0, before - (Number(unidades) || 0));
+      process.env.STOCK_SALE_MODE === "subtract"
+        ? Math.max(0, before - (Number(unidades) || 0))
+        : before + (Number(unidades) || 0);
     applied.push({ sku, before, after });
     updates.push({
       range: `${TAB_INVENTARIO}!${colLetter(colStock)}${r + 1}`,

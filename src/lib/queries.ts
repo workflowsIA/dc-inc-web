@@ -127,7 +127,7 @@ export const ordersByUserStatsQuery = groq`
  *  cliente (notificación de venta en Monday). */
 export const orderByNaveExternalIdQuery = groq`
   *[_type == "order" && naveExternalId == $eid][0]{
-    _id, orderNumber, paymentStatus, total, navePaymentRequestId,
+    _id, orderNumber, paymentStatus, total, navePaymentRequestId, stockAppliedAt,
     customerName, customerCompany, customerEmail, customerPhone,
     items[]{ name, sku, baseSku, bultos, unidades, precioUnitario, subtotal }
   }
@@ -139,7 +139,7 @@ export const pendingNaveOrdersQuery = groq`
   *[_type == "order" && paymentStatus == "no_pagado" && defined(navePaymentRequestId)
     && dateTime(createdAt) > dateTime(now()) - 60*60*72]
     | order(createdAt desc)[0...25]{
-    _id, orderNumber, paymentStatus, total, navePaymentRequestId,
+    _id, orderNumber, paymentStatus, total, navePaymentRequestId, stockAppliedAt,
     customerName, customerCompany, customerEmail, customerPhone,
     items[]{ name, sku, baseSku, bultos, unidades, precioUnitario, subtotal }
   }
@@ -443,6 +443,8 @@ export interface SanityOrder {
   paymentId?: string;
   naveExternalId?: string;
   navePaymentRequestId?: string;
+  /** cuándo se sumaron las unidades a "Pedidos WEB" (sello de idempotencia) */
+  stockAppliedAt?: string;
   notes?: string;
   items?: SanityOrderItem[];
 }

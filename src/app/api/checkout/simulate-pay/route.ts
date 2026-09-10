@@ -55,8 +55,8 @@ export async function POST(req: Request) {
     .set({ paymentStatus: "pagado", notes: appendSimNote(order.notes) })
     .commit();
 
-  // Igual que hará el webhook de Nave: descuento de stock en la planilla
-  // (gated por STOCK_SALE_ON_PAYMENT=1; no destructivo — ver sheet-sync.ts).
+  // Igual que hará el webhook de Nave: registra las unidades en "Pedidos WEB"
+  // de la planilla (idempotente vía stockAppliedAt — ver sheet-sync.ts).
   await stockSaleAfterPayment(order, "/api/checkout/simulate-pay");
 
   return NextResponse.json({ ok: true, orderNumber: order.orderNumber, total: order.total });
