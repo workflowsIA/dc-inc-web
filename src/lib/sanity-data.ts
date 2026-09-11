@@ -93,6 +93,10 @@ export function toLegacyProduct(p: SanityProduct, wholesale = false): Product {
       priceWholesale: wholesale ? pp.priceWholesale : undefined,
     })),
     imageUrl: p.image,
+    // Galería: todas las fotos cargadas, no solo la primera (pedido de Marce,
+    // 11-sep-2026). Cae a la única imagen cuando el producto tiene una sola o
+    // cuando la foto viene del campo legacy de Wix.
+    images: p.images?.length ? p.images : p.image ? [p.image] : [],
   };
 }
 

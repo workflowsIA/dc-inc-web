@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import ProductGallery from "@/components/blocks/ProductGallery";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -85,21 +86,8 @@ export default async function ProductPage({ params }: Props) {
     <div className="wrap" style={{ padding: "32px 24px 80px" }}>
       <div className="product-layout">
         <div>
-          {product.imageUrl ? (
-            <Image
-              src={product.imageUrl}
-              alt={product.name}
-              width={600}
-              height={600}
-              unoptimized
-              style={{
-                borderRadius: "var(--r-lg)",
-                border: "1px solid var(--line)",
-                background: "#fff",
-                width: "100%",
-                height: "auto",
-              }}
-            />
+          {product.images?.length ? (
+            <ProductGallery images={product.images} alt={product.name} />
           ) : product.img ? (
             <Image
               src={`/img/${product.img}.png`}

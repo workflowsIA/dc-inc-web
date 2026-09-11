@@ -96,7 +96,7 @@ export default defineType({
       type: "array",
       group: "basico",
       description:
-        "La primera imagen es la principal (la que se ve en el listado). Podés arrastrar para reordenar.",
+        "La primera imagen es la principal: es la que se ve en el listado, en el carrito y la que toma Google. Las demás aparecen como miniaturas en la ficha del producto, y el cliente las abre desde ahí. Podés arrastrar para reordenar.",
       of: [{ type: "image", options: { hotspot: true } }],
     }),
     defineField({

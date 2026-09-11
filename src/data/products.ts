@@ -68,6 +68,9 @@ export interface Product {
   img?: string;
   /** URL absoluta del packshot (Sanity CDN) — usar si está */
   imageUrl?: string;
+  /** Todas las fotos de la ficha, en orden. La primera es el packshot.
+   *  La galería de la ficha las muestra con miniaturas cuando hay más de una. */
+  images?: string[];
 }
 
 const IMG_MAP: Record<string, string> = {

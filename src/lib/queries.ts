@@ -66,6 +66,7 @@ export const productBySlugQuery = groq`
     decoFamily,
     specs,
     "image": coalesce(images[0].asset->url, legacyImageUrl),
+    "images": array::compact(coalesce(images[].asset->url, [])),
     "category": category->name,
     "subtypes": array::compact(coalesce(subtypes[]->name, [subtype->name]))
   }
