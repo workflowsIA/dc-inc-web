@@ -80,7 +80,7 @@ const diffs = [
   { Icon: Receipt, title: "Factura A, B o E", body: "Comprás con la factura que tu empresa necesita, sin trámites raros." },
   { Icon: Truck, title: "Envíos con convenio", body: "Transportes que sí se hacen cargo del vidrio. Cobertura en todo el país." },
   { Icon: CheckCircle2, title: "Stock real", body: "Lo que ves disponible está en depósito. Sincronizado con nuestro sistema." },
-  { Icon: Brush, title: "Decorado propio", body: "Serigrafía, calcos y grabado en casa. Tu logo en botella, lata o copa." },
+  { Icon: Brush, title: "Decorado propio", body: "Serigrafía vitrificable y epoxi en casa. Tu logo en botellas, copas, vasos, cajas y tapas." },
   { Icon: Headphones, title: "Vendedor asignado", body: "Una persona que conoce tu cuenta y te responde por WhatsApp." },
 ];
 

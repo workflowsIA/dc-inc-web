@@ -37,13 +37,14 @@ export default function TerminosPage() {
         </Section>
         <Section title="5. Envíos">
           Realizamos envíos a todo el país a través de transportes con convenio.
-          Los plazos son orientativos (24-48 hs para envases en stock; ~1 mes para
-          trabajos con decorado) y se confirman al cerrar el pedido.
+          Los plazos son orientativos (24-48 hs para envases en stock; 15 a 18 días
+          hábiles para trabajos con decorado) y se confirman al cerrar el pedido.
         </Section>
         <Section title="6. Decorado y personalización">
-          Los trabajos de serigrafía/decorado requieren aprobación de arte y, en
-          su caso, de una muestra previa. Los plazos y mínimos se informan en cada
-          cotización.
+          Los trabajos de serigrafía/decorado requieren un anticipo del 50% y la
+          aprobación del mockup digital antes de entrar en producción. Los plazos se
+          cuentan desde que ambas cosas están, no desde la consulta. Los mínimos se
+          informan en cada cotización.
         </Section>
         <Section title="7. Contacto">
           Ante cualquier consulta, escribinos a info@dcinc.com.ar o por WhatsApp

@@ -7,7 +7,7 @@ import type { SanityClient } from "@/lib/queries";
 export const revalidate = 300;
 
 const NOSOTROS_DESC =
-  "Desde 2018 le ponemos envase a las bebidas argentinas: botellas, latas, tapas, cajas, botellones, vasos, copas y decorado propio. Logística del vidrio propia y stock real.";
+  "Desde 2018 le ponemos envase a las bebidas argentinas: botellas, latas, tapas, cajas, botellones, vasos, copas y decorado propio. Sabemos mover vidrio y tenemos stock real.";
 
 export const metadata = {
   title: "Nosotros",
@@ -74,7 +74,7 @@ export default async function NosotrosPage() {
       </div>
 
       <div className="grid grid-3" style={{ marginTop: "48px" }}>
-        <Value title="Confiable" body="Stock real y plazos que cumplimos: 24/48 h en insumos genéricos, 20 a 30 días hábiles en personalizados." />
+        <Value title="Confiable" body="Stock real y plazos que cumplimos: 24/48 h en insumos genéricos, 15 a 18 días hábiles en personalizados." />
         <Value title="Cercano" body="Un vendedor asignado que te responde por WhatsApp y te ayuda a armar el pedido." />
         <Value title="Completo" body="Del envase a la tapa, la caja y el decorado: resolvés todo con un solo proveedor." />
       </div>

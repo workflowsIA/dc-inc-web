@@ -2,13 +2,24 @@
 import { useState } from "react";
 import { WA_NUMBER } from "@/lib/whatsapp";
 
-const PRODUCTOS = ["Botella", "Caja para distribución", "Copa", "Vaso / pinta", "Botellón", "Otro"];
+const PRODUCTOS = [
+  "Botella",
+  "Botellón",
+  "Copa",
+  "Vaso / pinta",
+  "Caja de cartón",
+  "Estuche",
+  "Tapa",
+  "Otro",
+];
+// Técnicas reales, revisadas con Marce el 10-sep-2026. Las anteriores ofrecían
+// full color sobre vidrio y grabado, que no existen.
 const TECNICAS = [
-  "Serigrafía 1 color",
-  "Serigrafía 2 colores",
-  "Serigrafía full color",
-  "Calcos",
-  "Grabado",
+  "Serigrafía indirecta (calco vitrificable)",
+  "Serigrafía directa (tinta epoxi)",
+  "Flexografía (cajas de cartón)",
+  "Impresión digital o serigrafía (estuches)",
+  "Tampografía (tapas)",
   "No estoy seguro / asesorame",
 ];
 
@@ -87,8 +98,8 @@ export default function DecoradoForm() {
         Cotizá tu decorado
       </h3>
       <p style={{ fontSize: "14px", color: "var(--muted)", marginBottom: "22px" }}>
-        Completá estos datos y seguimos por WhatsApp, donde coordinamos el arte y
-        te enviamos una muestra antes de producir.
+        Completá estos datos y seguimos por WhatsApp: ahí revisamos el arte y te
+        mandamos el mockup digital para aprobar antes de producir.
       </p>
 
       <div style={{ display: "grid", gap: "16px" }}>
@@ -108,12 +119,16 @@ export default function DecoradoForm() {
           </span>
           <input
             type="file"
-            accept="image/*,.pdf,.ai,.eps"
+            accept=".pdf,.ai,.eps"
             onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
             style={{ fontSize: "13px" }}
           />
-          <span style={{ fontSize: "12px", color: "var(--muted)" }}>
-            Podés adjuntar el logo acá (PNG, JPG, PDF o AI, hasta 10 MB) o mandarlo por WhatsApp.
+          <span style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.6 }}>
+            Subí el arte <strong>vectorizado en .AI o .PDF</strong> (hasta 10 MB). Un logo
+            en JPG o PNG bajado de una web no sirve: necesitamos el vector para separar los
+            colores y garantizar la calidad de impresión. No hacemos vectorización ni
+            diseño, así que el archivo tiene que llegar de tu lado. Si preferís, mandalo
+            por WhatsApp.
           </span>
         </label>
         <label style={{ display: "grid", gap: "6px" }}>

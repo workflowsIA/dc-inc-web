@@ -22,11 +22,11 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "¿Hacen decorado o serigrafía?",
-    a: "Sí, tenemos servicio de decorado propio: serigrafía (1 color, 2 colores o full color), calcos y grabado. Coordinamos el arte, te enviamos una muestra y producimos. El plazo típico de decorado es de 20 a 30 días hábiles.",
+    a: "Sí, decoramos y personalizamos prácticamente todo lo que vendemos: vasos, copas, botellas, botellones, cajas de cartón, estuches y tapas. Trabajamos con serigrafía indirecta (calco vitrificable), serigrafía directa (tinta epoxi), flexografía en cajas, impresión digital o serigrafía en estuches y tampografía en tapas. Revisamos el arte, te mandamos un mockup digital para aprobar y recién ahí producimos. El plazo típico es de 15 a 18 días hábiles.",
   },
   {
     q: "¿Cuáles son los plazos de entrega?",
-    a: "Los envases en stock se despachan en 24 a 48 hs. Los pedidos con decorado tardan de 20 a 30 días hábiles. Al confirmar el pedido coordinamos la fecha exacta por WhatsApp.",
+    a: "Los envases en stock se despachan en 24 a 48 hs. Los pedidos con decorado tardan de 15 a 18 días hábiles, contados desde que está acreditado el anticipo y aprobado el mockup. Al confirmar el pedido coordinamos la fecha exacta por WhatsApp.",
   },
   {
     q: "¿Cómo son los envíos?",

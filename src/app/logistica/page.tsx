@@ -22,11 +22,11 @@ const DIFERENCIALES = [
   },
   {
     title: "Envíos a todo el país",
-    body: "Logística propia en CABA y GBA, y transportes con convenio que se hacen cargo del vidrio para el resto del país.",
+    body: "No tenemos flota propia: trabajamos con empresas de transporte y, con los años, aprendimos cuáles cuidan la mercadería y cuáles no. Ese conocimiento es parte de lo que ofrecemos, tanto como el envase.",
   },
   {
     title: "Decorado propio",
-    body: "Decorado in-house: ponés tu marca en el producto sin intermediarios. Coordinamos arte y muestra por WhatsApp.",
+    body: "Decorado in-house: ponés tu marca en el producto sin intermediarios. Coordinamos el arte por WhatsApp y te mandamos el mockup para aprobar.",
   },
   {
     title: "Atención directa",
@@ -36,11 +36,11 @@ const DIFERENCIALES = [
 
 const PLAZOS = [
   { label: "Insumos genéricos", value: "24 – 48 hs" },
-  { label: "Personalizados", value: "20 – 30 días" },
+  { label: "Trabajos con decorado", value: "15 – 18 días hábiles" },
 ];
 
 const TRANSPORTES =
-  "Logística propia en CABA y GBA · Andreani, Conte Hnos., Interprovincial, Mostto y Andesmar para el resto del país.";
+  "en CABA y GBA entregamos con transporte contratado por nosotros. Al interior, tenemos cuenta propia en varias empresas de encomiendas con tarifas conseguidas por volumen, servicio puerta a puerta con Andreani, y también despachamos al transporte que vos nos indiques.";
 
 export default function LogisticaPage() {
   return (

@@ -91,6 +91,10 @@ async function main() {
   const sinDesc = productos.filter((p) => (p.description ?? "").trim().length < 10);
   const sinCategoria = productos.filter((p) => !p.categoria);
   const crudos = productos.filter((p) => tituloCrudo(p.name));
+  // Marce (10-sep): "tenemos más de una foto en el producto en lo que es envases".
+  // La ficha muestra UNA sola imagen, así que si esto da >0 son fotos cargadas de
+  // más en el array `images` que nadie ve — y si da 0, hay que pedirle la captura.
+  const multiFoto = productos.filter((p) => (p.nImg ?? 0) > 1);
 
   // SKU repetido entre productos DISTINTOS → el catálogo resuelve por SKU y
   // uno pisa al otro (precio, stock y reprecio del checkout).
@@ -134,6 +138,8 @@ async function main() {
   line(`   Sin descripción:          ${sinDesc.length}`);
   line(`   Sin categoría:            ${sinCategoria.length}`);
   line(`   Título crudo ("- Unidad"): ${crudos.length}`);
+  line(`   Con más de una foto:      ${multiFoto.length}`);
+  for (const p of multiFoto.slice(0, 20)) line(`      ${p.sku} · ${p.name} (${p.nImg} fotos)`);
   line("");
   line(`   SKU repetido:             ${skuDup.length} caso(s)   ← uno pisa al otro`);
   for (const [sku, v] of skuDup) line(`      ${sku}: ${v.map((p) => p.name).join("  ||  ")}`);
