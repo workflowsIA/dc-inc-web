@@ -16,6 +16,7 @@ import {
 } from "@/lib/shipping";
 import { useWholesaleCtx, useRepricedItems } from "@/lib/wholesale-prices";
 import { RetailCapNotice } from "@/components/blocks/WholesaleCta";
+import { TotalsRows } from "@/components/blocks/TotalsRows";
 
 export default function CarritoPage() {
   const rawItems = useCart((s) => s.items);
@@ -244,19 +245,9 @@ export default function CarritoPage() {
                 ? "Precios mayoristas aplicados (neto + IVA)"
                 : "Precios con IVA incluido"}
           </p>
-          <dl style={{ marginTop: "16px", display: "grid", gap: "8px", fontSize: "14px" }}>
-            <Row label="Subtotal (neto)" value={money(t.sub)} />
-            {t.rate > 0 && (
-              <Row label={`Descuento volumen (${t.rate * 100}%)`} value={`-${money(t.disc)}`} muted />
-            )}
-            <Row label="IVA 21%" value={money(t.iva)} muted />
-            {t.finalConsumer && !t.shippingQuote ? (
-              <Row label="Envío estimado" value={ars(t.shipping)} muted />
-            ) : (
-              <Row label="Envío" value="a cotizar" muted />
-            )}
-            <Row label="Total estimado" value={money(t.total)} strong />
-          </dl>
+          <div style={{ marginTop: "16px", display: "grid", gap: "8px", fontSize: "14px" }}>
+            <TotalsRows t={t} money={money} />
+          </div>
           <OrderNotices finalConsumer={t.finalConsumer} shippingQuote={t.shippingQuote} />
           {t.hasDeco && (
             <p style={{ marginTop: "16px", fontSize: "13px", color: "var(--muted)" }}>
@@ -374,21 +365,3 @@ export default function CarritoPage() {
   );
 }
 
-function Row({
-  label,
-  value,
-  muted,
-  strong,
-}: {
-  label: string;
-  value: string;
-  muted?: boolean;
-  strong?: boolean;
-}) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between" }}>
-      <dt style={{ color: muted ? "var(--muted)" : undefined }}>{label}</dt>
-      <dd style={{ fontWeight: strong ? 700 : 600 }}>{value}</dd>
-    </div>
-  );
-}

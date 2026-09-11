@@ -18,6 +18,7 @@ import {
 } from "@/lib/shipping";
 import { useWholesaleCtx, useRepricedItems } from "@/lib/wholesale-prices";
 import { RetailCapNotice } from "@/components/blocks/WholesaleCta";
+import { TotalsRows } from "@/components/blocks/TotalsRows";
 
 export default function CheckoutPage() {
   // Esperamos a que Clerk cargue al usuario antes de montar el formulario, así
@@ -396,15 +397,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
             ))}
           </div>
           <div style={{ height: "1px", background: "var(--line)", margin: "14px 0" }} />
-          <Row label="Subtotal (neto)" value={money(t.sub)} />
-          {t.rate > 0 && <Row label={`Descuento (${t.rate * 100}%)`} value={`-${money(t.disc)}`} muted />}
-          <Row label="IVA 21%" value={money(t.iva)} muted />
-          {t.finalConsumer && !t.shippingQuote ? (
-            <Row label="Envío estimado" value={ars(t.shipping)} muted />
-          ) : (
-            <Row label="Envío" value="a cotizar" muted />
-          )}
-          <Row label="Total estimado" value={money(t.total)} strong />
+          <TotalsRows t={t} money={money} />
           <OrderNotices finalConsumer={t.finalConsumer} shippingQuote={t.shippingQuote} />
 
           {naveEnabled && (
@@ -520,11 +513,3 @@ function In({
   );
 }
 
-function Row({ label, value, muted, strong }: { label: string; value: string; muted?: boolean; strong?: boolean }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", marginTop: "4px" }}>
-      <span style={{ color: muted ? "var(--muted)" : undefined }}>{label}</span>
-      <span style={{ fontWeight: strong ? 700 : 600 }}>{value}</span>
-    </div>
-  );
-}

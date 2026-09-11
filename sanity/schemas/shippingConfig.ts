@@ -62,6 +62,15 @@ export default defineType({
       ],
     }),
     defineField({
+      name: "bultoConsolidaMaxKg",
+      title: "Bulto chico: hasta cuántos kg se consolida",
+      type: "number",
+      initialValue: 10,
+      validation: (r) => r.min(1).max(50),
+      description:
+        "Regla de despacho: los bultos de hasta este peso facturable se juntan en un mismo paquete y se paga un envío solo; los más pesados salen de a uno. Subir el número junta más cosas (envío más barato, más trabajo de armado); bajarlo despacha más separado. 10 kg deja adentro una caja de 12 copas y afuera una caja de botellas.",
+    }),
+    defineField({
       name: "batuZones",
       title: "Tarifas Batu por zona (CABA / GBA, envío propio)",
       type: "array",

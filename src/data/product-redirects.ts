@@ -4,6 +4,14 @@
 // (/productos/<slug-nuevo>), normalizando ambos slugs (minúsculas, sin
 // tildes, no-alfanumérico→guion) y aceptando solo coincidencias inequívocas.
 // Los slugs viejos sin match caen al catch-all /product-page/:slug* → /productos.
+//
+// OJO: estos destinos NO se revalidan solos. Si un producto cambia de slug o se
+// despublica, su redirect queda apuntando a un slug muerto y, como la regla
+// específica le gana al catch-all, el visitante que viene de Google cae en un
+// 404 en vez de en el catálogo. Pasó el 11-sep-2026 con 8 destinos (entre ellos
+// la Bordolesa, que es el primer resultado de Google para esa búsqueda, y los 5
+// productos con precio 0 que se despublicaron el 10-sep).
+// `npm run fichas:audit` ahora chequea que cada destino exista.
 // 80 pares matcheados.
 export interface ProductRedirect {
   old: string;
@@ -22,7 +30,6 @@ export const productRedirects: ProductRedirect[] = [
   { old: "botella-niza-750-ml", new: "botella-niza-750-ml" },
   { old: "jarra-bar-780-ml", new: "jarra-bar-780-ml" },
   { old: "vaso-cylinder-200-ml", new: "vaso-cylinder-200-ml" },
-  { old: "pack-botella-oi-verde-bitter-750-ml", new: "pack-botella-oi-verde-bitter-750-ml" },
   { old: "decantador-2000-ml", new: "decantador-2000-ml" },
   { old: "copa-coctel-230-ml", new: "copa-coctel-230-ml" },
   { old: "decantador-1800-ml", new: "decantador-1800-ml" },
@@ -42,7 +49,7 @@ export const productRedirects: ProductRedirect[] = [
   { old: "vaso-cylinder-whisky-320-ml", new: "vaso-cylinder-whisky-320-ml" },
   { old: "vaso-ravena-480-ml", new: "vaso-ravena-480-ml" },
   { old: "vaso-madrid-whisky-350-ml", new: "vaso-madrid-whisky-350-ml" },
-  { old: "botella-bordalesa-verde-750-ml-1", new: "botella-bordalesa-verde-750-ml" },
+  { old: "botella-bordalesa-verde-750-ml-1", new: "750-ml-bordolesa-botella-vidrio-verde-unidad" },
   { old: "vaso-montecarlo-355-ml", new: "vaso-montecarlo-355-ml" },
   { old: "copa-dg-435-ml", new: "copa-dg-435-ml" },
   { old: "copa-avispero-615-ml", new: "copa-avispero-615-ml" },
@@ -58,18 +65,15 @@ export const productRedirects: ProductRedirect[] = [
   { old: "copa-gallant-250-ml", new: "copa-gallant-250-ml" },
   { old: "pinta-willi-390-ml", new: "pinta-willi-390-ml" },
   { old: "vaso-oslo-520-ml", new: "vaso-oslo-520-ml" },
-  { old: "precinto-termocontraible-50x30-mm-cristal-botellas", new: "precinto-termocontraible-50x30-mm-cristal-botellas" },
   { old: "botellon-importado-growler-1900-ml", new: "botellon-importado-growler-1900-ml" },
   { old: "precinto-termocontraible-38x37-mm-cristal-botellas", new: "precinto-termocontraible-38x37-mm-cristal-botellas" },
   { old: "copa-diamond-500-ml", new: "copa-diamond-500-ml" },
   { old: "copa-bruselas-400-ml", new: "copa-bruselas-400-ml" },
   { old: "vaso-fernet-650-ml", new: "vaso-fernet-650-ml" },
   { old: "vaso-madrid-395-ml", new: "vaso-madrid-395-ml" },
-  { old: "pinta-wind-670-ml", new: "pinta-wind-670-ml" },
   { old: "pinta-jamaica-1-355-ml", new: "pinta-jamaica-1-355-ml" },
   { old: "copa-cata-normalizada-215-ml-2da", new: "copa-cata-normalizada-215-ml" },
   { old: "tapa-lata-cdl", new: "tapa-lata-cdl" },
-  { old: "jarra-mexico-1780-ml", new: "jarra-mexico-1780-ml" },
   { old: "pinta-americana-473-ml", new: "pinta-americana-473-ml" },
   { old: "vaso-bristol-trago-largo-340-ml", new: "vaso-bristol-trago-largo-340-ml" },
   { old: "vaso-sevilla-395-ml", new: "vaso-sevilla-395-ml" },
@@ -129,7 +133,6 @@ export const productRedirects: ProductRedirect[] = [
   { old: "copa-barone-600-ml", new: "copa-barone-600-ml" },
   { old: "copa-barone-degustacion-385-ml", new: "copa-barone-degustacion-385-ml" },
   { old: "copa-beefeater-580-ml", new: "copa-beefeater-580-ml" },
-  { old: "copa-beer-sommelier-400-ml", new: "copa-beer-sommelier-400-ml" },
   { old: "copa-belga-16-oz", new: "copa-belga-16-oz" },
   { old: "copa-belga-490-ml", new: "copa-belga-490-ml" },
   { old: "copa-br-465-ml", new: "copa-br-465-ml" },
@@ -138,7 +141,6 @@ export const productRedirects: ProductRedirect[] = [
   { old: "copa-cervoise-500-ml", new: "copa-cervoise-500-ml" },
   { old: "copa-champagne-brunello-200-ml", new: "copa-champagne-brunello-200-ml" },
   { old: "copa-cognac-450-ml", new: "copa-cognac-450-ml" },
-  { old: "copa-dg-450-ml", new: "copa-dg-450-ml" },
   { old: "copa-embassy-17-5-oz", new: "copa-embassy-17-5-oz" },
   { old: "copa-eze-395-ml", new: "copa-eze-395-ml" },
   { old: "copa-eze-600-ml", new: "copa-eze-600-ml" },
@@ -210,7 +212,6 @@ export const productRedirects: ProductRedirect[] = [
   { old: "vaso-opera-380-ml", new: "vaso-opera-380-ml" },
   { old: "vaso-oslo-refresco-400-ml", new: "vaso-oslo-refresco-400-ml" },
   { old: "vaso-sevilla-whisky-355-ml", new: "vaso-sevilla-whisky-355-ml" },
-  { old: "vaso-theo-300-ml", new: "vaso-theo-300-ml" },
   { old: "vaso-tucuman-250-ml", new: "vaso-tucuman-250-ml" },
   { old: "vaso-valencia-395-ml", new: "vaso-valencia-395-ml" },
   { old: "vaso-veneto-350-ml", new: "vaso-veneto-350-ml" },

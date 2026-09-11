@@ -51,7 +51,7 @@ interface MondayColumn {
   type: string;
 }
 
-let columnsCache: { boardId: string; columns: MondayColumn[] } | null = null;
+const columnsCache = new Map<string, MondayColumn[]>();
 
 function norm(s: string): string {
   return s
@@ -62,13 +62,14 @@ function norm(s: string): string {
 }
 
 async function getColumns(boardId: string): Promise<MondayColumn[]> {
-  if (columnsCache?.boardId === boardId) return columnsCache.columns;
+  const hit = columnsCache.get(boardId);
+  if (hit) return hit;
   const data = await gql<{ boards: { columns: MondayColumn[] }[] }>(
     `query ($ids: [ID!]) { boards(ids: $ids) { columns { id title type } } }`,
     { ids: [boardId] },
   );
   const columns = data.boards?.[0]?.columns ?? [];
-  columnsCache = { boardId, columns };
+  columnsCache.set(boardId, columns);
   return columns;
 }
 
@@ -245,6 +246,96 @@ function orderUpdateBody(o: OrderPaidNotification): string {
   return lines.join("\n");
 }
 
+type OrderLine = NonNullable<OrderPaidNotification["items"]>[number];
+
+/** Nombre del subelemento: se basta solo, por si el board de subelementos no
+ *  tiene columnas donde poner el detalle. */
+function subitemName(i: OrderLine): string {
+  const cant =
+    typeof i.bultos === "number" && typeof i.unidades === "number" && i.bultos !== i.unidades
+      ? `${i.bultos} ${i.bultos === 1 ? "bulto" : "bultos"} (${i.unidades} u)`
+      : typeof i.unidades === "number"
+        ? `${i.unidades} u`
+        : `${i.bultos ?? "?"}`;
+  const nombre = i.name || i.sku || "Ítem";
+  const sku = i.sku && i.name ? ` [${i.sku}]` : "";
+  return `${cant} — ${nombre}${sku}`;
+}
+
+/** Columnas que queremos en el board de SUBELEMENTOS para que el detalle del
+ *  pedido sea data y no texto. Monday crea ese board vacío (Owner/Estado/Fecha)
+ *  la primera vez que se usa un subelemento, así que si no están, se crean. */
+const SUBITEM_COLS: { key: keyof OrderLine; title: string; type: "text" | "numbers"; alias: string[] }[] = [
+  { key: "sku", title: "SKU", type: "text", alias: ["sku", "codigo"] },
+  { key: "bultos", title: "Bultos", type: "numbers", alias: ["bultos"] },
+  { key: "unidades", title: "Unidades", type: "numbers", alias: ["unidades"] },
+  { key: "subtotal", title: "Subtotal", type: "numbers", alias: ["subtotal", "importe"] },
+];
+
+/**
+ * Carga el detalle del pedido como SUBELEMENTOS del item (pedido de Marce,
+ * 10-sep-2026: "los pedidos que ingresan desde la web no cargan los pedidos en
+ * los subelementos de la OT"). Hasta ahora el detalle iba sólo en el update, o
+ * sea texto suelto que no se puede filtrar ni sumar.
+ *
+ * Best-effort de punta a punta: si Monday rechaza algo, el item y el update ya
+ * quedaron creados y la info no se pierde.
+ */
+async function createOrderSubitems(itemId: string, items: OrderLine[]): Promise<void> {
+  let cols: MondayColumn[] | null = null;
+
+  for (const line of items) {
+    const created = await gql<{ create_subitem: { id: string; board: { id: string } | null } }>(
+      `mutation ($parent: ID!, $name: String!) {
+         create_subitem(parent_item_id: $parent, item_name: $name) { id board { id } }
+       }`,
+      { parent: itemId, name: subitemName(line) },
+    );
+    const subId = created.create_subitem.id;
+    const subBoardId = created.create_subitem.board?.id;
+    if (!subBoardId) continue;
+
+    // La primera vuelta resuelve (o crea) las columnas del board de subelementos.
+    if (cols === null) {
+      cols = await getColumns(subBoardId);
+      for (const spec of SUBITEM_COLS) {
+        if (findCol(cols, spec.alias, spec.type)) continue;
+        try {
+          const made = await gql<{ create_column: MondayColumn }>(
+            `mutation ($board: ID!, $title: String!, $type: ColumnType!) {
+               create_column(board_id: $board, title: $title, column_type: $type) { id title type }
+             }`,
+            { board: subBoardId, title: spec.title, type: spec.type },
+          );
+          cols.push(made.create_column);
+        } catch (err) {
+          console.warn(`[monday] subelementos: no se pudo crear la columna ${spec.title}:`, err);
+        }
+      }
+      columnsCache.set(subBoardId, cols);
+    }
+
+    const values: Record<string, unknown> = {};
+    for (const spec of SUBITEM_COLS) {
+      const col = findCol(cols, spec.alias, spec.type);
+      const raw = line[spec.key];
+      if (!col || raw === undefined || raw === null) continue;
+      values[col.id] = spec.type === "numbers" ? String(Math.round(Number(raw))) : String(raw);
+    }
+    if (Object.keys(values).length === 0) continue;
+    try {
+      await gql(
+        `mutation ($board: ID!, $item: ID!, $values: JSON!) {
+           change_multiple_column_values(board_id: $board, item_id: $item, column_values: $values) { id }
+         }`,
+        { board: subBoardId, item: subId, values: JSON.stringify(values) },
+      );
+    } catch (err) {
+      console.warn("[monday] subelementos: no se pudieron setear columnas:", err);
+    }
+  }
+}
+
 /**
  * Crea un item en el board CRM cuando un pedido web queda PAGADO (Nave).
  * Va al mismo grupo que los registros ("A cotizar" por default). Best-effort
@@ -293,6 +384,15 @@ export async function notifyOrderPaid(o: OrderPaidNotification): Promise<string 
     }
   } catch (err) {
     console.warn("[monday] venta: no se pudieron setear columnas (sigo igual):", err);
+  }
+
+  // Detalle del pedido como subelementos de la OT (Marce, 10-sep-2026).
+  if (o.items?.length) {
+    try {
+      await createOrderSubitems(itemId, o.items);
+    } catch (err) {
+      console.warn("[monday] venta: no se pudieron crear los subelementos:", err);
+    }
   }
 
   try {

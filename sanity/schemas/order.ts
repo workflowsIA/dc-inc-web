@@ -156,6 +156,14 @@ export default defineType({
       description: "Costo de envío calculado al momento del pedido, ya incluido en el total.",
       readOnly: true,
     }),
+    defineField({
+      name: "bultosDespacho",
+      title: "Bultos a despachar",
+      type: "number",
+      readOnly: true,
+      description:
+        "Cuántos paquetes salen del depósito con este pedido, ya aplicada la regla de consolidación: los bultos chicos se juntan y los grandes salen de a uno. Es el número con el que se cotizó el envío. Vacío = no se pudo calcular (algún producto sin peso cargado).",
+    }),
 
     // ---- Estados ----
     defineField({

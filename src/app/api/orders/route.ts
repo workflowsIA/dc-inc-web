@@ -10,7 +10,14 @@ import {
   type OrderPricingCombo,
 } from "@/lib/queries";
 import { IVA_RATE, isSaleActive, retailCartExceeded } from "@/lib/pricing";
-import { aforadoKg, shippingEstimate, type BatuZone, type Bulto } from "@/lib/shipping";
+import {
+  aforadoKg,
+  paquetesDeBultos,
+  shippingEstimate,
+  shippingNet,
+  type BatuZone,
+  type Bulto,
+} from "@/lib/shipping";
 import { getDecoPricing, getShippingConfig } from "@/lib/sanity-data";
 import { decoQuote } from "@/lib/deco";
 import { guard, LIMITS } from "@/lib/rate-limit";
@@ -243,19 +250,32 @@ export async function POST(req: Request) {
             : basePub;
         const stepUnits = pres?.unitsPerBulk ?? prod.unitsPerBulk;
         const step = stepUnits > 0 ? stepUnits : 1;
-        bultos = Math.max(1, Math.round(it.qty / step));
-        totalBultos += bultos;
         // Peso facturable de UN bulto: el de la fila de la presentación si lo
         // trae, si no el del producto base. Sin dato → envío a cotizar.
         const dims = pres?.pesoKg != null || pres?.largoCm != null ? pres : prod;
-        bultosDetalle.push({
-          kg: aforadoKg(dims.pesoKg, {
-            largo: dims.largoCm,
-            ancho: dims.anchoCm,
-            alto: dims.altoCm,
-          }),
-          cantidad: bultos,
+        const dimsUnits = (pres?.pesoKg != null || pres?.largoCm != null
+          ? pres.unitsPerBulk
+          : prod.unitsPerBulk) || 1;
+        const aforadoBulto = aforadoKg(dims.pesoKg, {
+          largo: dims.largoCm,
+          ancho: dims.anchoCm,
+          alto: dims.altoCm,
         });
+        // El peso cargado es el del BULTO ENTERO. Se prorratea por unidad para
+        // que un pedido por unidades sueltas no cotice una caja por unidad
+        // (caso Facundo Fuentes: 6 + 8 botellas sueltas cotizaban 14 bultos).
+        // Un bulto entero sigue pesando exactamente lo mismo que antes.
+        const perUnitKg = aforadoBulto === null ? null : aforadoBulto / dimsUnits;
+        const enteros = Math.floor(it.qty / step);
+        const resto = it.qty - enteros * step;
+        bultos = Math.max(1, enteros + (resto > 0 ? 1 : 0));
+        totalBultos += bultos;
+        if (perUnitKg === null) {
+          bultosDetalle.push({ kg: null, cantidad: bultos });
+        } else {
+          if (enteros > 0) bultosDetalle.push({ kg: perUnitKg * step, cantidad: enteros });
+          if (resto > 0) bultosDetalle.push({ kg: perUnitKg * resto, cantidad: 1 });
+        }
       }
 
       const lineSub = round2((unitNet ?? 0) * it.qty);
@@ -304,8 +324,19 @@ export async function POST(req: Request) {
       shipCfg,
     );
     const shipping = quote.total;
-    const iva = round2((net + shipping) * IVA_RATE);
-    const total = round2(net + shipping + iva);
+    // Cuántos paquetes salen del depósito una vez aplicada la regla de
+    // consolidación (los chicos se juntan, los grandes van solos). Es el
+    // número que le sirve a logística, y el que Batu factura.
+    const bultosDespacho = paquetesDeBultos(bultosDetalle, shipCfg);
+    // MISMA fórmula que totalsFor() en whatsapp.ts: la tarifa de envío cargada
+    // ya viene con IVA, así que se pasa a neto antes de sumarle el 21% (si no,
+    // se le cobraba el IVA dos veces al flete). Concepto por concepto, para que
+    // el total guardado sea exactamente el que vio el cliente en el resumen.
+    const envioNeto = round2(shippingNet(shipping, IVA_RATE));
+    const ivaProductos = round2(net * IVA_RATE);
+    const ivaEnvio = round2(envioNeto * IVA_RATE);
+    const iva = round2(ivaProductos + ivaEnvio);
+    const total = round2(net + ivaProductos + envioNeto + ivaEnvio);
 
     const doc = {
       _type: "order",
@@ -325,6 +356,7 @@ export async function POST(req: Request) {
       cpDestino: body.cp ?? "",
       zonaBatu: body.batuZone ?? null,
       envioEstimado: round2(shipping),
+      bultosDespacho: bultosDespacho ?? undefined,
       // No se pudo estimar el envío (producto sin peso cargado, o un bulto de
       // más de 50 kg facturables → corresponde pallet, no paquetería). Se
       // guarda para que ventas lo vea en el panel y no lea el 0 como "gratis".

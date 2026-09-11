@@ -241,7 +241,11 @@ export async function getShippingConfig(): Promise<ShippingConfig> {
     }
 
     const andreaniMode = doc.andreaniMode === "cotizar" ? "cotizar" : "estimado";
-    return { batu, andreani, andreaniMode };
+    const maxChico =
+      typeof doc.bultoConsolidaMaxKg === "number" && doc.bultoConsolidaMaxKg > 0
+        ? doc.bultoConsolidaMaxKg
+        : DEFAULT_SHIPPING_CONFIG.bultoConsolidaMaxKg;
+    return { batu, andreani, andreaniMode, bultoConsolidaMaxKg: maxChico };
   } catch {
     return DEFAULT_SHIPPING_CONFIG;
   }

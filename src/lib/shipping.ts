@@ -136,6 +136,25 @@ export const BATU_RATES: Record<BatuZone, { maxBultos: number; price: number }[]
  * eso el canal correcto es pallet, no paquetería → "a cotizar".
  * ───────────────────────────────────────────────────────────── */
 
+/**
+ * Las tarifas de envío cargadas (Andreani y Batu) son PRECIOS FINALES, con IVA
+ * incluido: la tabla de Andreani se relevó del panel Pymes, que cotiza con IVA,
+ * y la de Batu es la columna PÚBLICO del tarifario de Marce.
+ *
+ * Importa porque el total del pedido suma IVA sobre productos + envío: si el
+ * envío ya viene con IVA, hay que pasarlo a neto antes de sumarlo, o se le
+ * cobra el 21% dos veces (un envío de $23.074 se facturaba $27.919).
+ *
+ * Si alguna vez el tarifario pasa a cargarse en neto, esto vuelve a false y
+ * todo el cálculo se acomoda solo.
+ */
+export const SHIPPING_RATES_INCLUDE_IVA = true;
+
+/** Envío en NETO, para poder sumarle el IVA junto con los productos. */
+export function shippingNet(total: number, ivaRate = 0.21): number {
+  return SHIPPING_RATES_INCLUDE_IVA ? total / (1 + ivaRate) : total;
+}
+
 /** Divisor de aforo de Andreani: cm³ por kg facturable. */
 export const AFORO_DIVISOR = 3000;
 
@@ -154,6 +173,26 @@ export function aforadoKg(
 
 /** Tope de peso facturable por paquete (Andreani "Paquetes"). */
 export const PAQUETE_MAX_KG = 50;
+
+/**
+ * Tope de peso facturable para que un bulto se pueda CONSOLIDAR con otros.
+ *
+ * Regla de Marce (10-sep-2026): "si el bulto es chico, como el de una caja de
+ * vasos o copas de 12 unidades, lo unimos; si son dos cajas grandes, no". O
+ * sea: el deposito junta lo chico en un paquete y despacha lo grande por
+ * separado. Antes el calculo consolidaba TODO, que subestima el flete de dos
+ * cajas grandes; y contaba cada unidad suelta como un bulto propio, que lo
+ * sobreestima. Las dos cosas se arreglan con esta regla.
+ *
+ * 10 kg facturables parte justo por el medio de los dos casos medidos en el
+ * panel de Andreani:
+ *  - caja de 12 copas (44x30x11, 3,4 kg reales -> 4,84 aforados) = CHICA.
+ *    Seis de esas se juntan en un paquete de 29 kg = $88.387 a Neuquen, que
+ *    es exactamente lo medido para el bulto consolidado.
+ *  - caja de botella 330 ml (~25-30 kg aforados) = GRANDE. Dos de esas salen
+ *    como dos paquetes ($88.387 cada una = $176.774), tambien lo medido.
+ */
+export const BULTO_CONSOLIDA_MAX_KG = 10;
 
 /**
  * Tope de peso facturable del PEDIDO ENTERO para seguir mostrando un estimado
@@ -203,6 +242,9 @@ export interface ShippingConfig {
   /** "estimado" = el interior muestra la tarifa de banda; "cotizar" = el
    *  interior va "a cotizar" (no se suma monto, se coordina por WhatsApp). */
   andreaniMode: "estimado" | "cotizar";
+  /** Hasta cuántos kg facturables un bulto se junta con otros en el despacho.
+   *  Ver BULTO_CONSOLIDA_MAX_KG. */
+  bultoConsolidaMaxKg?: number;
 }
 
 /** Config por defecto = las tarifas hardcodeadas actuales. Es el fallback si
@@ -212,6 +254,7 @@ export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
   andreani: SHIPPING_RATES,
   andreaniByTier: SHIPPING_RATES_BY_TIER,
   andreaniMode: "estimado",
+  bultoConsolidaMaxKg: BULTO_CONSOLIDA_MAX_KG,
 };
 
 /** Precio Batu por zona + cantidad de bultos (usa el tramo cuyo tope ≥ bultos). */
@@ -262,8 +305,74 @@ export interface ShippingQuote {
   reason?: "sin-peso" | "bulto-grande" | "pedido-grande" | "mayorista";
 }
 
+/** Cómo queda el pedido una vez aplicada la regla de consolidación. */
+export interface Consolidado {
+  /** peso facturable de cada PAQUETE que sale del depósito */
+  paquetes: number[];
+  /** algún producto no tiene peso cargado en la planilla → no se puede estimar */
+  sinPeso: boolean;
+  /** un solo bulto ya excede el máximo de paquetería (corresponde pallet) */
+  bultoGrande: boolean;
+}
+
 /**
- * Envío al interior (Andreani): suma bulto por bulto.
+ * Aplica la regla de despacho de Marce a los bultos del pedido.
+ *
+ * Los bultos CHICOS (≤ BULTO_CONSOLIDA_MAX_KG facturables) se suman y se
+ * reparten en la menor cantidad de paquetes posible: es lo que hace el
+ * depósito y lo que cobra Andreani, porque el primer tramo de la tarifa es un
+ * mínimo plano y pagarlo N veces es lo que hace impagable un pedido chico.
+ * Los bultos GRANDES salen de a uno, cada uno como su propio paquete.
+ *
+ * Es la única fuente de verdad de "cuántos paquetes salen": la usan tanto la
+ * tarifa de Andreani como la de Batu (que cobra por cantidad de bultos), así
+ * que el carrito, el checkout y el pedido guardado dan siempre el mismo número.
+ */
+export function consolidar(
+  bultos: Bulto[],
+  cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
+): Consolidado {
+  const maxChico =
+    typeof cfg.bultoConsolidaMaxKg === "number" && cfg.bultoConsolidaMaxKg > 0
+      ? cfg.bultoConsolidaMaxKg
+      : BULTO_CONSOLIDA_MAX_KG;
+  const paquetes: number[] = [];
+  let chicoKg = 0;
+  for (const b of bultos) {
+    const n = Math.max(0, Math.round(b.cantidad));
+    if (n === 0) continue;
+    if (b.kg === null) return { paquetes: [], sinPeso: true, bultoGrande: false };
+    // Un solo bulto que ya no entra en paquetería (caja enorme o pallet).
+    if (b.kg > PAQUETE_MAX_KG) return { paquetes: [], sinPeso: false, bultoGrande: true };
+    if (b.kg > maxChico) {
+      for (let i = 0; i < n; i++) paquetes.push(b.kg);
+    } else {
+      chicoKg += b.kg * n;
+    }
+  }
+  if (chicoKg > 0) {
+    const n = Math.max(1, Math.ceil(chicoKg / PAQUETE_MAX_KG));
+    for (let i = 0; i < n; i++) paquetes.push(chicoKg / n);
+  }
+  return { paquetes, sinPeso: false, bultoGrande: false };
+}
+
+/**
+ * Cuántos paquetes salen del depósito con este pedido. null = no se puede
+ * saber (falta un peso, o hay un bulto fuera de paquetería).
+ */
+export function paquetesDeBultos(
+  bultos: Bulto[],
+  cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
+): number | null {
+  const c = consolidar(bultos, cfg);
+  if (c.sinPeso || c.bultoGrande) return null;
+  return c.paquetes.length || null;
+}
+
+/**
+ * Envío al interior (Andreani): se cobra POR PAQUETE, así que primero se
+ * aplica la regla de consolidación y después se tarifa paquete por paquete.
  * Va "a cotizar" si algún producto no tiene peso cargado o si un bulto pasa
  * los 50 kg facturables (ahí corresponde pallet, no paquetería).
  */
@@ -273,24 +382,20 @@ export function andreaniQuote(
   cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
 ): ShippingQuote {
   const band = bandForCp(cp) ?? "AMBA";
-  let kgTotal = 0;
-  for (const b of bultos) {
-    const n = Math.max(0, Math.round(b.cantidad));
-    if (n === 0) continue;
-    if (b.kg === null) return { total: 0, toQuote: true, reason: "sin-peso" };
-    // Un solo bulto que ya no entra en paquetería (caja enorme o pallet).
-    if (b.kg > PAQUETE_MAX_KG) return { total: 0, toQuote: true, reason: "bulto-grande" };
-    kgTotal += b.kg * n;
-  }
-  if (kgTotal <= 0) return { total: 0, toQuote: false };
+  const c = consolidar(bultos, cfg);
+  if (c.sinPeso) return { total: 0, toQuote: true, reason: "sin-peso" };
+  if (c.bultoGrande) return { total: 0, toQuote: true, reason: "bulto-grande" };
+  if (c.paquetes.length === 0) return { total: 0, toQuote: false };
+  const kgTotal = c.paquetes.reduce((a, b) => a + b, 0);
   // Pedido grande: ya no es paquetería (ver PEDIDO_MAX_KG).
   if (kgTotal > PEDIDO_MAX_KG) return { total: 0, toQuote: true, reason: "pedido-grande" };
-  // Se consolida en la menor cantidad de paquetes posible y se reparte parejo,
-  // que es la configuración más barata del servicio (ver nota de cabecera).
-  const paquetes = Math.max(1, Math.ceil(kgTotal / PAQUETE_MAX_KG));
-  const rate = rateForBulto(band, kgTotal / paquetes, cfg);
-  if (rate === null) return { total: 0, toQuote: true, reason: "bulto-grande" };
-  return { total: rate * paquetes, toQuote: false };
+  let total = 0;
+  for (const kg of c.paquetes) {
+    const rate = rateForBulto(band, kg, cfg);
+    if (rate === null) return { total: 0, toQuote: true, reason: "bulto-grande" };
+    total += rate;
+  }
+  return { total, toQuote: false };
 }
 
 /**
@@ -314,7 +419,12 @@ export function shippingEstimate(
   if (wholesale) return { total: 0, toQuote: true, reason: "mayorista" };
   // CABA/GBA con envío propio: tarifa por zona × bultos (más barata que
   // Andreani y ya escala con la cantidad).
-  if (batuZone) return { total: batuShipping(batuZone, bultos, cfg), toQuote: false };
+  if (batuZone) {
+    // Batu cobra por cantidad de bultos: los que salen DESPUÉS de consolidar.
+    // Sin el desglose de pesos caemos al conteo de líneas del carrito.
+    const paq = detalle ? paquetesDeBultos(detalle, cfg) : null;
+    return { total: batuShipping(batuZone, paq ?? bultos, cfg), toQuote: false };
+  }
   if (cfg.andreaniMode === "cotizar") return { total: 0, toQuote: true };
   return andreaniQuote(cp, detalle ?? [{ kg: null, cantidad: bultos }], cfg);
 }

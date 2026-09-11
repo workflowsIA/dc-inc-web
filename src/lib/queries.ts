@@ -244,7 +244,8 @@ export const shippingConfigQuery = groq`
   *[_type == "shippingConfig" && _id == "shipping-config"][0] {
     andreaniMode,
     andreaniBands[]{ band, price },
-    batuZones[]{ zone, tramos[]{ maxBultos, price } }
+    batuZones[]{ zone, tramos[]{ maxBultos, price } },
+    bultoConsolidaMaxKg
   }
 `;
 
@@ -405,6 +406,7 @@ export interface SanityShippingConfigDoc {
   andreaniMode?: "estimado" | "cotizar";
   andreaniBands?: { band?: string; price?: number }[];
   batuZones?: { zone?: number; tramos?: { maxBultos?: number; price?: number }[] }[];
+  bultoConsolidaMaxKg?: number;
 }
 
 /** Hero/banner editable desde el Studio (ver `heroQuery` + schema `hero`).

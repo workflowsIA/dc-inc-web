@@ -18,6 +18,7 @@
     "export:meta:sheet": "tsx --env-file=.env.local scripts/export-meta-catalog-sheet.ts",
     "sync:sheet": "tsx --env-file=.env.local scripts/sync-sheet-to-sanity.ts",
     "backfill:customers": "tsx --env-file=.env.local scripts/backfill-customers.ts",
+    "migrate:customers": "tsx --env-file=.env.local scripts/migrate-customers-to-prod.ts",
     "seed:testimonials": "tsx --env-file=.env.local scripts/seed-testimonials.ts",
     "seed:shipping": "tsx --env-file=.env.local scripts/seed-shipping-config.ts",
     "sku:propose": "tsx --env-file=.env.local scripts/propose-sku-fix.ts",
@@ -34,7 +35,9 @@
     "subtypes:migrate": "tsx --env-file=.env.local scripts/migrate-subtypes.ts",
     "categories:order": "tsx --env-file=.env.local scripts/set-category-order.ts",
     "diag:presentaciones": "tsx --env-file=.env.local scripts/diag-presentaciones.ts",
-    "gsa:email": "tsx --env-file=.env.local scripts/print-service-account-email.ts"
+    "gsa:email": "tsx --env-file=.env.local scripts/print-service-account-email.ts",
+    "fichas:audit": "tsx --env-file=.env.local scripts/audit-fichas.ts",
+    "producto:foto": "tsx --env-file=.env.local scripts/set-product-image.ts"
   },
   "dependencies": {
     "@clerk/localizations": "^4.8.2",

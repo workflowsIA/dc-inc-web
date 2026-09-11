@@ -124,13 +124,25 @@ export default function ProductBuyBox({
   // Peso facturable de UN bulto de la presentación elegida: primero el de la
   // fila de la planilla (cada caja/pallet tiene el suyo), y si esa fila no lo
   // trae, el del producto base. undefined → el envío se cotiza aparte.
-  const dimsSel = presMatch?.pesoKg != null || presMatch?.largoCm != null ? presMatch : bultoDims;
-  const bultoAforado =
+  const presHasDims = presMatch?.pesoKg != null || presMatch?.largoCm != null;
+  const dimsSel = presHasDims ? presMatch : bultoDims;
+  const aforadoDims =
     aforadoKg(dimsSel?.pesoKg, {
       largo: dimsSel?.largoCm,
       ancho: dimsSel?.anchoCm,
       alto: dimsSel?.altoCm,
-    }) ?? undefined;
+    });
+  // El peso y las medidas del producto base son las de UN BULTO de
+  // `product.bulto` unidades. Si la presentación elegida tiene otra cantidad
+  // (el caso típico es "Individual", 1 u), el peso facturable se PRORRATEA:
+  // seis botellas sueltas no pesan una caja entera. Sin esto, el pedido de 14
+  // botellas sueltas de Facundo Fuentes cotizaba 14 cajas (Marce, 10-sep-2026).
+  // Si la fila de la presentación trae sus propias medidas, no se toca nada.
+  const aforadoBaseUnits = presHasDims ? unitsPerSel : product.bulto > 0 ? product.bulto : 1;
+  const bultoAforado =
+    aforadoDims === null
+      ? undefined
+      : aforadoDims * (unitsPerSel / (aforadoBaseUnits || 1));
   const selPricing: PricingInput =
     presMatch && presMatch.pricePublic != null
       ? { ...pricing, pub: presMatch.pricePublic, may: presMatch.priceWholesale ?? pricing.may }
