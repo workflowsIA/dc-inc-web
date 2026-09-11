@@ -37,7 +37,8 @@
     "diag:presentaciones": "tsx --env-file=.env.local scripts/diag-presentaciones.ts",
     "gsa:email": "tsx --env-file=.env.local scripts/print-service-account-email.ts",
     "fichas:audit": "tsx --env-file=.env.local scripts/audit-fichas.ts",
-    "producto:foto": "tsx --env-file=.env.local scripts/set-product-image.ts"
+    "producto:foto": "tsx --env-file=.env.local scripts/set-product-image.ts",
+    "producto:nombre": "tsx --env-file=.env.local scripts/set-product-name.ts"
   },
   "dependencies": {
     "@clerk/localizations": "^4.8.2",
