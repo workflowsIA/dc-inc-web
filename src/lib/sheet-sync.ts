@@ -28,6 +28,7 @@ import {
   type SheetPriceRow,
 } from "./sheet-presentations";
 import { buildDecoPricing } from "./deco";
+import { isCompleteBatuRates, parseBatuRates } from "./batu-sheet";
 
 const SHEET_PRECIOS_ID =
   process.env.SHEET_PRECIOS_ID ?? "1rQoHe-bx5x8tBcEWgGGwyWIQi3zfUvYM5b7wYiLjdf0";
@@ -57,6 +58,9 @@ export interface SyncSummary {
    *  prefijo de su SKU → no se pueden ofrecer como presentación. Para revisar
    *  con Marce (SKU mal formado o base que falta). */
   unlinkedVariants: { sku: string; name: string; unitsPerBulk: number | null }[];
+  /** Tramos de la tarifa de Batu leídos de la planilla (filas DBZ…) y escritos
+   *  en el singleton de envíos. `grandes` todavía no lo usa el cálculo. */
+  batu?: { tramos: number; grandes: number; unparsed: string[]; escrito: boolean };
   /** Productos "por color" desprendidos de un base (tapas corona). */
   variantProducts: { sku: string; baseKey: string; variant: string }[];
   /** Tarifa de decorado cargada (opciones familia×caras y tramos). */
@@ -587,7 +591,46 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
     });
   }
 
+  // --- Tarifa de DESPACHO BATU (filas DBZ… de la planilla) → singleton
+  // `shipping-config`, campo `batuZones` (solo lectura en el Studio).
+  // Pedido de Marce (11-sep-2026): "es importante que este tarifario lo tomes
+  // desde la hoja ProductosDC-Todos". Antes era una tabla cargada a mano que
+  // se desactualizaba sola. Los precios de la planilla son NETOS; el IVA lo
+  // suma batuShipping(). Ver src/lib/batu-sheet.ts.
+  const batu = parseBatuRates(sheetRows);
+  const batuOk = isCompleteBatuRates(batu);
+  if (!dryRun && batuOk) {
+    // El singleton puede no existir todavía (seed-shipping-config.ts): sin
+    // esto el patch tiraría en vez de crearlo.
+    await sanityWriteClient.createIfNotExists({
+      _id: "shipping-config",
+      _type: "shippingConfig",
+    });
+    await sanityWriteClient
+      .patch("shipping-config")
+      .set({
+        batuZones: ([1, 2, 3, 4] as const).map((z) => ({
+          _key: `z${z}`,
+          zone: z,
+          tramos: batu.zones[z].map((t) => ({
+            _key: t.sku,
+            maxBultos: t.maxBultos,
+            price: t.price,
+            ...(t.priceWholesale != null ? { priceWholesale: t.priceWholesale } : {}),
+          })),
+        })),
+        batuUpdatedAt: new Date().toISOString(),
+      })
+      .commit({ visibility: "async" });
+  }
+
   return {
+    batu: {
+      tramos: ([1, 2, 3, 4] as const).reduce((n, z) => n + batu.zones[z].length, 0),
+      grandes: ([1, 2, 3, 4] as const).reduce((n, z) => n + batu.grandes[z].length, 0),
+      unparsed: batu.unparsed,
+      escrito: batuOk && !dryRun,
+    },
     pricesRead: new Set(priceMap.values()).size,
     stockRead: stockMap.size,
     dimsRead: dimMap.size,

@@ -1,7 +1,7 @@
 "use client";
 import { presentationOptions } from "@/lib/presentations";
 import WholesaleCta from "./WholesaleCta";
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { useCart, type ProductSnapshot } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
 import { resolveDisplayPrice, type PricingInput } from "@/lib/pricing";
@@ -175,6 +175,13 @@ export default function ProductBuyBox({
   const decoMissing = decoSelectedOption
     ? Math.max(0, decoMinUnits(decoSelectedOption) - unitsTotal)
     : 0;
+  // Escala de tramos que se muestra en la ficha: la de la opcion elegida o,
+  // si todavia no eligio ninguna, la primera. Ver el bloque de la escala abajo.
+  const decoEscala = decoSelectedOption ?? decoOptions[0];
+  // Tramo en el que esta parado con la cantidad actual (para resaltarlo).
+  const decoTramoActivo = decoEscala
+    ? [...decoEscala.tiers].reverse().find((t) => unitsTotal >= t.minUnits)
+    : undefined;
   const decoFactor = finalConsumer && !wholesaleOnly ? 1 + 0.21 : 1;
   // Sufijo de IVA según el tipo de usuario.
   const ivaTag = finalConsumer && !wholesaleOnly ? "IVA incl." : "+ IVA";
@@ -389,6 +396,54 @@ export default function ProductBuyBox({
               );
             })}
           </div>
+
+          {/* ESCALA COMPLETA DE TRAMOS (Marce, 11-sep-2026: "podemos ver como queda
+              con toda la escala" + "es importante un aviso que le avise al cliente
+              que mas cantidad menos precios"). Antes la ficha mostraba solo el
+              precio del tramo correspondiente a la cantidad cargada, asi que el
+              cliente tenia que ir probando cantidades para descubrir que bajaba.
+              Ahora la escala esta a la vista y se resalta el tramo en el que
+              esta parado. */}
+          {decoEscala && decoEscala.tiers.length > 0 && (
+            <div style={{ marginTop: "12px" }}>
+              <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "6px" }}>
+                Precio por pieza — <strong style={{ color: "var(--ink)" }}>{decoEscala.label}</strong>
+                {" · "}a mayor cantidad, menor precio por pieza
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0,1fr) max-content",
+                  columnGap: "12px",
+                  rowGap: "2px",
+                  fontSize: "13px",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {decoEscala.tiers.map((t) => {
+                  const activo = decoTramoActivo?.sku === t.sku;
+                  const neto = wholesale ? t.pricePerUnit : (t.pricePerUnitPublic ?? t.pricePerUnit);
+                  const cel: React.CSSProperties = {
+                    padding: "3px 6px",
+                    borderRadius: "var(--r-sm)",
+                    background: activo ? "var(--line-2)" : undefined,
+                    color: activo ? "var(--ink)" : "var(--muted)",
+                    fontWeight: activo ? 700 : 400,
+                  };
+                  return (
+                    <Fragment key={t.sku}>
+                      <span style={cel}>
+                        Desde {t.minUnits} u{activo ? " · tu cantidad" : ""}
+                      </span>
+                      <span style={{ ...cel, textAlign: "right", whiteSpace: "nowrap" }}>
+                        {ars(neto * decoFactor)} {ivaTag}
+                      </span>
+                    </Fragment>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Cartel dinámico: cuántas piezas faltan para el mínimo de la
               opción de decorado elegida. Se recalcula en cada render con

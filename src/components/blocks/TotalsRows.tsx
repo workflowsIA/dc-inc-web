@@ -21,6 +21,15 @@ import { ars } from "@/lib/format";
  * viene con IVA (ver SHIPPING_RATES_INCLUDE_IVA en shipping.ts), así que se
  * muestra su neto y su IVA por separado en vez de dejarlo como un bloque
  * opaco que no se sabe si tributa o no.
+ *
+ * OJO AL TOCAR EL LAYOUT (Marce, 11-sep-2026: "está corrido el título de cada
+ * columna"): las cuatro columnas se alinean SOLO si todas las filas comparten
+ * UNA grilla. Antes cada fila era su propia grilla con columnas `auto`, así
+ * que cada una se anchaba según su propio contenido y los encabezados
+ * quedaban desplazados respecto de los números. Por eso ahora la grilla vive
+ * en el contenedor y cada fila aporta cuatro celdas sueltas (fragmentos), sin
+ * ningún div intermedio: cualquier wrapper que se agregue en el medio rompe
+ * de nuevo la alineación.
  */
 export interface TotalsForSummary {
   net: number;
@@ -47,7 +56,7 @@ export function TotalsRows({
   money: (n: number) => string;
 }) {
   return (
-    <div style={{ display: "grid", gap: "6px", fontSize: "13px" }}>
+    <div style={grid}>
       <Head />
 
       {t.rate > 0 && (
@@ -79,7 +88,14 @@ export function TotalsRows({
         />
       )}
 
-      <div style={{ height: "1px", background: "var(--line-2)", margin: "4px 0" }} />
+      <div
+        style={{
+          gridColumn: "1 / -1",
+          height: "1px",
+          background: "var(--line-2)",
+          margin: "4px 0",
+        }}
+      />
 
       <Line
         label={t.finalConsumer ? "Total estimado" : "Total"}
@@ -92,6 +108,18 @@ export function TotalsRows({
   );
 }
 
+/** UNA sola grilla para todas las filas: es lo que mantiene los encabezados
+ *  alineados con sus números. Las tres columnas de números se anchan con la
+ *  más ancha de toda la tabla (max-content), no fila por fila. */
+const grid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0,1fr) repeat(3, minmax(0, max-content))",
+  columnGap: "10px",
+  rowGap: "6px",
+  alignItems: "baseline",
+  fontSize: "13px",
+};
+
 /** Encabezado de las tres columnas de números. */
 function Head() {
   const th: React.CSSProperties = {
@@ -100,23 +128,17 @@ function Head() {
     letterSpacing: ".04em",
     color: "var(--muted)",
     textAlign: "right",
+    whiteSpace: "nowrap",
   };
   return (
-    <div style={gridRow}>
+    <>
       <span />
       <span style={th}>Neto</span>
       <span style={th}>IVA 21%</span>
       <span style={th}>Total</span>
-    </div>
+    </>
   );
 }
-
-const gridRow: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0,1fr) auto auto auto",
-  columnGap: "10px",
-  alignItems: "baseline",
-};
 
 function Line({
   label,
@@ -139,13 +161,13 @@ function Line({
     fontVariantNumeric: "tabular-nums",
   };
   return (
-    <div style={gridRow}>
+    <>
       <span style={{ color: muted && !strong ? "var(--muted)" : undefined, minWidth: 0 }}>
         {label}
       </span>
       <span style={{ ...num, color: "var(--muted)" }}>{neto}</span>
       <span style={{ ...num, color: "var(--muted)" }}>{iva}</span>
       <span style={{ ...num, fontWeight: strong ? 700 : 600 }}>{total}</span>
-    </div>
+    </>
   );
 }

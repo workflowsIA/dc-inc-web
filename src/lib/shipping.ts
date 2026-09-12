@@ -97,7 +97,14 @@ export const BATU_ZONE_OPTIONS: { zone: BatuZone; label: string }[] = [
   { zone: 4, label: "Zona 4 — La Plata, Pilar, Escobar, Ezeiza, Canning" },
 ];
 
-/** Tarifa PÚBLICO por zona: tramos de cantidad de bultos (hasta N → precio). */
+/**
+ * Tarifa por zona: tramos de cantidad de bultos (hasta N → precio NETO).
+ *
+ * Es solo el FALLBACK: desde el 12-sep-2026 el sync trae esta tabla de la
+ * planilla (`ProductosDC-Todos`, filas de despacho DBZ…) y la escribe en el
+ * singleton de configuración de envíos. Ver src/lib/batu-sheet.ts. Los números
+ * de acá son la columna mayorista del tarifario de julio, en NETO.
+ */
 export const BATU_RATES: Record<BatuZone, { maxBultos: number; price: number }[]> = {
   1: [{ maxBultos: 2, price: 9900 }, { maxBultos: 4, price: 13200 }, { maxBultos: 7, price: 19800 }, { maxBultos: 10, price: 26400 }, { maxBultos: 15, price: 35200 }, { maxBultos: 20, price: 41800 }],
   2: [{ maxBultos: 2, price: 12100 }, { maxBultos: 4, price: 15400 }, { maxBultos: 7, price: 23100 }, { maxBultos: 10, price: 30800 }, { maxBultos: 15, price: 39600 }, { maxBultos: 20, price: 48400 }],
@@ -137,18 +144,34 @@ export const BATU_RATES: Record<BatuZone, { maxBultos: number; price: number }[]
  * ───────────────────────────────────────────────────────────── */
 
 /**
- * Las tarifas de envío cargadas (Andreani y Batu) son PRECIOS FINALES, con IVA
- * incluido: la tabla de Andreani se relevó del panel Pymes, que cotiza con IVA,
- * y la de Batu es la columna PÚBLICO del tarifario de Marce.
+ * La tarifa de ANDREANI que devuelve el cálculo es PRECIO FINAL, con IVA
+ * incluido: se relevó del panel Pymes, que cotiza con IVA.
  *
  * Importa porque el total del pedido suma IVA sobre productos + envío: si el
  * envío ya viene con IVA, hay que pasarlo a neto antes de sumarlo, o se le
  * cobra el 21% dos veces (un envío de $23.074 se facturaba $27.919).
  *
- * Si alguna vez el tarifario pasa a cargarse en neto, esto vuelve a false y
- * todo el cálculo se acomoda solo.
+ * OJO: la de BATU es NETA en origen (ver BATU_RATES_ARE_NET). Para que este
+ * flag siga valiendo para todo el que consuma una cotización, batuShipping()
+ * le suma el IVA ANTES de devolverla: de la mitad del cálculo para abajo,
+ * todas las tarifas están en la misma base.
  */
 export const SHIPPING_RATES_INCLUDE_IVA = true;
+
+/** IVA que se le suma a la tarifa neta de Batu. Constante local a propósito:
+ *  shipping.ts no importa de pricing.ts para no acoplar el cálculo de envío
+ *  al de precios. */
+const IVA_ENVIO = 0.21;
+
+/**
+ * Las tarifas de Batu (tanto las de la planilla como el default de acá abajo)
+ * son NETAS. Confirmado por Marce el 11-sep-2026: "Es Neto, pero es importante
+ * que este tarifario lo tomes desde la hoja ProductosDC-Todos".
+ *
+ * Hasta ese día se cargaban como si fueran finales, así que el sitio venía
+ * cobrando 21% de menos en TODOS los envíos de CABA y GBA.
+ */
+export const BATU_RATES_ARE_NET = true;
 
 /** Envío en NETO, para poder sumarle el IVA junto con los productos. */
 export function shippingNet(total: number, ivaRate = 0.21): number {
@@ -257,7 +280,14 @@ export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
   bultoConsolidaMaxKg: BULTO_CONSOLIDA_MAX_KG,
 };
 
-/** Precio Batu por zona + cantidad de bultos (usa el tramo cuyo tope ≥ bultos). */
+/**
+ * Precio Batu por zona + cantidad de bultos (usa el tramo cuyo tope >= bultos).
+ *
+ * Devuelve PRECIO FINAL con IVA, aunque la tabla esté cargada en neto
+ * (BATU_RATES_ARE_NET): así todo lo que consume una cotización de envío
+ * —carrito, checkout, WhatsApp, /api/orders— trabaja con tarifas en la misma
+ * base y el desglose neto/IVA se hace en un solo lugar (shippingNet).
+ */
 export function batuShipping(
   zone: BatuZone,
   bultos: number,
@@ -265,7 +295,8 @@ export function batuShipping(
 ): number {
   const rows = cfg.batu[zone] ?? DEFAULT_SHIPPING_CONFIG.batu[zone];
   const b = Math.max(1, bultos);
-  return (rows.find((r) => b <= r.maxBultos) ?? rows[rows.length - 1]).price;
+  const neto = (rows.find((r) => b <= r.maxBultos) ?? rows[rows.length - 1]).price;
+  return BATU_RATES_ARE_NET ? neto * (1 + IVA_ENVIO) : neto;
 }
 
 /**

@@ -73,6 +73,9 @@ export default defineType({
     defineField({
       name: "batuZones",
       title: "Tarifas Batu por zona (CABA / GBA, envío propio)",
+      readOnly: true,
+      description:
+        "Se carga sola desde la planilla de precios (ProductosDC-Todos, filas de despacho DBZ…) en cada sincronización, así que editarla acá no sirve: la próxima corrida la pisa. Los precios son NETOS, tal como están en la planilla; el sitio les suma el IVA al mostrarlos. Para cambiar una tarifa, cambiala en la planilla.",
       type: "array",
       of: [
         {
@@ -101,7 +104,14 @@ export default defineType({
                   type: "object",
                   fields: [
                     { name: "maxBultos", title: "Hasta N bultos", type: "number", validation: (r) => r.required().min(1) },
-                    { name: "price", title: "Precio ($)", type: "number", validation: (r) => r.required().min(0) },
+                    { name: "price", title: "Precio NETO minorista ($)", type: "number", validation: (r) => r.required().min(0) },
+                    {
+                      name: "priceWholesale",
+                      title: "Precio NETO mayorista ($)",
+                      type: "number",
+                      description:
+                        "Referencia: el mayorista compra con envío a cotizar, así que hoy la web no cobra esta tarifa.",
+                    },
                   ],
                   preview: {
                     select: { title: "maxBultos", subtitle: "price" },
@@ -123,6 +133,13 @@ export default defineType({
           },
         },
       ],
+    }),
+    defineField({
+      name: "batuUpdatedAt",
+      title: "Tarifa Batu actualizada",
+      type: "datetime",
+      readOnly: true,
+      description: "Última vez que la sincronización trajo la tarifa de Batu de la planilla.",
     }),
   ],
   preview: {
