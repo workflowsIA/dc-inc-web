@@ -347,7 +347,14 @@ export async function notifyOrderPaid(o: OrderPaidNotification): Promise<string 
   const groupId = process.env.MONDAY_CRM_GROUP_ID; // opcional; default: primer grupo
 
   const who = o.customerCompany || o.customerName || o.customerEmail || "Cliente web";
-  const itemName = `${o.orderNumber ?? "Pedido"} — VENTA WEB pagada — ${who} — ${arsMonday(o.total)}`;
+  // El nombre ARRANCA por el cliente (Marce, 12-sep-2026: "Nombre de OT en
+  // monday tiene que ser el nombre comercial del cliente que hizo el pedido").
+  // Este item es el que él convierte en OT, y en el tablero se lee la primera
+  // parte del título: con el número de pedido adelante todas las filas
+  // empezaban igual. `who` ya prefiere la razón social sobre el nombre de
+  // contacto. El número de pedido queda igual, atrás, porque es lo que ata la
+  // OT con el pedido de la web y con Nave.
+  const itemName = `${who} — ${o.orderNumber ?? "Pedido"} — VENTA WEB pagada — ${arsMonday(o.total)}`;
 
   const created = await gql<{ create_item: { id: string } }>(
     `mutation ($board: ID!, $group: String, $name: String!) {
