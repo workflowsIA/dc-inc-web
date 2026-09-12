@@ -72,6 +72,16 @@ async function main() {
     for (const o of r.decoOptions)
       console.log(`   ${o.family.padEnd(16)} ${o.sides} cara(s)  ${o.tiers} tramos${o.setup != null ? `  montaje $${o.setup}` : ""}`);
   }
+  if (r.batu) {
+    const b = r.batu;
+    console.log(
+      `\n🚚 Tarifa Batu: ${b.tramos} tramos + ${b.grandes} de bultos grandes` +
+        ` → ${b.escrito ? "escrita en shipping-config" : "NO escrita (tabla incompleta o dry-run)"}`,
+    );
+    if (b.unparsed.length) {
+      console.log(`   ⚠️  Filas DBZ que no se pudieron leer: ${b.unparsed.join(", ")}`);
+    }
+  }
   if (r.variantProducts.length) {
     console.log(`\n🎨 Productos por color (tapas corona): ${r.variantProducts.length}`);
     for (const v of r.variantProducts) console.log(`   ${v.sku.padEnd(14)} ← ${v.baseKey}  ${v.variant}`);
