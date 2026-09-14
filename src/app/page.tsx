@@ -198,27 +198,27 @@ export default async function Home() {
   let cats: { name: string; count: string; img?: string; imageUrl?: string; slug?: string }[] = [];
   try {
     const categories = await getCategories();
-    const algunaEnHome = categories.some((c) => c.showOnHome === true);
-    cats = categories
+    // Quiénes PUEDEN estar en el home: el tile es un packshot, así que una
+    // categoría sin dibujo propio (los seis rubros históricos) y sin imagen
+    // cargada en Sanity no entra ni con el check prendido — entraría con el
+    // isotipo genérico y rompe la grilla. Para sumar una nueva hay que cargarle
+    // una imagen.
+    const candidatas = categories
       .map((c) => ({ c, n: catCounts[c.name] ?? 0 }))
-      .filter(({ c, n }) => {
-        if (n === 0) return false;
-        // REQUISITO DURO: el tile del home es un packshot. Una categoría sin
-        // dibujo propio (los seis rubros históricos) y sin imagen cargada en
-        // Sanity NO puede ir al home aunque le prendan el check: entraría con el
-        // isotipo genérico y rompe la grilla. Para sumar una nueva hay que
-        // cargarle una imagen en la categoría.
-        const tieneDibujo =
-          CAT_IMG_BY_SLUG[c.slug] !== undefined || CAT_IMG[c.name] !== undefined || !!c.image;
-        if (!tieneDibujo) return false;
-        // Si NINGUNA categoría tiene el check prendido, el check no se usó como
-        // criterio (o alguien lo apagó en bloque) y mandan las que tienen
-        // dibujo. Sin esto el home se quedaba sin tiles y caía en la lista
-        // hardcodeada, que muestra categorías que ya no existen y conteos
-        // viejos — que es lo que estaba pasando en producción el 14-sep-2026.
-        if (algunaEnHome && typeof c.showOnHome === "boolean") return c.showOnHome;
-        return true;
-      })
+      .filter(
+        ({ c, n }) =>
+          n > 0 &&
+          (CAT_IMG_BY_SLUG[c.slug] !== undefined ||
+            CAT_IMG[c.name] !== undefined ||
+            !!c.image),
+      );
+    // Y de esas, las marcadas. Si no hay ninguna marcada, van todas las
+    // candidatas: nunca una grilla vacía. Eso cubre el estado real del 14-sep
+    // (las nueve categorías en false, que no quiere decir "ninguna en el home"
+    // sino que el check nunca se usó) y evita que prender una sola apague las
+    // otras cinco de rebote.
+    const marcadas = candidatas.filter(({ c }) => c.showOnHome === true);
+    cats = (marcadas.length ? marcadas : candidatas)
       // Orden de los tiles = campo "Orden" de la categoría en Sanity (mismo
       // criterio que el filtro del catálogo). Sin orden, primero los que más
       // productos tienen.
