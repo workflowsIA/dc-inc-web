@@ -2,6 +2,7 @@
 import { presentationOptions } from "@/lib/presentations";
 import WholesaleCta from "./WholesaleCta";
 import { useState, Fragment } from "react";
+import QtyInput from "./QtyInput";
 import { useCart, type ProductSnapshot } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
 import { resolveDisplayPrice, type PricingInput } from "@/lib/pricing";
@@ -100,6 +101,12 @@ export default function ProductBuyBox({
   // decoOptions. Se cotiza por tramo según la cantidad total de piezas y se
   // agrega como línea aparte (SKU del tramo). Ver src/lib/deco.ts.
   const [decoIdx, setDecoIdx] = useState(-1);
+  // El bloque de decorado arranca plegado. Con la escala completa de tramos a la
+  // vista (que pidió Marce el 11-sep-2026) empujaba la cantidad, el subtotal y el
+  // botón "Agregar al carrito" muy abajo de la ficha —ese fue su comentario del
+  // 12-sep—. Plegado, el precio y el CTA quedan juntos y el decorado se abre solo
+  // si al cliente le interesa.
+  const [decoOpen, setDecoOpen] = useState(false);
 
   const sel = hasPres ? presList[idx] : null;
   // Venta por bulto cerrado: si no hay presentaciones explícitas, caemos al
@@ -365,11 +372,46 @@ export default function ProductBuyBox({
 
       {decoOptions.length > 0 && !wholesaleOnly && (
         <div style={{ marginTop: "18px", padding: "16px", border: "1px solid var(--line)", borderRadius: "var(--r-lg)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Decorado con tu marca (opcional)</span>
-            <span style={{ fontSize: "12px", color: "var(--muted)" }}>
-              Serigrafía · desde {Math.min(...decoOptions.map(decoMinUnits))} u · el arte se coordina por WhatsApp
+          <button
+            type="button"
+            onClick={() => setDecoOpen((v) => !v)}
+            aria-expanded={decoOpen}
+            style={{
+              display: "flex",
+              width: "100%",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              gap: "12px",
+              flexWrap: "wrap",
+              background: "none",
+              border: 0,
+              padding: 0,
+              cursor: "pointer",
+              textAlign: "left",
+            }}
+          >
+            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>
+              Decorado con tu marca (opcional)
             </span>
+            <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+              {decoOpen
+                ? "Ocultar opciones"
+                : decoSelectedOption
+                  ? `${decoSelectedOption.label} · cambiar`
+                  : `Serigrafía · desde ${Math.min(...decoOptions.map(decoMinUnits))} u · ver opciones`}{" "}
+              <span
+                aria-hidden
+                style={{ display: "inline-block", transform: decoOpen ? "rotate(180deg)" : undefined }}
+              >
+                ▾
+              </span>
+            </span>
+          </button>
+
+          {decoOpen && (
+            <>
+          <div style={{ marginTop: "8px", fontSize: "12px", color: "var(--muted)" }}>
+            Serigrafía · el arte se coordina por WhatsApp
           </div>
           <div className="chips" style={{ marginTop: "8px" }}>
             <button type="button" className={`chip ${decoIdx < 0 ? "on" : ""}`} onClick={() => setDecoIdx(-1)}>
@@ -459,6 +501,8 @@ export default function ProductBuyBox({
               {decoSelectedOption.label}).
             </div>
           )}
+            </>
+          )}
         </div>
       )}
 
@@ -480,13 +524,7 @@ export default function ProductBuyBox({
             <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Menos">
               −
             </button>
-            <input
-              type="number"
-              min={1}
-              value={qty}
-              onChange={(e) => setQty(Math.max(1, parseInt(e.target.value || "1")))}
-              aria-label="Cantidad"
-            />
+            <QtyInput value={qty} onChange={setQty} ariaLabel="Cantidad" />
             <button type="button" onClick={() => setQty((q) => q + 1)} aria-label="Más">
               +
             </button>

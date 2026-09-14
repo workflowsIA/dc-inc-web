@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import FiltersPanel from "@/components/blocks/FiltersPanel";
 import Link from "next/link";
 import { X } from "lucide-react";
 import ProductCard from "@/components/blocks/ProductCard";
@@ -125,6 +126,9 @@ export default async function CatalogPage({
   }
 
   const hasFilter = !!(q || cat || subSet.size > 0 || hasMin || hasMax);
+  // Se muestra en el botón "Filtros" cuando el panel está cerrado en mobile. El
+  // texto buscado no cuenta: ya se ve en el buscador y en los chips de arriba.
+  const activeFilterCount = (cat ? 1 : 0) + subSet.size + (hasMin ? 1 : 0) + (hasMax ? 1 : 0);
 
   // Paginación
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
@@ -191,6 +195,7 @@ export default async function CatalogPage({
       <div className="catalog-layout">
         {/* SIDEBAR FILTROS */}
         <aside className="catalog-aside">
+          <FiltersPanel activeCount={activeFilterCount}>
           <div
             style={{
               border: "1px solid var(--line)",
@@ -338,6 +343,7 @@ export default async function CatalogPage({
               </>
             )}
           </div>
+          </FiltersPanel>
         </aside>
 
         {/* CONTENIDO: chips de filtros activos + grilla */}

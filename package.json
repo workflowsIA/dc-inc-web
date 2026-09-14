@@ -28,6 +28,7 @@
     "sku:lookup": "tsx --env-file=.env.local scripts/lookup-precio.ts",
     "stock:check": "tsx --env-file=.env.local scripts/check-stock.ts",
     "csv:import": "tsx --env-file=.env.local scripts/import-products-csv.ts",
+    "csv:check": "node scripts/check-csv-parse.mjs",
     "monday:test": "tsx --env-file=.env.local scripts/test-monday.ts",
     "orders:cleanup": "tsx --env-file=.env.local scripts/cleanup-test-orders.ts",
     "drafts:cleanup": "tsx --env-file=.env.local scripts/cleanup-sheet-drafts.ts",

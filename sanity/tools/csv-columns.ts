@@ -12,6 +12,10 @@
  * son merchandising que Marce controla manualmente y el sync no toca.
  */
 
+// `norm` vive en csv-parse.ts (sin dependencias, testeable con npm run csv:check).
+// Se re-exporta acá porque el resto del código lo venía importando desde este módulo.
+export { norm } from "./csv-parse";
+
 export type ColumnKind =
   | "string"
   | "text"
@@ -171,11 +175,12 @@ export const COLUMNS: ColumnDef[] = [
 /** Header de la columna llave (identifica el producto). */
 export const SKU_HEADERS = ["sku", "codigo", "código", "cod"];
 
-/** Normaliza un texto para comparar headers/valores (sin acentos, minúsculas, trim). */
-export function norm(s: string): string {
-  return (s ?? "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .trim()
-    .toLowerCase();
-}
+/**
+ * Header de la columna de publicación. No es un campo del schema: dice si el
+ * producto está visible en la web (publicado) o sigue como borrador. Lo pidió
+ * Marce (12-sep-2026) para poder publicar/despublicar en lote desde el CSV.
+ */
+export const PUBLISH_HEADERS = ["publicado", "publicar", "published", "visible en la web", "visible"];
+
+/** Etiqueta de la columna de publicación en el export y la plantilla. */
+export const PUBLISH_LABEL = "Publicado";

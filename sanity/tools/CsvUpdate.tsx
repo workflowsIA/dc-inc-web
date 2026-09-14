@@ -22,7 +22,7 @@ import {
   UploadIcon,
   WarningOutlineIcon,
 } from "@sanity/icons";
-import { COLUMNS, norm } from "./csv-columns";
+import { COLUMNS, PUBLISH_LABEL, norm } from "./csv-columns";
 import {
   buildPlan,
   display,
@@ -113,6 +113,21 @@ function exportCell(field: string, doc: ProductDoc): string {
   return String(v);
 }
 
+/**
+ * Copia de un documento lista para `createOrReplace` con otro _id.
+ * Se sacan los campos de sistema: `_rev` haría fallar el commit por conflicto y
+ * las fechas las rescribe Sanity.
+ */
+function withoutSystemFields(doc: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...doc };
+  delete out._id;
+  delete out._rev;
+  delete out._createdAt;
+  delete out._updatedAt;
+  delete out._system;
+  return out;
+}
+
 /* ---------------- Componente ---------------- */
 
 export function CsvUpdate() {
@@ -125,6 +140,7 @@ export function CsvUpdate() {
   const [csvText, setCsvText] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");
   const [applying, setApplying] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [createNew, setCreateNew] = useState(false);
 
   // Fetch puro (sin setState) para poder reusarlo desde el efecto y tras aplicar.
@@ -167,7 +183,21 @@ export function CsvUpdate() {
     if (!f) return;
     setFileName(f.name);
     const reader = new FileReader();
-    reader.onload = () => setCsvText(String(reader.result ?? ""));
+    reader.onload = async () => {
+      const text = String(reader.result ?? "");
+      // Releemos catálogo + categorías + subtipos ANTES de analizar. Marce
+      // (12-sep-2026) creó los subtipos que faltaban en otra pestaña y el CSV
+      // seguía dando "no existe en Sanity": el mapa de referencias se cargaba
+      // una sola vez al abrir la herramienta y quedaba viejo.
+      setRefreshing(true);
+      try {
+        setData(await fetchData());
+      } catch {
+        /* si falla el refresh seguimos con lo que había en memoria */
+      }
+      setRefreshing(false);
+      setCsvText(text);
+    };
     reader.readAsText(f, "utf-8");
   };
 
@@ -204,7 +234,10 @@ export function CsvUpdate() {
   };
 
   const applyChanges = async () => {
-    if (!plan || plan.toUpdate.length === 0) return;
+    if (!plan) return;
+    const visibility = [...plan.toPublish, ...plan.toUnpublish];
+    if (plan.toUpdate.length === 0 && plan.toCreate.filter((c) => c.doc).length === 0 && visibility.length === 0)
+      return;
     setApplying(true);
     try {
       // 1) Armar el `set` de cada producto, resolviendo imágenes (subida async).
@@ -237,16 +270,65 @@ export function CsvUpdate() {
         await tx.commit();
       }
 
-      if (rowSets.length > 0 || creatable.length > 0) {
+      // 3) Publicar / despublicar (columna "Publicado"). Va DESPUÉS de los
+      // patches para que lo que sale a la web lleve ya los cambios de esta misma
+      // corrida. Publicar = copiar el borrador al id público y borrar el
+      // borrador; despublicar = al revés.
+      let publishedCount = 0;
+      let unpublishedCount = 0;
+      const visibilityErrors: string[] = [];
+      if (visibility.length > 0) {
+        const srcIds = visibility.map((r) =>
+          r.publish!.kind === "publish" ? r.publish!.draftId : r.publish!.publishedId,
+        );
+        const srcDocs = await client.fetch<Record<string, unknown>[]>(`*[_id in $ids]`, {
+          ids: srcIds,
+        });
+        const byId = new Map(srcDocs.map((d) => [d._id as string, d]));
+        const tx = client.transaction();
+        let queued = 0;
+        for (const r of visibility) {
+          const act = r.publish!;
+          const srcId = act.kind === "publish" ? act.draftId : act.publishedId;
+          const dstId = act.kind === "publish" ? act.publishedId : act.draftId;
+          const src = byId.get(srcId);
+          if (!src) {
+            visibilityErrors.push(
+              `${r.sku}: no encontré el documento para ${act.kind === "publish" ? "publicarlo" : "despublicarlo"}`,
+            );
+            continue;
+          }
+          tx.createOrReplace({ ...withoutSystemFields(src), _id: dstId } as {
+            _id: string;
+            _type: string;
+          });
+          tx.delete(srcId);
+          queued++;
+          if (act.kind === "publish") publishedCount++;
+          else unpublishedCount++;
+        }
+        if (queued > 0) await tx.commit();
+      }
+
+      if (rowSets.length > 0 || creatable.length > 0 || publishedCount > 0 || unpublishedCount > 0) {
         toast.push({
           status: "success",
           title: "Cambios aplicados",
           description: [
             rowSets.length > 0 ? `${rowSets.length} actualizado(s)` : "",
             creatable.length > 0 ? `${creatable.length} borrador(es) nuevo(s)` : "",
+            publishedCount > 0 ? `${publishedCount} publicado(s)` : "",
+            unpublishedCount > 0 ? `${unpublishedCount} despublicado(s)` : "",
           ]
             .filter(Boolean)
             .join(" · "),
+        });
+      }
+      if (visibilityErrors.length > 0) {
+        toast.push({
+          status: "warning",
+          title: `${visibilityErrors.length} cambio(s) de publicación fallaron`,
+          description: visibilityErrors.slice(0, 4).join("  ·  "),
         });
       }
       if (imageErrors.length > 0) {
@@ -276,18 +358,44 @@ export function CsvUpdate() {
     }
   };
 
+  /**
+   * Export del catálogo COMPLETO — publicados y borradores (pedido de Marce,
+   * 12-sep-2026: "el sanity me tendría que descargar TODOS los productos").
+   * Antes filtraba los borradores y quedaban afuera justo los que hay que
+   * completar. Una fila por SKU: si el producto tiene borrador y publicado se
+   * exporta el BORRADOR (es la versión más nueva, la que se ve en el Studio) y
+   * la columna "Publicado" dice si está en la web.
+   */
   const exportCurrent = () => {
     if (!data) return;
-    const headers = ["SKU", ...COLUMNS.map((c) => c.label)];
-    const rows = data.products
-      .filter((p) => !p._id.startsWith("drafts."))
-      .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
-      .map((p) => [p.sku ?? "", ...COLUMNS.map((c) => exportCell(c.field, p))]);
+    const headers = ["SKU", ...COLUMNS.map((c) => c.label), PUBLISH_LABEL];
+    const bySku = new Map<string, { doc: ProductDoc; published: boolean }>();
+    for (const p of data.products) {
+      if (!p.sku) continue;
+      const k = norm(p.sku);
+      const isDraft = p._id.startsWith("drafts.");
+      const prev = bySku.get(k);
+      if (!prev) {
+        bySku.set(k, { doc: p, published: !isDraft });
+      } else {
+        bySku.set(k, {
+          doc: isDraft ? p : prev.doc,
+          published: prev.published || !isDraft,
+        });
+      }
+    }
+    const rows = [...bySku.values()]
+      .sort((a, b) => (a.doc.name ?? "").localeCompare(b.doc.name ?? ""))
+      .map(({ doc, published }) => [
+        doc.sku ?? "",
+        ...COLUMNS.map((c) => exportCell(c.field, doc)),
+        published ? "Sí" : "No",
+      ]);
     downloadText("productos-dc-inc.csv", toCsv(headers, rows));
   };
 
   const downloadTemplate = () => {
-    const headers = ["SKU", ...COLUMNS.map((c) => c.label)];
+    const headers = ["SKU", ...COLUMNS.map((c) => c.label), PUBLISH_LABEL];
     // Ejemplo por campo (así queda alineado aunque cambie el orden de columnas).
     const sample: Record<string, string> = {
       name: "Nombre de ejemplo",
@@ -300,7 +408,7 @@ export function CsvUpdate() {
       specs: "Material: Vidrio; Color: Ámbar",
       images: "https://cdn.sanity.io/images/4sov2yyo/production/…-1200x1200.jpg",
     };
-    const example = ["EJEMPLO-SKU-001", ...COLUMNS.map((c) => sample[c.field] ?? "")];
+    const example = ["EJEMPLO-SKU-001", ...COLUMNS.map((c) => sample[c.field] ?? ""), "Sí"];
     downloadText("plantilla-actualizar-productos.csv", toCsv(headers, [example]));
   };
 
@@ -336,6 +444,12 @@ export function CsvUpdate() {
               Descargá los productos actuales, editá lo que necesites en Excel/Sheets y volvé a
               subir el archivo. Dejá vacía una celda para no tocar ese campo.
             </Text>
+            <Text size={1} muted>
+              El export trae <b>todo el catálogo</b>, publicados y borradores. La columna{" "}
+              <b>Publicado</b> (Sí/No) dice si el producto está en la web: cambiala y al subir el
+              archivo se publica o se despublica. Para publicar, el producto tiene que tener
+              categoría.
+            </Text>
             <Inline space={2}>
               <Button
                 icon={DownloadIcon}
@@ -362,7 +476,8 @@ export function CsvUpdate() {
             </Text>
             <Text size={1} muted>
               Sirve tanto <b>nuestro formato</b> como el <b>export de Wix</b> — reconozco los nombres
-              de columna de los dos. Solo hace falta la columna <b>SKU</b>.
+              de columna de los dos. Solo hace falta la columna <b>SKU</b>. Al elegir el archivo
+              releo categorías y subtipos, así que si acabás de crear uno ya lo toma.
             </Text>
             <Flex align="center" gap={3}>
               <input
@@ -424,10 +539,32 @@ export function CsvUpdate() {
         </Flex>
       )}
 
+      {refreshing && (
+        <Flex align="center" gap={3} paddingY={4}>
+          <Spinner muted />
+          <Text size={1} muted>
+            Releyendo catálogo, categorías y subtipos…
+          </Text>
+        </Flex>
+      )}
+
       {/* Errores de parseo / columnas */}
       {analysis && analysis.error && (
         <Card tone="caution" padding={4} radius={3} marginTop={4}>
           <Text size={1}>{analysis.error}</Text>
+        </Card>
+      )}
+
+      {/* Avisos del archivo (columnas repetidas, filas desalineadas) */}
+      {analysis && analysis.warnings.length > 0 && (
+        <Card tone="caution" padding={4} radius={3} marginTop={4}>
+          <Stack space={2}>
+            {analysis.warnings.map((w, i) => (
+              <Text key={i} size={1}>
+                {w}
+              </Text>
+            ))}
+          </Stack>
         </Card>
       )}
 
@@ -456,16 +593,36 @@ export function CsvUpdate() {
             <Stat label="Con errores" value={plan.withErrors.length} tone={plan.withErrors.length ? "critical" : "default"} />
           </Grid>
 
+          {(plan.toPublish.length > 0 || plan.toUnpublish.length > 0) && (
+            <Grid columns={[2, 2, 4]} gap={3}>
+              <Stat
+                label="Se publican"
+                value={plan.toPublish.length}
+                tone={plan.toPublish.length ? "positive" : "default"}
+              />
+              <Stat
+                label="Se despublican"
+                value={plan.toUnpublish.length}
+                tone={plan.toUnpublish.length ? "caution" : "default"}
+              />
+            </Grid>
+          )}
+
           {/* Barra de acción */}
           <Card padding={3} radius={3} border tone="transparent">
             <Flex align="center" justify="space-between" wrap="wrap" gap={3}>
               <Text size={1} muted>
-                {plan.toUpdate.length > 0 || createdCount > 0
+                {plan.toUpdate.length > 0 ||
+                createdCount > 0 ||
+                plan.toPublish.length > 0 ||
+                plan.toUnpublish.length > 0
                   ? [
                       plan.toUpdate.length > 0
                         ? `${plan.totalFieldChanges} cambio(s) en ${plan.toUpdate.length} producto(s)`
                         : "",
                       createdCount > 0 ? `${createdCount} alta(s) como borrador` : "",
+                      plan.toPublish.length > 0 ? `${plan.toPublish.length} a publicar` : "",
+                      plan.toUnpublish.length > 0 ? `${plan.toUnpublish.length} a despublicar` : "",
                     ]
                       .filter(Boolean)
                       .join(" · ")
@@ -475,7 +632,13 @@ export function CsvUpdate() {
                 icon={CheckmarkCircleIcon}
                 text={applying ? "Aplicando…" : "Aplicar cambios"}
                 tone="positive"
-                disabled={(plan.toUpdate.length === 0 && createdCount === 0) || applying}
+                disabled={
+                  (plan.toUpdate.length === 0 &&
+                    createdCount === 0 &&
+                    plan.toPublish.length === 0 &&
+                    plan.toUnpublish.length === 0) ||
+                  applying
+                }
                 onClick={applyChanges}
               />
             </Flex>
@@ -578,6 +741,37 @@ export function CsvUpdate() {
             />
           )}
 
+          {/* Cambios de visibilidad */}
+          {(plan.toPublish.length > 0 || plan.toUnpublish.length > 0) && (
+            <Stack space={3}>
+              <Text size={1} weight="semibold" muted>
+                CAMBIOS DE PUBLICACIÓN
+              </Text>
+              <Stack space={2}>
+                {[...plan.toPublish, ...plan.toUnpublish].map((r) => (
+                  <Card key={`pub-${r.sku}`} padding={3} radius={3} border>
+                    <Flex align="center" gap={2} wrap="wrap">
+                      <Badge tone={r.publish!.kind === "publish" ? "positive" : "caution"} fontSize={0}>
+                        {r.publish!.kind === "publish" ? "PUBLICAR" : "DESPUBLICAR"}
+                      </Badge>
+                      <Text size={1} weight="semibold">
+                        {r.sku}
+                      </Text>
+                      <Text size={1} muted>
+                        · {r.name ?? "(sin nombre)"}
+                      </Text>
+                      {r.publish!.warning && (
+                        <Text size={1} style={{ color: "#B7791F" }}>
+                          · {r.publish!.warning}
+                        </Text>
+                      )}
+                    </Flex>
+                  </Card>
+                ))}
+              </Stack>
+            </Stack>
+          )}
+
           {/* No encontrados */}
           {plan.notFound.length > 0 && (
             <IssueList
@@ -586,7 +780,7 @@ export function CsvUpdate() {
               icon={<WarningOutlineIcon />}
               items={plan.notFound.map((r) => ({
                 sku: r.sku,
-                name: undefined,
+                name: r.line ? `fila ${r.line} del archivo` : undefined,
                 lines: ["No existe un producto con este SKU. Las altas de productos nuevos se hacen por la planilla / script."],
               }))}
             />

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import QtyInput from "@/components/blocks/QtyInput";
 import { OrderNotices } from "@/components/blocks/OrderNotices";
 import { useEffect, useState } from "react";
 import { useCart, lineKey } from "@/lib/cart-store";
@@ -173,18 +174,17 @@ export default function CarritoPage() {
                     <button className="btn btn-ghost btn-sm" onClick={() => setQty(lineKey(i), i.qty - step)}>
                       −
                     </button>
-                    <input
-                      type="number"
-                      min={1}
+                    <QtyInput
                       value={bultos}
-                      onChange={(e) => setQty(lineKey(i), (parseInt(e.target.value || "1") || 1) * step)}
-                      aria-label={step > 1 ? "Cantidad de bultos" : "Cantidad"}
+                      onChange={(n) => setQty(lineKey(i), n * step)}
+                      ariaLabel={step > 1 ? "Cantidad de bultos" : "Cantidad"}
                       style={{
-                        width: "60px",
+                        width: "64px",
                         textAlign: "center",
                         padding: "8px",
                         border: "1px solid var(--line-2)",
                         borderRadius: "var(--r-sm)",
+                        fontSize: "16px",
                       }}
                     />
                     <button className="btn btn-ghost btn-sm" onClick={() => setQty(lineKey(i), i.qty + step)}>

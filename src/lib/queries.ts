@@ -182,7 +182,7 @@ export const featuredProductsQuery = groq`
 /** Categorías activas para sidebar y home. */
 export const categoriesQuery = groq`
   *[_type == "category"] | order(order asc, name asc) {
-    _id, name, order, "slug": slug.current, "image": image.asset->url
+    _id, name, order, showOnHome, "slug": slug.current, "image": image.asset->url
   }
 `;
 
@@ -356,6 +356,8 @@ export interface SanityCategory {
   slug: string;
   order?: number;
   image?: string;
+  /** Check "Mostrar en el home" del Studio. `undefined` = nunca se tocó. */
+  showOnHome?: boolean;
 }
 
 /** SKU incluido en un combo (sólo los campos que muestra la ficha). */

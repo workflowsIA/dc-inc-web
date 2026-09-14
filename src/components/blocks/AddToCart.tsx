@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import QtyInput from "./QtyInput";
 import { Plus, Check } from "lucide-react";
 import { useCart, type ProductSnapshot } from "@/lib/cart-store";
 
@@ -55,12 +56,10 @@ export function AddToCartBox({
         <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Menos">
           −
         </button>
-        <input
-          type="number"
-          min={1}
+        <QtyInput
           value={qty}
-          onChange={(e) => setQty(Math.max(1, parseInt(e.target.value || "1")))}
-          aria-label={step > 1 ? "Cantidad de bultos" : "Cantidad"}
+          onChange={setQty}
+          ariaLabel={step > 1 ? "Cantidad de bultos" : "Cantidad"}
         />
         <button type="button" onClick={() => setQty((q) => q + 1)} aria-label="Más">
           +

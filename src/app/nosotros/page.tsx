@@ -89,17 +89,27 @@ export default async function NosotrosPage() {
           </h2>
           <div className="grid grid-4" style={{ marginTop: "24px" }}>
             {clients.map((c) => (
+              // El logo se posiciona absoluto adentro del casillero (mismo patrón
+              // que .pcard-media/.pcard-img del catálogo) en vez de depender de
+              // maxHeight:100%. Safari no resuelve un alto en porcentaje contra
+              // una caja dimensionada por `aspect-ratio`: ignoraba el tope, el
+              // logo tomaba el ancho completo y los cuadrados se salían del
+              // casillero — en el iPhone se veían enormes y rompían la grilla
+              // (reporte de Marce, 14-sep-2026). En Chrome no se notaba.
               <div
                 key={c._id}
                 title={c.name}
                 style={{
+                  position: "relative",
                   aspectRatio: "3/2",
                   background: "var(--bg-2)",
                   border: "1px solid var(--line)",
                   borderRadius: "var(--r)",
+                  overflow: "hidden",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  textAlign: "center",
                   color: "var(--muted)",
                   fontSize: "14px",
                   fontWeight: 600,
@@ -110,10 +120,10 @@ export default async function NosotrosPage() {
                   <Image
                     src={c.logo}
                     alt={c.name}
-                    width={160}
-                    height={80}
+                    fill
+                    sizes="(max-width: 860px) 45vw, 220px"
                     unoptimized
-                    style={{ objectFit: "contain", maxHeight: "100%", maxWidth: "100%", width: "auto" }}
+                    style={{ objectFit: "contain", padding: "12px" }}
                   />
                 ) : (
                   c.name

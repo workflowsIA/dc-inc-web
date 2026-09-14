@@ -212,6 +212,16 @@ p{ margin:0; }
 .search svg{ width:17px; height:17px; flex:none; }
 .search input{ background:none; border:none; outline:none; color:#fff; font-family:var(--body); font-size:14px; width:100%; }
 .search input::placeholder{ color:#9d9d99; }
+/* Botón para vaciar/cerrar el buscador. En mobile el panel de resultados ocupa
+   media pantalla y "tocar fuera" no siempre se descubre: esta es la salida
+   explícita (reporte de Marce, 14-sep-2026). */
+.search-clear{
+  flex:none; display:inline-flex; align-items:center; justify-content:center;
+  width:24px; height:24px; margin:-4px -6px -4px 0; border:0; background:none;
+  color:#9d9d99; cursor:pointer; border-radius:999px;
+}
+.search-clear:hover{ color:#fff; }
+.search-clear svg{ width:15px; height:15px; }
 .hdr .mobile-only{ display:none; }
 .icon-btn{
   position:relative; width:42px; height:42px; border-radius:10px; border:1px solid rgba(255,255,255,.12);
@@ -229,7 +239,17 @@ p{ margin:0; }
 
 /* benefits bar */
 .benefits{ background:var(--ink); color:#d8d8d4; border-top:1px solid rgba(255,255,255,.07); overflow:hidden; }
-.benefits .wrap{ display:flex; align-items:center; gap:6px; overflow-x:auto; scrollbar-width:none; }
+/* touch-action:pan-y — esta barra vive DENTRO del header sticky, o sea que está
+   siempre pegada al borde superior de la pantalla. Cuando es un scroller
+   horizontal (en desktop, y en mobile cuando el visitante tiene "Reducir
+   movimiento" activado y se apaga el marquee), iOS le entrega el gesto a ella:
+   el dedo que baja desde arriba para volver al principio de la página no mueve
+   nada y el sitio parece trabado. Con pan-y el movimiento vertical es siempre
+   de la página. Reporte de Marce, 14-sep-2026. */
+.benefits .wrap{
+  display:flex; align-items:center; gap:6px; overflow-x:auto; scrollbar-width:none;
+  touch-action:pan-y; overscroll-behavior-x:contain;
+}
 .benefits .wrap::-webkit-scrollbar{ display:none; }
 .benefits-track{ display:flex; align-items:center; gap:6px; flex:none; }
 /* La copia duplicada solo existe para que el marquee mobile sea continuo. */
@@ -259,6 +279,13 @@ p{ margin:0; }
 
 /* ---------- product card ---------- */
 .grid{ display:grid; gap:22px; }
+/* Un `1fr` es en realidad minmax(auto,1fr): el mínimo es el min-content del
+   hijo. Si adentro hay una imagen grande, Safari toma su ancho intrínseco como
+   mínimo (el max-width:100% no le alcanza para romper la circularidad), la
+   columna se estira más allá de la pantalla y Safari termina alejando el zoom
+   de TODA la página para que entre. Fue lo que pasó con los logos de /nosotros
+   el 14-sep-2026. Con min-width:0 la columna manda y el contenido se adapta. */
+.grid-2 > *, .grid-3 > *, .grid-4 > *{ min-width:0; }
 .grid-4{ grid-template-columns:repeat(4,1fr); }
 .grid-3{ grid-template-columns:repeat(3,1fr); }
 .grid-2{ grid-template-columns:repeat(2,1fr); }
@@ -497,9 +524,38 @@ textarea.input{ resize:vertical; min-height:96px; line-height:1.5; }
 .tiles-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
 .approval-row{ display:grid; grid-template-columns:1fr auto; gap:16px; align-items:center; }
 
+/* ---------- filtros del catálogo ----------
+   En el celular la lista de subtipos son ~25 checkboxes: ocupaba dos pantallas
+   enteras ARRIBA de los productos y daba la sensación de catálogo vacío
+   (reporte de Marce, 14-sep-2026). Abajo de 860px el panel arranca cerrado y
+   queda un botón "Filtros". En desktop no cambia nada: el botón no se muestra y
+   el cuerpo está siempre visible. */
+.filters-toggle{ display:none; }
+@media(max-width:860px){
+  .filters-toggle{
+    display:flex; align-items:center; gap:10px; width:100%; padding:14px 16px;
+    background:#fff; border:1px solid var(--line); border-radius:var(--r-lg);
+    font-family:var(--display); font-weight:700; font-size:15px; color:var(--ink);
+  }
+  .filters-toggle svg{ width:17px; height:17px; color:var(--muted); flex:none; }
+  .filters-count{
+    display:inline-flex; align-items:center; justify-content:center; min-width:20px;
+    height:20px; padding:0 6px; border-radius:999px; background:var(--amber);
+    color:var(--charcoal); font-family:var(--mono); font-size:12px; font-weight:700;
+  }
+  .filters-chev{ margin-left:auto; transition:transform .2s; }
+  .filters-panel[data-open="1"] .filters-chev{ transform:rotate(180deg); }
+  .filters-panel[data-open="0"] .filters-body{ display:none; }
+  .filters-panel[data-open="1"] .filters-body{ margin-top:12px; }
+}
+
 @media(max-width:860px){
   .catalog-layout{ grid-template-columns:1fr; }
   .catalog-aside{ position:static; }
+  /* iOS hace zoom sobre cualquier input de menos de 16px al enfocarlo: además de
+     pelearse con el número, al visitante se le corría toda la página. */
+  .qty input{ font-size:16px; width:62px; }
+  .qty button{ width:44px; }
   .product-layout{ grid-template-columns:1fr; gap:28px; }
   .cart-layout{ grid-template-columns:1fr; }
   .tiles-3{ grid-template-columns:repeat(2,1fr); }

@@ -59,6 +59,30 @@ const CAT_IMG: Record<string, string> = {
   Botellones: "cat-botellones",
 };
 
+/**
+ * Mismo packshot pero indexado por SLUG de la categoría. El slug no cambia
+ * cuando se renombra la categoría en Sanity, así que el ícono (y el tile)
+ * sobreviven a un cambio de nombre — que es lo que rompió el tile de tapas el
+ * 12-sep-2026. CAT_IMG (por nombre) queda como respaldo.
+ */
+const CAT_IMG_BY_SLUG: Record<string, string> = {
+  botellas: "cat-botellas",
+  latas: "cat-latas",
+  "copas-y-vasos": "cat-copas-vasos",
+  "cajas-y-estuches": "cat-cajas",
+  "tapas-y-precintos": "cat-tapas-precintos",
+  // Marce partió "Tapas y precintos" en dos (12-sep-2026): "Tapas y tapones" y
+  // "Precintos". Si además de renombrar regeneró el slug, este alias hace que el
+  // tile vuelva solo con su chapita. "Precintos" queda fuera del home a
+  // propósito: es la categoría nueva que dijo que no hace falta mostrar. Si
+  // alguna vez la quiere, se prende con el check "Mostrar en el home".
+  "tapas-y-tapones": "cat-tapas-precintos",
+  botellones: "cat-botellones",
+};
+
+/** Ícono neutro de marca para categorías sin packshot propio. */
+const CAT_IMG_GENERIC = "cat-generic";
+
 // Fallback si Sanity no responde.
 const categoryDataFallback: { name: string; count: string; img?: string }[] = [
   { name: "Botellas", count: "~140", img: "cat-botellas" },
@@ -157,34 +181,46 @@ export default async function Home() {
   }
   featured = featured.slice(0, FEATURED_MAX);
 
-  // Tiles de categoría: los 6 rubros canónicos de DC Inc (los que tienen ícono
-  // propio en CAT_IMG), en el orden del campo "Orden" de cada categoría. Seleccionando
-  // solo las categorías canónicas evitamos que un rubro de cola (Válvulas,
-  // Accesorios, Otros) se cuele en la grilla, y garantizamos que aparezcan las 6
-  // (incluida "Cajas y estuches") mientras tengan al menos un producto.
+  // Tiles de categoría. ANTES la grilla salía de una lista fija de NOMBRES en el
+  // código (Object.keys(CAT_IMG)): si el nombre de la categoría en Sanity no
+  // coincidía exacto, el tile desaparecía. Eso fue lo que pasó el 12-sep-2026
+  // cuando Marce renombró "Tapas y precintos" desde el CSV.
+  //
+  // Ahora las categorías salen de Sanity y se deciden así:
+  //  1. si el doc tiene el check "Mostrar en el home", manda ese check;
+  //  2. si nunca se tocó, valen los seis rubros históricos, reconocidos por
+  //     SLUG (que no cambia al renombrar) y, como red de seguridad, por nombre;
+  //  3. en cualquier caso tiene que tener al menos un producto publicado, para
+  //     no mostrar un tile que lleva a una categoría vacía.
   const catCounts: Record<string, number> = {};
   for (const p of allLegacy) if (p.cat) catCounts[p.cat] = (catCounts[p.cat] ?? 0) + 1;
-  // Imagenes de categoria editables desde Sanity (campo `image` del doc `category`).
-  // Si la categoria tiene imagen cargada, se usa; si no, cae al packshot local
-  // (CAT_IMG). Asi Marce puede cambiar el icono de cada rubro desde el Studio.
-  let catImageByName: Record<string, string> = {};
-  // Orden de los tiles = campo "Orden" de la categoría en Sanity (mismo criterio
-  // que el filtro del catálogo: Botellas, Latas, Copas y vasos, Botellones, Cajas…).
-  const catOrderByName: Record<string, number> = {};
+
+  let cats: { name: string; count: string; img?: string; imageUrl?: string }[] = [];
   try {
     const categories = await getCategories();
-    catImageByName = Object.fromEntries(
-      categories.filter((c) => c.image).map((c) => [c.name, c.image as string]),
-    );
-    for (const c of categories) catOrderByName[c.name] = typeof c.order === "number" ? c.order : 999;
+    cats = categories
+      .map((c) => ({ c, n: catCounts[c.name] ?? 0 }))
+      .filter(({ c, n }) => {
+        if (n === 0) return false;
+        if (typeof c.showOnHome === "boolean") return c.showOnHome;
+        return CAT_IMG_BY_SLUG[c.slug] !== undefined || CAT_IMG[c.name] !== undefined;
+      })
+      // Orden de los tiles = campo "Orden" de la categoría en Sanity (mismo
+      // criterio que el filtro del catálogo). Sin orden, primero los que más
+      // productos tienen.
+      .sort((a, b) => (a.c.order ?? 999) - (b.c.order ?? 999) || b.n - a.n)
+      .map(({ c, n }) => ({
+        name: c.name,
+        count: String(n),
+        // Imagen editable desde Sanity (campo `image` del doc `category`); si no
+        // tiene, cae al packshot local por slug, después por nombre, y al final
+        // al isotipo genérico de marca.
+        img: CAT_IMG_BY_SLUG[c.slug] ?? CAT_IMG[c.name] ?? CAT_IMG_GENERIC,
+        imageUrl: c.image,
+      }));
   } catch (e) {
     console.error("[home] categories fetch failed:", (e as Error).message);
   }
-  let cats: { name: string; count: string; img?: string; imageUrl?: string }[] = Object.keys(CAT_IMG)
-    .map((name) => ({ name, n: catCounts[name] ?? 0 }))
-    .filter((c) => c.n > 0)
-    .sort((a, b) => (catOrderByName[a.name] ?? 999) - (catOrderByName[b.name] ?? 999) || b.n - a.n)
-    .map((c) => ({ name: c.name, count: String(c.n), img: CAT_IMG[c.name], imageUrl: catImageByName[c.name] }));
   if (cats.length === 0) cats = categoryDataFallback;
 
   // Clientes de la vidriera "confían en nosotros" (schema `client` en Sanity).

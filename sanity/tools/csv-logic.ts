@@ -1,63 +1,24 @@
 /**
  * Lógica pura (sin React) de la herramienta "Actualizar por CSV".
- * Parseo de CSV, matcheo de columnas, coerción de valores por tipo y cálculo
- * del "plan de cambios" (diff) contra el estado actual en Sanity.
+ * Matcheo de columnas, coerción de valores por tipo y cálculo del "plan de
+ * cambios" (diff) contra el estado actual en Sanity.
  *
- * Todo acá es testeable y no toca la red: la parte de fetch/patch vive en el
- * componente.
+ * El parseo del archivo vive en `csv-parse.ts` (sin dependencias, con chequeos
+ * en `npm run csv:check`). Todo acá es testeable y no toca la red: la parte de
+ * fetch/patch vive en el componente.
  */
 import {
   BADGE_VALUES,
   COLUMNS,
+  PUBLISH_HEADERS,
   SKU_HEADERS,
   norm,
   type ColumnDef,
 } from "./csv-columns";
+import { parseCsv } from "./csv-parse";
 import { isWixFormat, wixToCanonical, type WixCreateInfo } from "./wix-adapter";
 
-/* ---------------- Parseo de CSV ---------------- */
-
-/** Parser tolerante: comillas, comas escapadas, CRLF, autodetección de ; o , como separador. */
-export function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
-  const clean = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n");
-  const lines = clean.split("\n").filter((l) => l.trim().length > 0);
-  if (lines.length < 2) return { headers: [], rows: [] };
-
-  // Separador: el que más aparezca en la cabecera (soporta ; que usa Excel-AR).
-  const sep = (lines[0].match(/;/g)?.length ?? 0) > (lines[0].match(/,/g)?.length ?? 0) ? ";" : ",";
-
-  const parseLine = (line: string): string[] => {
-    const cells: string[] = [];
-    let cur = "";
-    let q = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (q && line[i + 1] === '"') {
-          cur += '"';
-          i++;
-        } else q = !q;
-      } else if (ch === sep && !q) {
-        cells.push(cur);
-        cur = "";
-      } else cur += ch;
-    }
-    cells.push(cur);
-    return cells;
-  };
-
-  const rawHeaders = parseLine(lines[0]);
-  const headers = rawHeaders.map(norm);
-  const rows = lines.slice(1).map((line) => {
-    const cells = parseLine(line);
-    const obj: Record<string, string> = {};
-    headers.forEach((h, i) => {
-      if (h) obj[h] = (cells[i] ?? "").trim();
-    });
-    return obj;
-  });
-  return { headers, rows };
-}
+export { parseCsv };
 
 /* ---------------- Matcheo de columnas ---------------- */
 
@@ -68,15 +29,19 @@ export interface MatchedColumn {
 
 export function matchColumns(headers: string[]): {
   skuHeader: string | null;
+  publishHeader: string | null;
   matched: MatchedColumn[];
   unknownHeaders: string[];
 } {
   const set = new Set(headers);
   const skuHeader = SKU_HEADERS.map(norm).find((h) => set.has(h)) ?? null;
+  // Columna de publicación: no es un campo del producto, se maneja aparte.
+  const publishHeader = PUBLISH_HEADERS.map(norm).find((h) => set.has(h)) ?? null;
 
   const matched: MatchedColumn[] = [];
   const usedHeaders = new Set<string>();
   if (skuHeader) usedHeaders.add(skuHeader);
+  if (publishHeader) usedHeaders.add(publishHeader);
 
   for (const col of COLUMNS) {
     // Aceptamos los alias definidos + el propio label normalizado. Esto último
@@ -91,7 +56,7 @@ export function matchColumns(headers: string[]): {
     }
   }
   const unknownHeaders = headers.filter((h) => h && !usedHeaders.has(h));
-  return { skuHeader, matched, unknownHeaders };
+  return { skuHeader, publishHeader, matched, unknownHeaders };
 }
 
 /* ---------------- Coerción de valores ---------------- */
@@ -141,7 +106,7 @@ function toNum(v: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function toBool(v: string): boolean | null {
+export function toBool(v: string): boolean | null {
   const n = norm(v);
   if (["si", "sí", "true", "1", "x", "verdadero", "activo", "yes"].includes(n)) return true;
   if (["no", "false", "0", "falso", "inactivo"].includes(n)) return false;
@@ -374,9 +339,26 @@ export interface RowPlan {
   sku: string;
   found: boolean;
   docIds: string[]; // ids a patchear (published + draft si existen)
+  /** Línea del archivo (1-based) para poder señalarla en los mensajes. */
+  line?: number;
   name?: string;
   changes: FieldChange[];
   errors: string[];
+  /** Cambio de visibilidad pedido en la columna "Publicado". */
+  publish?: PublishAction;
+}
+
+/**
+ * Acción de publicación pedida por la columna "Publicado".
+ * - `publish`: el producto está solo como borrador y hay que ponerlo en la web.
+ * - `unpublish`: está publicado y hay que sacarlo (queda como borrador).
+ */
+export interface PublishAction {
+  kind: "publish" | "unpublish";
+  publishedId: string;
+  draftId: string;
+  /** Avisos (ej. publicar sin foto) que no bloquean pero conviene mostrar. */
+  warning?: string;
 }
 
 export interface ProductDoc extends Record<string, unknown> {
@@ -401,6 +383,9 @@ export interface Plan {
   notFound: RowPlan[];
   withErrors: RowPlan[];
   toCreate: CreatePlan[];
+  /** Filas con cambio de visibilidad (columna "Publicado"). */
+  toPublish: RowPlan[];
+  toUnpublish: RowPlan[];
   totalFieldChanges: number;
   wixMode: boolean;
 }
@@ -414,56 +399,80 @@ export function buildPlan(
   productsBySku: Map<string, ProductDoc[]>,
   refs: RefMaps,
   opts?: { createMissing?: boolean },
-): { plan: Plan | null; error?: string; matched: MatchedColumn[]; unknownHeaders: string[] } {
+): {
+  plan: Plan | null;
+  error?: string;
+  matched: MatchedColumn[];
+  unknownHeaders: string[];
+  /** Avisos del parseo (columnas repetidas, filas desalineadas). */
+  warnings: string[];
+} {
   const parsed = parseCsv(csvText);
   // Formato Wix → traducimos a filas canónicas (nuestros headers) antes de seguir.
   const wixMode = isWixFormat(parsed.headers);
   let createInfo = new Map<string, WixCreateInfo>();
   let headers = parsed.headers;
   let rows = parsed.rows;
+  // Línea de cada fila, para mensajes tipo "fila 12". El adaptador de Wix filtra
+  // filas (variantes), así que ahí no podemos mapearlas y las dejamos sin número.
+  let lines: number[] = parsed.lines;
   if (wixMode) {
     const conv = wixToCanonical(parsed.rows);
     headers = conv.headers;
     rows = conv.rows;
     createInfo = conv.createInfo;
+    lines = [];
   }
+  const warnings = [...parsed.warnings];
   if (rows.length === 0)
-    return { plan: null, error: "El CSV está vacío o no tiene filas de datos.", matched: [], unknownHeaders: [] };
+    return {
+      plan: null,
+      error: "El CSV está vacío o no tiene filas de datos.",
+      matched: [],
+      unknownHeaders: [],
+      warnings,
+    };
 
-  const { skuHeader, matched, unknownHeaders } = matchColumns(headers);
+  const { skuHeader, publishHeader, matched, unknownHeaders } = matchColumns(headers);
   if (!skuHeader)
     return {
       plan: null,
       error: 'No encontré la columna SKU. Agregá una columna "SKU" (o "codigo").',
       matched,
       unknownHeaders,
+      warnings,
     };
-  if (matched.length === 0)
+  if (matched.length === 0 && !publishHeader)
     return {
       plan: null,
       error: "No reconocí ninguna columna actualizable además de SKU. Revisá los nombres de las columnas.",
       matched,
       unknownHeaders,
+      warnings,
     };
 
   const rowPlans: RowPlan[] = [];
-  for (const row of rows) {
+  rows.forEach((row, i) => {
     const sku = row[skuHeader]?.trim();
-    if (!sku) continue; // fila sin sku → se ignora
+    if (!sku) return; // fila sin sku → se ignora
 
     const docs = productsBySku.get(norm(sku)) ?? [];
     const rp: RowPlan = {
       sku,
       found: docs.length > 0,
       docIds: docs.map((d) => d._id),
+      line: lines[i],
       name: docs[0]?.name,
       changes: [],
       errors: [],
     };
 
     if (docs.length > 0) {
-      // Doc de referencia para valores actuales (preferimos published = id sin "drafts.").
-      const ref = docs.find((d) => !d._id.startsWith("drafts.")) ?? docs[0];
+      // Doc de referencia para los valores actuales: preferimos el BORRADOR si
+      // existe, porque es la versión más nueva (lo que Marce ve en el Studio) y
+      // es la que exporta esta misma herramienta. Si comparáramos contra el
+      // publicado, un export → import sin tocar nada mostraría cambios falsos.
+      const ref = docs.find((d) => d._id.startsWith("drafts.")) ?? docs[0];
       for (const { col, header } of matched) {
         const raw = row[header];
         if (raw === undefined || raw.trim() === "") continue; // celda vacía = no tocar
@@ -501,13 +510,51 @@ export function buildPlan(
           nextValue: c.value,
         });
       }
+
+      // --- Columna "Publicado" (visibilidad, no es un campo del producto) ---
+      if (publishHeader) {
+        const rawPub = (row[publishHeader] ?? "").trim();
+        const want = rawPub ? toBool(rawPub) : null;
+        if (rawPub && want === null) {
+          rp.errors.push(`Publicado: "${rawPub}" no es Sí/No`);
+        } else if (want !== null) {
+          const published = docs.find((d) => !d._id.startsWith("drafts."));
+          const draft = docs.find((d) => d._id.startsWith("drafts."));
+          const publishedId = published?._id ?? draft!._id.replace(/^drafts\./, "");
+          const draftId = draft?._id ?? `drafts.${published!._id}`;
+          if (want && !published) {
+            // Un producto sin categoría queda afuera de los filtros del catálogo
+            // (es el "me lo muestra en rojo" del Studio): no lo dejamos publicar
+            // así. Vale la categoría que traiga esta misma fila del CSV.
+            const catEnCsv = rp.changes.some((c) => c.field === "category");
+            if (!ref.categoryId && !catEnCsv) {
+              rp.errors.push(
+                "Publicado: no tiene categoría asignada — ponele una (podés hacerlo en este mismo CSV) antes de publicarlo.",
+              );
+            } else {
+              rp.publish = {
+                kind: "publish",
+                publishedId,
+                draftId,
+                warning: ref.imageUrl ? undefined : "se publica sin foto",
+              };
+            }
+          } else if (!want && published) {
+            rp.publish = { kind: "unpublish", publishedId, draftId };
+          }
+        }
+      }
     }
     rowPlans.push(rp);
-  }
+  });
 
   const toUpdate = rowPlans.filter((r) => r.found && r.changes.length > 0 && r.errors.length === 0);
-  const unchanged = rowPlans.filter((r) => r.found && r.changes.length === 0 && r.errors.length === 0);
+  const unchanged = rowPlans.filter(
+    (r) => r.found && r.changes.length === 0 && !r.publish && r.errors.length === 0,
+  );
   const withErrors = rowPlans.filter((r) => r.found && r.errors.length > 0);
+  const toPublish = rowPlans.filter((r) => r.errors.length === 0 && r.publish?.kind === "publish");
+  const toUnpublish = rowPlans.filter((r) => r.errors.length === 0 && r.publish?.kind === "unpublish");
   const totalFieldChanges = toUpdate.reduce((a, r) => a + r.changes.length, 0);
 
   // Altas (borradores) para SKU nuevos — solo cuando se pide y hay datos (formato Wix
@@ -566,8 +613,20 @@ export function buildPlan(
   const notFound = createOn ? [] : rowPlans.filter((r) => !r.found);
 
   return {
-    plan: { rows: rowPlans, toUpdate, unchanged, notFound, withErrors, toCreate, totalFieldChanges, wixMode },
+    plan: {
+      rows: rowPlans,
+      toUpdate,
+      unchanged,
+      notFound,
+      withErrors,
+      toCreate,
+      toPublish,
+      toUnpublish,
+      totalFieldChanges,
+      wixMode,
+    },
     matched,
     unknownHeaders,
+    warnings,
   };
 }
