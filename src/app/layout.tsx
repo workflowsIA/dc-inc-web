@@ -7,6 +7,7 @@ import Footer from "@/components/site/Footer";
 import ChromeWrapper from "@/components/site/ChromeWrapper";
 import { WholesalePricesProvider } from "@/lib/wholesale-prices";
 import MobileCartBar from "@/components/site/MobileCartBar";
+import WelcomeModalGate from "@/components/site/WelcomeModalGate";
 import "./globals.css";
 
 const display = Space_Grotesk({
@@ -111,7 +112,11 @@ export default function RootLayout({
       >
         <body>
           <WholesalePricesProvider>
-            <ChromeWrapper header={<Header />} footer={<Footer />}>
+            <ChromeWrapper
+              header={<Header />}
+              footer={<Footer />}
+              modal={<WelcomeModalGate />}
+            >
               {children}
             </ChromeWrapper>
             <MobileCartBar />

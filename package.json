@@ -39,7 +39,10 @@
     "gsa:email": "tsx --env-file=.env.local scripts/print-service-account-email.ts",
     "fichas:audit": "tsx --env-file=.env.local scripts/audit-fichas.ts",
     "producto:foto": "tsx --env-file=.env.local scripts/set-product-image.ts",
-    "producto:nombre": "tsx --env-file=.env.local scripts/set-product-name.ts"
+    "producto:nombre": "tsx --env-file=.env.local scripts/set-product-name.ts",
+    "taxonomia:audit": "node --env-file=.env.local scripts/audit-taxonomia.mjs",
+    "taxonomia:migrar": "node --env-file=.env.local scripts/migrar-taxonomia.mjs",
+    "csv:grupos": "node scripts/check-csv-grupos.mjs"
   },
   "dependencies": {
     "@clerk/localizations": "^4.8.2",

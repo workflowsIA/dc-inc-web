@@ -9,6 +9,7 @@
  */
 import {
   BADGE_VALUES,
+  BADGE_TITLES,
   COLUMNS,
   PUBLISH_HEADERS,
   SKU_HEADERS,
@@ -27,7 +28,10 @@ export interface MatchedColumn {
   header: string; // header normalizado presente en el CSV
 }
 
-export function matchColumns(headers: string[]): {
+export function matchColumns(
+  headers: string[],
+  columns: ColumnDef[] = COLUMNS,
+): {
   skuHeader: string | null;
   publishHeader: string | null;
   matched: MatchedColumn[];
@@ -43,7 +47,7 @@ export function matchColumns(headers: string[]): {
   if (skuHeader) usedHeaders.add(skuHeader);
   if (publishHeader) usedHeaders.add(publishHeader);
 
-  for (const col of COLUMNS) {
+  for (const col of columns) {
     // Aceptamos los alias definidos + el propio label normalizado. Esto último
     // garantiza el round-trip export→import: el CSV exportado usa los labels como
     // headers (ej. "Imagen (URL)", "Precio anterior (tachado)"), que de otro modo
@@ -55,8 +59,12 @@ export function matchColumns(headers: string[]): {
       usedHeaders.add(header);
     }
   }
+  // Si el archivo trae columnas por grupo, la columna vieja "Subtipos" se
+  // ignora: si no, las dos escribirían el mismo campo y la última ganaría.
+  const hayGrupos = matched.some((m) => m.col.kind === "subcatGroup");
+  const finales = hayGrupos ? matched.filter((m) => !m.col.legacy) : matched;
   const unknownHeaders = headers.filter((h) => h && !usedHeaders.has(h));
-  return { skuHeader, publishHeader, matched, unknownHeaders };
+  return { skuHeader, publishHeader, matched: finales, unknownHeaders };
 }
 
 /* ---------------- Coerción de valores ---------------- */
@@ -64,6 +72,35 @@ export function matchColumns(headers: string[]): {
 export interface RefMaps {
   category: Map<string, string>; // norm(name) -> _id
   subtype: Map<string, string>;
+  /** Por grupo de filtro: norm(nombre de subcategoría) -> _id. Permite que dos
+   *  grupos tengan una subcategoría con el mismo nombre sin pisarse. */
+  subcatByGroup?: Map<string, Map<string, string>>;
+  /** _id de subcategoría -> _id de su grupo. Sirve para saber qué sacar cuando
+   *  una columna de grupo viene vacía. */
+  groupBySubcat?: Map<string, string>;
+  /** _id -> nombre, para mostrar el diff en castellano y no con ids. */
+  nombrePorId?: Map<string, string>;
+}
+
+/** Resultado de leer una celda de columna de grupo. */
+export interface GroupCell {
+  ids: string[];
+  missing: string[];
+}
+
+/** Lee una celda de una columna de grupo: devuelve los ids encontrados dentro de
+ *  ESE grupo y los nombres que no existen todavía. Celda vacía = sin valores
+ *  (que para un grupo significa "sacale las de este grupo"). */
+export function coerceGroupCell(col: ColumnDef, raw: string, refs: RefMaps): GroupCell {
+  const mapa = refs.subcatByGroup?.get(col.groupId ?? "") ?? new Map<string, string>();
+  const ids: string[] = [];
+  const missing: string[] = [];
+  for (const nombre of raw.split(/[;|]/).map((x) => x.trim()).filter(Boolean)) {
+    const id = mapa.get(norm(nombre));
+    if (!id) missing.push(nombre);
+    else if (!ids.includes(id)) ids.push(id);
+  }
+  return { ids, missing };
 }
 
 export interface Spec {
@@ -73,7 +110,7 @@ export interface Spec {
 }
 
 export type Coerced =
-  | { ok: true; value: unknown }
+  | { ok: true; value: unknown; warning?: string }
   | { ok: false; error: string };
 
 /**
@@ -217,10 +254,14 @@ export function coerce(col: ColumnDef, raw: string, refs: RefMaps): Coerced {
           if (!values.includes(found.value)) values.push(found.value);
         } else bad.push(p);
       }
+      // Un destacado desconocido NO tira abajo la fila entera: se aplican los
+      // que se entienden y el resto se avisa. (Marce escribió "Pre Venta" y
+      // "Liquidación" el 13-sep-2026 y perdía TODA la fila por eso.)
       if (bad.length)
         return {
-          ok: false,
-          error: `destacado(s) no reconocido(s): ${bad.join(", ")} (válidos: Más vendido, Nuevo, Promo del mes, Decorado bonificado)`,
+          ok: true,
+          value: values,
+          warning: `destacado(s) que no existen y se ignoran: ${bad.join(", ")} (los válidos son ${Object.values(BADGE_TITLES).join(", ")})`,
         };
       return { ok: true, value: values };
     }
@@ -344,6 +385,9 @@ export interface RowPlan {
   name?: string;
   changes: FieldChange[];
   errors: string[];
+  /** Cosas que no frenan la fila pero conviene mostrar (ej. un destacado que no
+   *  existe: se aplica el resto y se avisa). */
+  warnings: string[];
   /** Cambio de visibilidad pedido en la columna "Publicado". */
   publish?: PublishAction;
 }
@@ -388,6 +432,9 @@ export interface Plan {
   toUnpublish: RowPlan[];
   totalFieldChanges: number;
   wixMode: boolean;
+  /** Subcategorías nombradas en el archivo que todavía no existen en Sanity,
+   *  con el grupo al que irían. La herramienta ofrece crearlas de una. */
+  missingSubcats: { name: string; groupId: string; groupName: string; rows: number }[];
 }
 
 function slugify(name: string): string {
@@ -398,7 +445,7 @@ export function buildPlan(
   csvText: string,
   productsBySku: Map<string, ProductDoc[]>,
   refs: RefMaps,
-  opts?: { createMissing?: boolean },
+  opts?: { createMissing?: boolean; columns?: ColumnDef[] },
 ): {
   plan: Plan | null;
   error?: string;
@@ -433,7 +480,13 @@ export function buildPlan(
       warnings,
     };
 
-  const { skuHeader, publishHeader, matched, unknownHeaders } = matchColumns(headers);
+  const columnas = opts?.columns ?? COLUMNS;
+  const { skuHeader, publishHeader, matched, unknownHeaders } = matchColumns(headers, columnas);
+  // Las columnas de grupo escriben todas el mismo campo (`subtypes`), así que
+  // se resuelven juntas más abajo y no una por una.
+  const colsGrupo = matched.filter((m) => m.col.kind === "subcatGroup");
+  const colsNormales = matched.filter((m) => m.col.kind !== "subcatGroup");
+  const faltantes = new Map<string, { name: string; groupId: string; groupName: string; rows: number }>();
   if (!skuHeader)
     return {
       plan: null,
@@ -465,6 +518,7 @@ export function buildPlan(
       name: docs[0]?.name,
       changes: [],
       errors: [],
+      warnings: [],
     };
 
     if (docs.length > 0) {
@@ -473,7 +527,59 @@ export function buildPlan(
       // es la que exporta esta misma herramienta. Si comparáramos contra el
       // publicado, un export → import sin tocar nada mostraría cambios falsos.
       const ref = docs.find((d) => d._id.startsWith("drafts.")) ?? docs[0];
-      for (const { col, header } of matched) {
+
+      // --- Columnas de grupo (Bebida, Modelo, Tipo de pieza…) ---
+      // Cada columna manda SOBRE SU GRUPO: lo que diga la celda reemplaza las
+      // subcategorías de ese grupo, y vacía significa sacarlas todas. Los grupos
+      // cuya columna no está en el archivo quedan intactos.
+      if (colsGrupo.length) {
+        const actuales: string[] = ((ref.subtypeIds as string[] | undefined) ?? []).filter(Boolean);
+        let finales = [...actuales];
+        let huboColumna = false;
+        for (const { col, header } of colsGrupo) {
+          const raw = row[header];
+          if (raw === undefined) continue; // la columna no vino en el archivo
+          huboColumna = true;
+          const cell = coerceGroupCell(col, raw, refs);
+          for (const m of cell.missing) {
+            const k = (col.groupId ?? "") + "|" + norm(m);
+            const prev = faltantes.get(k);
+            if (prev) prev.rows++;
+            else
+              faltantes.set(k, {
+                name: m,
+                groupId: col.groupId ?? "",
+                groupName: col.label,
+                rows: 1,
+              });
+          }
+          if (cell.missing.length) {
+            rp.errors.push(
+              `${col.label}: "${cell.missing.join('", "')}" no existe todavía` +
+                (opts?.createMissing ? "" : " — podés crearla desde el botón de abajo"),
+            );
+            continue;
+          }
+          finales = finales.filter((id) => refs.groupBySubcat?.get(id) !== col.groupId);
+          for (const id of cell.ids) if (!finales.includes(id)) finales.push(id);
+        }
+        if (huboColumna) {
+          const a = [...actuales].sort().join("|");
+          const b = [...finales].sort().join("|");
+          if (a !== b) {
+            const nombreDe = (id: string) => refs.nombrePorId?.get(id) ?? id;
+            rp.changes.push({
+              field: "subtypes",
+              label: "Subcategorías",
+              fromText: actuales.map(nombreDe).join("; ") || "—",
+              toText: finales.map(nombreDe).join("; ") || "—",
+              nextValue: finales.map((_ref) => ({ _type: "reference", _ref, _key: makeKey() })),
+            });
+          }
+        }
+      }
+
+      for (const { col, header } of colsNormales) {
         const raw = row[header];
         if (raw === undefined || raw.trim() === "") continue; // celda vacía = no tocar
         const c = coerce(col, raw, refs);
@@ -481,6 +587,7 @@ export function buildPlan(
           rp.errors.push(`${col.label}: ${c.error}`);
           continue;
         }
+        if (c.warning) rp.warnings.push(`${col.label}: ${c.warning}`);
 
         // Imagen: caso especial. Guardamos la "intención" (ImageIntent); la subida
         // real / armado de la referencia lo resuelve el apply (es asíncrono).
@@ -624,6 +731,9 @@ export function buildPlan(
       toUnpublish,
       totalFieldChanges,
       wixMode,
+      missingSubcats: [...faltantes.values()].sort(
+        (a, b) => a.groupName.localeCompare(b.groupName) || a.name.localeCompare(b.name),
+      ),
     },
     matched,
     unknownHeaders,

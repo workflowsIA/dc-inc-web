@@ -24,6 +24,8 @@ import {
   clientsQuery,
   testimonialsQuery,
   shippingConfigQuery,
+  filterGroupsQuery,
+  welcomeModalQuery,
   decoPricingQuery,
   blogPostsQuery,
   blogPostBySlugQuery,
@@ -36,6 +38,8 @@ import {
   type SanityClient,
   type SanityTestimonial,
   type SanityShippingConfigDoc,
+  type SanityFilterGroup,
+  type SanityWelcomeModalDoc,
   type SanityBlogPost,
   type SanityHero,
 } from "./queries";
@@ -291,4 +295,118 @@ export async function getHero(
     { id: HERO_IDS[placement] },
     { next: { revalidate: 60 } },
   );
+}
+
+/** Grupos de filtro con sus subcategorías, para el panel del catálogo.
+ *  Si falla la lectura devuelve lista vacía: el catálogo sigue funcionando con
+ *  categoría, precio y búsqueda. */
+export async function getFilterGroups(): Promise<SanityFilterGroup[]> {
+  try {
+    const gs = await sanityClient.fetch<SanityFilterGroup[]>(
+      filterGroupsQuery,
+      {},
+      { next: { revalidate: 300 } },
+    );
+    return (gs ?? [])
+      .filter((g) => g && g.name && g.slug)
+      .map((g) => ({ ...g, subcats: (g.subcats ?? []).filter((s) => s?.name) }));
+  } catch (e) {
+    console.error("[filters] no pude leer los grupos:", (e as Error).message);
+    return [];
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Cartel de bienvenida
+ * ------------------------------------------------------------------ */
+
+export interface WelcomeModalOption {
+  label: string;
+  description?: string;
+  href: string;
+  highlight: boolean;
+}
+
+export interface WelcomeModalData {
+  title: string;
+  subtitle?: string;
+  dismissLabel: string;
+  frequencyDays: number;
+  delaySeconds: number;
+  options: WelcomeModalOption[];
+}
+
+/** Textos por defecto — los que escribió Marce el 14-sep-2026. Se usan mientras
+ *  no exista el documento en el Studio; apenas ella lo edita, manda el suyo. */
+export const DEFAULT_WELCOME_MODAL: WelcomeModalData = {
+  title: "¿Comprás por mayor o por menor?",
+  subtitle: "Elegí y te mostramos nuestros productos disponibles con sus precios.",
+  dismissLabel: "Solo estoy mirando el catálogo",
+  frequencyDays: 365,
+  delaySeconds: 2,
+  options: [
+    {
+      label: "Por mayor",
+      description:
+        "Precios por unidad, bulto y pallet. Desde $150.000 + IVA por pedido. Aprobamos tu cuenta en el día.",
+      href: "/cuenta",
+      highlight: true,
+    },
+    {
+      label: "Por menor",
+      description: "Sin mínimo. Comprás y pagás online.",
+      href: "/productos",
+      highlight: false,
+    },
+  ],
+};
+
+/** Cartel de bienvenida configurado en el Studio. Devuelve `null` cuando está
+ *  apagado — el sitio no renderiza nada. Si el documento no existe todavía,
+ *  devuelve los textos por defecto (que son los que pidió Marce), así el cartel
+ *  funciona desde el primer deploy sin depender de que alguien lo cargue.
+ *
+ *  Cada campo cae por separado: si ella borra la bajada pero deja el título,
+ *  se muestra el título sin bajada, no el default entero. */
+export async function getWelcomeModal(): Promise<WelcomeModalData | null> {
+  let doc: SanityWelcomeModalDoc | null = null;
+  try {
+    doc = await sanityClient.fetch<SanityWelcomeModalDoc | null>(
+      welcomeModalQuery,
+      {},
+      { next: { revalidate: 300 } },
+    );
+  } catch {
+    // Sanity caído: mejor el cartel por defecto que una página rota.
+    return DEFAULT_WELCOME_MODAL;
+  }
+
+  if (!doc) return DEFAULT_WELCOME_MODAL;
+  if (doc.enabled === false) return null;
+
+  const options = (doc.options ?? [])
+    .filter((o): o is { label: string; href: string; description?: string; highlight?: boolean } =>
+      Boolean(o && typeof o.label === "string" && o.label.trim() && typeof o.href === "string" && o.href.startsWith("/")),
+    )
+    .map((o) => ({
+      label: o.label.trim(),
+      description: o.description?.trim() || undefined,
+      href: o.href.trim(),
+      highlight: o.highlight === true,
+    }));
+
+  return {
+    title: doc.title?.trim() || DEFAULT_WELCOME_MODAL.title,
+    subtitle: doc.subtitle?.trim() || undefined,
+    dismissLabel: doc.dismissLabel?.trim() || DEFAULT_WELCOME_MODAL.dismissLabel,
+    frequencyDays:
+      typeof doc.frequencyDays === "number" && doc.frequencyDays > 0
+        ? Math.round(doc.frequencyDays)
+        : DEFAULT_WELCOME_MODAL.frequencyDays,
+    delaySeconds:
+      typeof doc.delaySeconds === "number" && doc.delaySeconds >= 0
+        ? doc.delaySeconds
+        : DEFAULT_WELCOME_MODAL.delaySeconds,
+    options: options.length ? options : DEFAULT_WELCOME_MODAL.options,
+  };
 }

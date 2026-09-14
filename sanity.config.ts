@@ -41,9 +41,16 @@ export default defineConfig({
   // este banner" adentro del documento.
   document: {
     newDocumentOptions: (prev) =>
-      prev.filter((t) => t.templateId !== "hero" && t.templateId !== "decoPricing"),
+      prev.filter(
+        (t) =>
+          t.templateId !== "hero" &&
+          t.templateId !== "decoPricing" &&
+          t.templateId !== "welcomeModal",
+      ),
     actions: (prev, { schemaType }) =>
-      schemaType === "hero" || schemaType === "decoPricing"
+      schemaType === "hero" ||
+      schemaType === "decoPricing" ||
+      schemaType === "welcomeModal"
         ? prev.filter((a) => !["delete", "duplicate", "unpublish"].includes(String(a.action)))
         : prev,
   },

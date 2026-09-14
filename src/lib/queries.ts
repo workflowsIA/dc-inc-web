@@ -182,7 +182,20 @@ export const featuredProductsQuery = groq`
 /** Categorías activas para sidebar y home. */
 export const categoriesQuery = groq`
   *[_type == "category"] | order(order asc, name asc) {
-    _id, name, order, showOnHome, "slug": slug.current, "image": image.asset->url
+    _id, name, order, showOnHome, "slug": slug.current, previousSlugs,
+    "image": image.asset->url
+  }
+`;
+
+/** Grupos de filtro con sus subcategorías. Es lo que dibuja el panel del
+ *  catálogo: un bloque por grupo, y dentro las subcategorías que correspondan a
+ *  la categoría que se esté mirando (`parents` vacío = todas). */
+export const filterGroupsQuery = groq`
+  *[_type == "subcategoryGroup"] | order(order asc, name asc) {
+    _id, name, "slug": slug.current, order,
+    "subcats": *[_type == "subtype" && group._ref == ^._id] | order(order asc, name asc) {
+      _id, name, order, "parents": parents[]->name
+    }
   }
 `;
 
@@ -247,6 +260,15 @@ export const shippingConfigQuery = groq`
     andreaniBands[]{ band, price },
     batuZones[]{ zone, tramos[]{ maxBultos, price } },
     bultoConsolidaMaxKg
+  }
+`;
+
+/** Cartel de bienvenida (singleton _id "welcome-modal"). Devuelve el doc crudo;
+ *  getWelcomeModal() decide con qué caer si falta algo. */
+export const welcomeModalQuery = groq`
+  *[_type == "welcomeModal" && _id == "welcome-modal"][0] {
+    enabled, title, subtitle, dismissLabel, frequencyDays, delaySeconds,
+    options[]{ label, description, href, highlight }
   }
 `;
 
@@ -358,6 +380,8 @@ export interface SanityCategory {
   image?: string;
   /** Check "Mostrar en el home" del Studio. `undefined` = nunca se tocó. */
   showOnHome?: boolean;
+  /** Direcciones que tuvo antes (al renombrarla). Se redirigen a la actual. */
+  previousSlugs?: string[];
 }
 
 /** SKU incluido en un combo (sólo los campos que muestra la ficha). */
@@ -410,6 +434,24 @@ export interface SanityShippingConfigDoc {
   andreaniBands?: { band?: string; price?: number }[];
   batuZones?: { zone?: number; tramos?: { maxBultos?: number; price?: number }[] }[];
   bultoConsolidaMaxKg?: number;
+}
+
+export interface SanityFilterGroup {
+  _id: string;
+  name: string;
+  slug: string;
+  order?: number;
+  subcats: { _id: string; name: string; order?: number; parents?: string[] }[];
+}
+
+export interface SanityWelcomeModalDoc {
+  enabled?: boolean;
+  title?: string;
+  subtitle?: string;
+  dismissLabel?: string;
+  frequencyDays?: number;
+  delaySeconds?: number;
+  options?: { label?: string; description?: string; href?: string; highlight?: boolean }[];
 }
 
 /** Hero/banner editable desde el Studio (ver `heroQuery` + schema `hero`).

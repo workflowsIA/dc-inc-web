@@ -1,6 +1,7 @@
 import product from "./product";
 import category from "./category";
 import subtype from "./subtype";
+import subcategoryGroup from "./subcategoryGroup";
 import combo from "./combo";
 import brand from "./brand";
 import client from "./client";
@@ -12,11 +13,13 @@ import lead from "./lead";
 import testimonial from "./testimonial";
 import shippingConfig from "./shippingConfig";
 import decoPricing from "./decoPricing";
+import welcomeModal from "./welcomeModal";
 
 export const schemaTypes = [
   product,
   category,
   subtype,
+  subcategoryGroup,
   combo,
   brand,
   client,
@@ -28,4 +31,5 @@ export const schemaTypes = [
   testimonial,
   shippingConfig,
   decoPricing,
+  welcomeModal,
 ];

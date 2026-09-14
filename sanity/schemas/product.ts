@@ -431,6 +431,8 @@ export default defineType({
               { title: "Nuevo", value: "new" },
               { title: "Promo del mes", value: "promo" },
               { title: "Decorado bonificado", value: "deco" },
+              { title: "Pre venta", value: "preventa" },
+              { title: "Liquidación", value: "liquidacion" },
             ],
           },
         },

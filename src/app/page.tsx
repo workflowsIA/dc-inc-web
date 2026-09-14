@@ -84,7 +84,7 @@ const CAT_IMG_BY_SLUG: Record<string, string> = {
 const CAT_IMG_GENERIC = "cat-generic";
 
 // Fallback si Sanity no responde.
-const categoryDataFallback: { name: string; count: string; img?: string }[] = [
+const categoryDataFallback: { name: string; count: string; img?: string; slug?: string }[] = [
   { name: "Botellas", count: "~140", img: "cat-botellas" },
   { name: "Latas", count: "~38", img: "cat-latas" },
   { name: "Copas y vasos", count: "~170", img: "cat-copas-vasos" },
@@ -195,15 +195,29 @@ export default async function Home() {
   const catCounts: Record<string, number> = {};
   for (const p of allLegacy) if (p.cat) catCounts[p.cat] = (catCounts[p.cat] ?? 0) + 1;
 
-  let cats: { name: string; count: string; img?: string; imageUrl?: string }[] = [];
+  let cats: { name: string; count: string; img?: string; imageUrl?: string; slug?: string }[] = [];
   try {
     const categories = await getCategories();
+    const algunaEnHome = categories.some((c) => c.showOnHome === true);
     cats = categories
       .map((c) => ({ c, n: catCounts[c.name] ?? 0 }))
       .filter(({ c, n }) => {
         if (n === 0) return false;
-        if (typeof c.showOnHome === "boolean") return c.showOnHome;
-        return CAT_IMG_BY_SLUG[c.slug] !== undefined || CAT_IMG[c.name] !== undefined;
+        // REQUISITO DURO: el tile del home es un packshot. Una categoría sin
+        // dibujo propio (los seis rubros históricos) y sin imagen cargada en
+        // Sanity NO puede ir al home aunque le prendan el check: entraría con el
+        // isotipo genérico y rompe la grilla. Para sumar una nueva hay que
+        // cargarle una imagen en la categoría.
+        const tieneDibujo =
+          CAT_IMG_BY_SLUG[c.slug] !== undefined || CAT_IMG[c.name] !== undefined || !!c.image;
+        if (!tieneDibujo) return false;
+        // Si NINGUNA categoría tiene el check prendido, el check no se usó como
+        // criterio (o alguien lo apagó en bloque) y mandan las que tienen
+        // dibujo. Sin esto el home se quedaba sin tiles y caía en la lista
+        // hardcodeada, que muestra categorías que ya no existen y conteos
+        // viejos — que es lo que estaba pasando en producción el 14-sep-2026.
+        if (algunaEnHome && typeof c.showOnHome === "boolean") return c.showOnHome;
+        return true;
       })
       // Orden de los tiles = campo "Orden" de la categoría en Sanity (mismo
       // criterio que el filtro del catálogo). Sin orden, primero los que más
@@ -211,6 +225,7 @@ export default async function Home() {
       .sort((a, b) => (a.c.order ?? 999) - (b.c.order ?? 999) || b.n - a.n)
       .map(({ c, n }) => ({
         name: c.name,
+        slug: c.slug,
         count: String(n),
         // Imagen editable desde Sanity (campo `image` del doc `category`); si no
         // tiene, cae al packshot local por slug, después por nombre, y al final
@@ -378,7 +393,7 @@ export default async function Home() {
               <Link
                 key={c.name}
                 className={s.catTile}
-                href={`/categoria/${catSlug(c.name)}`}
+                href={`/categoria/${c.slug || catSlug(c.name)}`}
               >
                 <Image
                   className="ph"

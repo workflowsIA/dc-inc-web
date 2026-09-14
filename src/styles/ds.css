@@ -144,6 +144,8 @@ p{ margin:0; }
 .badge-low{ background:var(--warn-bg); color:#9a6200; }
 .badge-promo{ background:var(--err); color:#fff; }
 .badge-deco{ background:var(--amber-soft); color:var(--amber-deep); border:1px solid #ecd99c; }
+.badge-preventa{ background:var(--charcoal-2); color:#fff; }
+.badge-liquidacion{ background:var(--warn); color:var(--charcoal); }
 .badge-soft{ background:var(--bg-3); color:var(--muted); }
 
 /* stock pills */
@@ -575,3 +577,112 @@ textarea.input{ resize:vertical; min-height:96px; line-height:1.5; }
   .approval-row{ grid-template-columns:1fr; }
   .approval-row .approval-actions{ justify-content:flex-start; }
 }
+
+/* ---------- cartel de bienvenida (WelcomeModal) ----------
+   z-index 200: por encima de todo lo demás del sitio (el máximo que había era
+   120). El fondo bloquea el scroll desde JS, no desde acá. */
+.wmodal-backdrop{
+  position:fixed; inset:0; z-index:200;
+  background:rgba(26,26,26,.55);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+  overflow-y:auto;
+  animation:wmodal-fade .18s ease-out;
+}
+.wmodal{
+  position:relative;
+  width:100%; max-width:520px;
+  background:var(--bg); border-radius:var(--r-lg);
+  box-shadow:var(--shadow-3);
+  padding:34px 32px 26px;
+  margin:auto;
+  animation:wmodal-in .22s cubic-bezier(.2,.8,.3,1);
+}
+.wmodal-x{
+  position:absolute; top:14px; right:14px;
+  width:36px; height:36px; border-radius:50%;
+  background:var(--bg-2); border:1px solid var(--line);
+  color:var(--muted);
+  display:flex; align-items:center; justify-content:center;
+}
+.wmodal-x:hover{ background:var(--bg-3); color:var(--ink); }
+.wmodal-x svg{ width:18px; height:18px; }
+.wmodal-title{ margin:10px 0 8px; max-width:16ch; }
+.wmodal-sub{ color:var(--muted); font-size:15px; line-height:1.5; }
+
+.wmodal-opts{ display:flex; flex-direction:column; gap:12px; margin:24px 0 18px; }
+.wmodal-opt{
+  display:block; padding:16px 18px;
+  border:1px solid var(--line-2); border-radius:var(--r);
+  background:var(--bg);
+  transition:border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.wmodal-opt:hover{ border-color:var(--charcoal); background:var(--bg-2); }
+.wmodal-opt:active{ transform:translateY(1px); }
+.wmodal-opt-hi{ background:var(--amber-soft); border-color:var(--amber); }
+.wmodal-opt-hi:hover{ background:var(--amber-soft); border-color:var(--amber-deep); }
+.wmodal-opt-label{
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--display); font-weight:700; font-size:17px; color:var(--ink);
+}
+.wmodal-opt-label svg{ width:17px; height:17px; color:var(--amber-deep); }
+.wmodal-opt-desc{
+  display:block; margin-top:5px;
+  font-size:13.5px; line-height:1.45; color:var(--muted);
+}
+
+.wmodal-dismiss{
+  display:block; width:100%;
+  background:none; border:0; padding:6px 0;
+  font-size:14px; color:var(--muted); text-decoration:underline;
+  text-underline-offset:3px;
+}
+.wmodal-dismiss:hover{ color:var(--ink); }
+
+@keyframes wmodal-fade{ from{ opacity:0 } to{ opacity:1 } }
+@keyframes wmodal-in{ from{ opacity:0; transform:translateY(10px) scale(.985) } to{ opacity:1; transform:none } }
+
+@media (prefers-reduced-motion: reduce){
+  .wmodal-backdrop, .wmodal{ animation:none; }
+  .wmodal-opt{ transition:none; }
+}
+
+@media (max-width:520px){
+  .wmodal-backdrop{ padding:12px; align-items:flex-end; }
+  .wmodal{ padding:28px 20px 20px; border-radius:var(--r-lg); }
+  .wmodal-title{ max-width:none; }
+  .wmodal-opt{ padding:14px 16px; }
+}
+
+/* ---------- panel de filtros plegable (FilterSection) ---------- */
+.fsec{ border-top:1px solid var(--line); }
+.fsec:first-of-type{ border-top:0; }
+.fsec-sum{
+  display:flex; align-items:center; gap:10px;
+  padding:14px 2px; cursor:pointer; list-style:none;
+  font-family:var(--display); font-weight:700; font-size:15px; color:var(--ink);
+}
+.fsec-sum::-webkit-details-marker{ display:none; }
+.fsec-sum:hover{ color:var(--amber-deep); }
+.fsec-title{ flex:1; min-width:0; }
+.fsec-badge{
+  font-family:var(--body); font-size:12px; font-weight:700; line-height:1;
+  background:var(--amber); color:var(--charcoal);
+  border-radius:999px; padding:4px 8px;
+}
+.fsec-total{ font-family:var(--body); font-size:12px; font-weight:500; color:var(--muted-2); }
+.fsec-chev{ width:16px; height:16px; color:var(--muted); transition:transform .15s ease; flex-shrink:0; }
+.fsec[open] .fsec-chev{ transform:rotate(180deg); }
+.fsec-body{ padding:0 2px 16px; }
+.fsec-list{ list-style:none; padding:0; margin:0; display:grid; gap:7px; max-height:280px; overflow-y:auto; }
+.fopt{ display:flex; align-items:center; gap:8px; font-size:14px; color:var(--muted); }
+.fopt:hover{ color:var(--ink); }
+.fopt-on{ color:var(--amber-deep); font-weight:700; }
+.fopt-box{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:16px; height:16px; flex-shrink:0; border-radius:4px;
+  border:1px solid var(--line-2); background:#fff; color:#fff; font-size:11px; line-height:1;
+}
+.fopt-on .fopt-box{ border-color:var(--amber-deep); background:var(--amber-deep); }
+.fopt-n{ margin-left:auto; font-size:12px; color:var(--muted-2); font-weight:400; }
+@media (prefers-reduced-motion: reduce){ .fsec-chev{ transition:none; } }

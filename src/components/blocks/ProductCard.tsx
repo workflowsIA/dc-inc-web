@@ -9,6 +9,8 @@ const BADGE_LABELS: Record<Badge, { cls: string; label: string }> = {
   new: { cls: "badge-new", label: "Nuevo" },
   promo: { cls: "badge-promo", label: "Promo del mes" },
   deco: { cls: "badge-deco", label: "Decorado bonificado" },
+  preventa: { cls: "badge-preventa", label: "Pre venta" },
+  liquidacion: { cls: "badge-liquidacion", label: "Liquidación" },
 };
 
 interface Props {

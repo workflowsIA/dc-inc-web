@@ -22,7 +22,14 @@ import {
   UploadIcon,
   WarningOutlineIcon,
 } from "@sanity/icons";
-import { COLUMNS, PUBLISH_LABEL, norm } from "./csv-columns";
+import {
+  COLUMNS,
+  PUBLISH_LABEL,
+  buildColumns,
+  norm,
+  type ColumnDef,
+  type GroupInfo,
+} from "./csv-columns";
 import {
   buildPlan,
   display,
@@ -48,12 +55,26 @@ const PRODUCT_FIELDS = `
   "imageRef": images[0].asset._ref, "imageUrl": images[0].asset->url
 `;
 
+interface SubcatDoc {
+  _id: string;
+  name: string;
+  groupId?: string;
+}
+
 interface LoadedData {
   products: ProductDoc[];
   bySku: Map<string, ProductDoc[]>;
   refs: RefMaps;
   categories: { _id: string; name: string }[];
-  subtypes: { _id: string; name: string }[];
+  subtypes: SubcatDoc[];
+  groups: GroupInfo[];
+  /** Columnas del archivo que se EXPORTA (una por grupo, sin la columna vieja). */
+  columnsExport: ColumnDef[];
+  /** Columnas que se aceptan al IMPORTAR (las de arriba + la columna vieja
+   *  "Subtipos", para que sigan entrando los archivos ya bajados). */
+  columnsImport: ColumnDef[];
+  /** _id de subcategoría -> _id de su grupo. */
+  groupBySubcat: Map<string, string>;
 }
 
 /* ---------------- Escritura de CSV (export / plantilla) ---------------- */
@@ -80,8 +101,21 @@ function downloadText(filename: string, text: string) {
 }
 
 /** Valor de una columna para el CSV de export (re-importable). */
-function exportCell(field: string, doc: ProductDoc): string {
-  const col = COLUMNS.find((c) => c.field === field)!;
+function exportCell(
+  col: ColumnDef,
+  doc: ProductDoc,
+  ctx?: { groupBySubcat: Map<string, string>; nombrePorId: Map<string, string> },
+): string {
+  const field = col.field;
+  if (col.kind === "subcatGroup") {
+    // Solo las subcategorías del producto que pertenecen a ESTE grupo.
+    const ids = ((doc.subtypeIds as string[] | undefined) ?? []).filter(Boolean);
+    return ids
+      .filter((id) => ctx?.groupBySubcat.get(id) === col.groupId)
+      .map((id) => ctx?.nombrePorId.get(id) ?? "")
+      .filter(Boolean)
+      .join("; ");
+  }
   if (col.kind === "ref") {
     return String((col.refType === "subtype" ? doc.subtypeName : doc.categoryName) ?? "");
   }
@@ -142,13 +176,17 @@ export function CsvUpdate() {
   const [applying, setApplying] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [createNew, setCreateNew] = useState(false);
+  const [creatingSubcats, setCreatingSubcats] = useState(false);
 
   // Fetch puro (sin setState) para poder reusarlo desde el efecto y tras aplicar.
   const fetchData = useCallback(async (): Promise<LoadedData> => {
-    const [products, categories, subtypes] = await Promise.all([
+    const [products, categories, subtypes, groups] = await Promise.all([
       client.fetch<ProductDoc[]>(`*[_type == "product" && defined(sku)]{${PRODUCT_FIELDS}}`),
       client.fetch<{ _id: string; name: string }[]>(`*[_type == "category"]{_id, name}`),
-      client.fetch<{ _id: string; name: string }[]>(`*[_type == "subtype"]{_id, name}`),
+      client.fetch<SubcatDoc[]>(`*[_type == "subtype"]{_id, name, "groupId": group._ref}`),
+      client.fetch<GroupInfo[]>(
+        `*[_type == "subcategoryGroup"]{_id, name, "slug": slug.current, aliases, order}`,
+      ),
     ]);
     const bySku = new Map<string, ProductDoc[]>();
     for (const p of products) {
@@ -158,11 +196,37 @@ export function CsvUpdate() {
       arr.push(p);
       bySku.set(k, arr);
     }
+    // Un mapa de nombres por grupo: así "Cerveza" del grupo Bebida y un eventual
+    // "Cerveza" de otro grupo no se pisan, y cada columna resuelve en el suyo.
+    const subcatByGroup = new Map<string, Map<string, string>>();
+    const groupBySubcat = new Map<string, string>();
+    const nombrePorId = new Map<string, string>();
+    for (const st of subtypes) {
+      nombrePorId.set(st._id, st.name);
+      if (!st.groupId) continue;
+      groupBySubcat.set(st._id, st.groupId);
+      const m = subcatByGroup.get(st.groupId) ?? new Map<string, string>();
+      m.set(norm(st.name), st._id);
+      subcatByGroup.set(st.groupId, m);
+    }
     const refs: RefMaps = {
       category: new Map(categories.map((c) => [norm(c.name), c._id])),
       subtype: new Map(subtypes.map((s) => [norm(s.name), s._id])),
+      subcatByGroup,
+      groupBySubcat,
+      nombrePorId,
     };
-    return { products, bySku, refs, categories, subtypes };
+    return {
+      products,
+      bySku,
+      refs,
+      categories,
+      subtypes,
+      groups,
+      columnsExport: buildColumns(groups),
+      columnsImport: buildColumns(groups, true),
+      groupBySubcat,
+    };
   }, [client]);
 
   useEffect(() => {
@@ -203,11 +267,52 @@ export function CsvUpdate() {
 
   const analysis = useMemo(() => {
     if (!data || !csvText.trim()) return null;
-    return buildPlan(csvText, data.bySku, data.refs, { createMissing: createNew });
+    return buildPlan(csvText, data.bySku, data.refs, {
+      createMissing: createNew,
+      columns: data.columnsImport,
+    });
   }, [data, csvText, createNew]);
 
   const plan: Plan | null = analysis?.plan ?? null;
   const createdCount = plan?.toCreate.filter((c) => c.doc).length ?? 0;
+  const faltanSubcats = plan?.missingSubcats ?? [];
+
+  /**
+   * Crea de una las subcategorías que el archivo nombra y todavía no existen,
+   * cada una dentro del grupo de su columna. Es el atajo al ida y vuelta de
+   * "creala primero en el Studio, volvé, subí el archivo otra vez": el grupo se
+   * deduce del encabezado de la columna, así que no hay nada que elegir.
+   */
+  const crearSubcatsFaltantes = async () => {
+    if (!faltanSubcats.length) return;
+    setCreatingSubcats(true);
+    try {
+      const tx = client.transaction();
+      for (const f of faltanSubcats) {
+        const slug = norm(f.name).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        tx.createIfNotExists({
+          _id: `subtype-${slug || Math.random().toString(36).slice(2, 10)}`,
+          _type: "subtype",
+          name: f.name,
+          group: { _type: "reference", _ref: f.groupId },
+        });
+      }
+      await tx.commit();
+      setData(await fetchData());
+      toast.push({
+        status: "success",
+        title: `Se crearon ${faltanSubcats.length} subcategoría(s)`,
+        description: "Ya podés revisar el resumen de cambios de nuevo.",
+      });
+    } catch (e) {
+      toast.push({
+        status: "error",
+        title: "No se pudieron crear",
+        description: String((e as Error)?.message ?? e),
+      });
+    }
+    setCreatingSubcats(false);
+  };
 
   // Resuelve una imagen (CSV) a un array `images` listo para el patch.
   // - Sanity: referencia directa. - URL externa: baja el archivo y lo sube a Sanity.
@@ -368,7 +473,9 @@ export function CsvUpdate() {
    */
   const exportCurrent = () => {
     if (!data) return;
-    const headers = ["SKU", ...COLUMNS.map((c) => c.label), PUBLISH_LABEL];
+    const cols = data.columnsExport;
+    const ctx = { groupBySubcat: data.groupBySubcat, nombrePorId: data.refs.nombrePorId! };
+    const headers = ["SKU", ...cols.map((c) => c.label), PUBLISH_LABEL];
     const bySku = new Map<string, { doc: ProductDoc; published: boolean }>();
     for (const p of data.products) {
       if (!p.sku) continue;
@@ -388,14 +495,15 @@ export function CsvUpdate() {
       .sort((a, b) => (a.doc.name ?? "").localeCompare(b.doc.name ?? ""))
       .map(({ doc, published }) => [
         doc.sku ?? "",
-        ...COLUMNS.map((c) => exportCell(c.field, doc)),
+        ...cols.map((c) => exportCell(c, doc, ctx)),
         published ? "Sí" : "No",
       ]);
     downloadText("productos-dc-inc.csv", toCsv(headers, rows));
   };
 
   const downloadTemplate = () => {
-    const headers = ["SKU", ...COLUMNS.map((c) => c.label), PUBLISH_LABEL];
+    const cols = data?.columnsExport ?? COLUMNS;
+    const headers = ["SKU", ...cols.map((c) => c.label), PUBLISH_LABEL];
     // Ejemplo por campo (así queda alineado aunque cambie el orden de columnas).
     const sample: Record<string, string> = {
       name: "Nombre de ejemplo",
@@ -408,7 +516,20 @@ export function CsvUpdate() {
       specs: "Material: Vidrio; Color: Ámbar",
       images: "https://cdn.sanity.io/images/4sov2yyo/production/…-1200x1200.jpg",
     };
-    const example = ["EJEMPLO-SKU-001", ...COLUMNS.map((c) => sample[c.field] ?? ""), "Sí"];
+    // Para las columnas de grupo el ejemplo sale de las subcategorías que ya
+    // existan en ese grupo, así Marce ve con qué palabras se llena cada una.
+    const ejemploGrupo = (col: ColumnDef): string => {
+      const nombres = (data?.subtypes ?? [])
+        .filter((st) => st.groupId && st.groupId === col.groupId)
+        .slice(0, 2)
+        .map((st) => st.name);
+      return nombres.join("; ");
+    };
+    const example = [
+      "EJEMPLO-SKU-001",
+      ...cols.map((c) => (c.kind === "subcatGroup" ? ejemploGrupo(c) : (sample[c.field] ?? ""))),
+      "Sí",
+    ];
     downloadText("plantilla-actualizar-productos.csv", toCsv(headers, [example]));
   };
 
@@ -713,6 +834,54 @@ export function CsvUpdate() {
                   ))}
               </Stack>
             </Stack>
+          )}
+
+          {/* Subcategorías que el archivo nombra y todavía no existen */}
+          {faltanSubcats.length > 0 && (
+            <Card tone="caution" padding={4} radius={3} marginTop={4}>
+              <Stack space={3}>
+                <Text size={1} weight="semibold">
+                  FALTAN {faltanSubcats.length} SUBCATEGORÍA(S)
+                </Text>
+                <Text size={1} muted>
+                  El archivo las nombra pero no existen todavía. Si las creás, cada
+                  una queda dentro del grupo de su columna y las filas dejan de dar
+                  error.
+                </Text>
+                <Stack space={2}>
+                  {faltanSubcats.map((f) => (
+                    <Text key={f.groupId + f.name} size={1}>
+                      <strong>{f.name}</strong> — grupo {f.groupName} ({f.rows}{" "}
+                      {f.rows === 1 ? "producto" : "productos"})
+                    </Text>
+                  ))}
+                </Stack>
+                <Box>
+                  <Button
+                    text={
+                      creatingSubcats
+                        ? "Creando…"
+                        : `Crear las ${faltanSubcats.length} que faltan`
+                    }
+                    tone="primary"
+                    disabled={creatingSubcats}
+                    onClick={crearSubcatsFaltantes}
+                  />
+                </Box>
+              </Stack>
+            </Card>
+          )}
+
+          {/* Avisos que no frenan la fila */}
+          {plan.rows.some((r) => r.warnings.length > 0) && (
+            <IssueList
+              title="AVISOS (la fila se aplica igual)"
+              tone="caution"
+              icon={<WarningOutlineIcon />}
+              items={plan.rows
+                .filter((r) => r.warnings.length > 0)
+                .map((r) => ({ sku: r.sku, name: r.name, lines: r.warnings }))}
+            />
           )}
 
           {/* Con errores */}

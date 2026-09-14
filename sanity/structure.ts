@@ -15,6 +15,7 @@ import {
   CheckmarkCircleIcon,
   CommentIcon,
   SparklesIcon,
+  FilterIcon,
 } from "@sanity/icons";
 
 /**
@@ -87,11 +88,11 @@ export const structure: StructureResolver = (S) =>
                             .filter('_type == "product" && category->name == "Otros"'),
                         ),
                       S.listItem()
-                        .title("Cristalería sin subtipo")
+                        .title("Cristalería sin subcategoría")
                         .icon(WarningOutlineIcon)
                         .child(
                           S.documentList()
-                            .title("Copas/vasos sin subtipo")
+                            .title("Copas/vasos sin subcategoría")
                             .filter(
                               '_type == "product" && category->name == "Copas y vasos" && !defined(subtype) && count(subtypes) == 0',
                             ),
@@ -156,7 +157,109 @@ export const structure: StructureResolver = (S) =>
                       { field: "name", direction: "asc" },
                     ]),
                 ),
-              S.documentTypeListItem("subtype").title("Subtipos").icon(TagsIcon),
+              S.listItem()
+                .title("Grupos de filtro")
+                .icon(FilterIcon)
+                .child(
+                  S.documentList()
+                    .title("Grupos de filtro (los bloques del catálogo)")
+                    .filter('_type == "subcategoryGroup"')
+                    .defaultOrdering([
+                      { field: "order", direction: "asc" },
+                      { field: "name", direction: "asc" },
+                    ]),
+                ),
+              S.listItem()
+                .title("Subcategorías")
+                .icon(TagsIcon)
+                .child(
+                  S.documentList()
+                    .title("Subcategorías")
+                    .filter('_type == "subtype"')
+                    .defaultOrdering([
+                      { field: "group.name", direction: "asc" },
+                      { field: "name", direction: "asc" },
+                    ]),
+                ),
+              S.listItem()
+                .title("Subcategorías SIN GRUPO")
+                .icon(WarningOutlineIcon)
+                .child(
+                  S.documentList()
+                    .title("Subcategorías sin grupo — no se muestran en el catálogo")
+                    .filter('_type == "subtype" && !defined(group)'),
+                ),
+              S.divider(),
+              // Una sola pantalla para ver qué le falta al catálogo. Todo lo de
+              // acá adentro es lo que hace que un producto NO se vea bien en la
+              // web (o directamente no se vea).
+              S.listItem()
+                .title("Revisar antes de publicar")
+                .icon(WarningOutlineIcon)
+                .child(
+                  S.list()
+                    .title("Revisar antes de publicar")
+                    .items([
+                      S.listItem()
+                        .title("Productos sin categoría")
+                        .icon(WarningOutlineIcon)
+                        .child(
+                          S.documentList()
+                            .title("Sin categoría — la web no los muestra y no se pueden publicar")
+                            .filter('_type == "product" && !defined(category)'),
+                        ),
+                      S.listItem()
+                        .title("Productos sin subcategoría")
+                        .icon(WarningOutlineIcon)
+                        .child(
+                          S.documentList()
+                            .title("Sin subcategoría — se ven en el catálogo pero no aparecen en ningún filtro")
+                            .filter('_type == "product" && count(subtypes) == 0 && !defined(subtype)'),
+                        ),
+                      S.listItem()
+                        .title("Productos sin foto")
+                        .icon(WarningOutlineIcon)
+                        .child(
+                          S.documentList()
+                            .title("Sin foto")
+                            .filter('_type == "product" && !defined(images) && !defined(legacyImageUrl)'),
+                        ),
+                      S.divider(),
+                      S.listItem()
+                        .title("Subcategorías sin grupo")
+                        .icon(WarningOutlineIcon)
+                        .child(
+                          S.documentList()
+                            .title("Sin grupo — no se muestran en ningún filtro del catálogo")
+                            .filter('_type == "subtype" && !defined(group)'),
+                        ),
+                      S.listItem()
+                        .title("Subcategorías sin usar")
+                        .icon(WarningOutlineIcon)
+                        .child(
+                          S.documentList()
+                            .title("Ningún producto las tiene — se pueden borrar")
+                            .filter('_type == "subtype" && count(*[_type == "product" && references(^._id)]) == 0'),
+                        ),
+                      S.listItem()
+                        .title("Categorías vacías")
+                        .icon(WarningOutlineIcon)
+                        .child(
+                          S.documentList()
+                            .title("Categorías sin ningún producto")
+                            .filter('_type == "category" && count(*[_type == "product" && references(^._id)]) == 0'),
+                        ),
+                      S.listItem()
+                        .title("Categorías sin foto")
+                        .icon(WarningOutlineIcon)
+                        .child(
+                          S.documentList()
+                            .title("Sin foto — el tile del home usa el dibujo genérico")
+                            .filter('_type == "category" && !defined(image)'),
+                        ),
+                    ]),
+                ),
+              S.divider(),
               S.documentTypeListItem("combo").title("Combos").icon(TrolleyIcon),
               // Solo marcas de producto. Los logos de clientes viven en "Clientes".
               S.documentTypeListItem("brand").title("Marcas").icon(TagIcon),
@@ -329,6 +432,16 @@ export const structure: StructureResolver = (S) =>
                     .schemaType("shippingConfig")
                     .documentId("shipping-config")
                     .title("Configuración de envíos"),
+                ),
+              S.listItem()
+                .id("welcome-modal")
+                .title("Cartel de bienvenida")
+                .icon(UsersIcon)
+                .child(
+                  S.document()
+                    .schemaType("welcomeModal")
+                    .documentId("welcome-modal")
+                    .title("Cartel de bienvenida"),
                 ),
               S.listItem()
                 .id("deco-pricing")

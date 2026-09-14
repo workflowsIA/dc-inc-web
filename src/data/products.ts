@@ -6,7 +6,7 @@
 
 import type { PresentationPricing } from "@/lib/queries";
 
-export type Badge = "best" | "new" | "promo" | "deco";
+export type Badge = "best" | "new" | "promo" | "deco" | "preventa" | "liquidacion";
 export type StockLevel = "ok" | "low" | "out";
 
 export interface Product {

@@ -25,9 +25,23 @@ export default defineType({
       title: "Mostrar en el home",
       type: "boolean",
       description:
-        "Si está activo, la categoría aparece en la grilla “Elegí por categoría” de la home (siempre que tenga al menos un producto publicado).",
+        "Si está activo, la categoría aparece en la grilla “Elegí por categoría” de la home. Para que aparezca necesita tener al menos un producto publicado Y un dibujo: los seis rubros de siempre ya lo traen; para sumar una categoría nueva hay que cargarle una imagen acá abajo, si no queda afuera aunque el check esté prendido.",
     }),
     defineField({ name: "image", title: "Imagen", type: "image", options: { hotspot: true } }),
+    defineField({
+      // La dirección web de la categoría sale del slug de arriba. Cuando se le
+      // cambia el nombre, el slug se puede regenerar y la dirección vieja queda
+      // rota para quien la tenga guardada o la encuentre en Google (pasó el
+      // 12-sep-2026 con "Tapas y precintos"). Acá quedan las direcciones
+      // anteriores: el sitio las redirige solas a la actual.
+      name: "previousSlugs",
+      title: "Direcciones anteriores",
+      type: "array",
+      of: [{ type: "string" }],
+      description:
+        "Las direcciones que tuvo antes esta categoría. El sitio las redirige a la actual, así no se pierde el que llega desde Google o desde un link guardado. Se completan solas cuando cambia el nombre; no hace falta tocarlas.",
+      options: { layout: "tags" },
+    }),
   ],
   preview: {
     select: { title: "name", order: "order", media: "image", showOnHome: "showOnHome" },
