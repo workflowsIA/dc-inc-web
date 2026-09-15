@@ -35,20 +35,9 @@
 import { createClerkClient } from "@clerk/nextjs/server";
 import { sanityClient } from "../src/lib/sanity";
 import { estadoToRole } from "../src/lib/clerk-sync";
+import { exigirProduccion } from "./clerk-instance";
 
 const APPLY = process.argv.includes("--apply");
-/** Escape hatch para mirar a propósito la instancia de prueba. */
-const DEV_OK = process.argv.includes("--dev");
-
-/**
- * De qué instancia de Clerk es esta clave. El prefijo lo define Clerk:
- * `sk_live_` = producción, `sk_test_` = desarrollo.
- */
-function instanciaDe(key: string): "produccion" | "desarrollo" | "desconocida" {
-  if (key.startsWith("sk_live_")) return "produccion";
-  if (key.startsWith("sk_test_")) return "desarrollo";
-  return "desconocida";
-}
 
 interface CustomerDoc {
   _id: string;
@@ -74,24 +63,7 @@ const RANK: Record<string, number> = {
 };
 
 async function main() {
-  const secretKey = process.env.CLERK_SECRET_KEY ?? "";
-  const instancia = instanciaDe(secretKey);
-  if (!secretKey) {
-    console.error("Falta CLERK_SECRET_KEY.");
-    process.exit(1);
-  }
-  console.log(`Instancia de Clerk: ${instancia.toUpperCase()}\n`);
-  if (instancia !== "produccion" && !DEV_OK) {
-    console.error(
-      `Esta clave es de ${instancia}, no de producción.\n\n` +
-        "Contra la instancia de prueba el informe es engañoso: los clientes reales\n" +
-        "aparecen como inexistentes porque viven en la otra instancia.\n\n" +
-        "Sacá la clave de producción de Vercel y corré:\n" +
-        "  CLERK_SECRET_KEY=sk_live_… npm run roles:audit\n\n" +
-        "Si de verdad querés auditar la instancia de prueba, agregá --dev.",
-    );
-    process.exit(1);
-  }
+  const secretKey = exigirProduccion("npm run roles:audit");
 
   const docs = await sanityClient.fetch<CustomerDoc[]>(
     `*[_type=="customer"]|order(email asc){_id,clerkUserId,estado,email,nombre}`,
@@ -142,7 +114,9 @@ async function main() {
 
   // --- Informe ---
   if (desfasados.length === 0) {
-    console.log("✅ Ningún desfasaje: Clerk y Sanity coinciden en los 39.\n");
+    console.log(
+      `✅ Ningún desfasaje: Clerk y Sanity coinciden en ${docs.length - huerfanos.length} cuenta(s).\n`,
+    );
   } else {
     console.log(`⚠️  ${desfasados.length} cuenta(s) desfasada(s):\n`);
     for (const { doc, actual, esperado } of desfasados) {
