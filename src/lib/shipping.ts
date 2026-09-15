@@ -194,6 +194,96 @@ export function aforadoKg(
   return Math.max(real ?? 0, vol ?? 0);
 }
 
+/**
+ * Una fila de la planilla de inventario con peso y medidas: puede ser el
+ * producto base o una presentación (caja / pallet / paquete).
+ */
+export interface DimsRow {
+  pesoKg?: number | null;
+  largoCm?: number | null;
+  anchoCm?: number | null;
+  altoCm?: number | null;
+  /** Unidades que contiene ESE bulto. */
+  unitsPerBulk?: number | null;
+}
+
+/** ¿Esta fila trae peso o medidas cargadas? */
+export function tieneDims(d?: DimsRow | null): boolean {
+  return !!d && (d.pesoKg != null || d.largoCm != null);
+}
+
+/**
+ * Peso facturable POR UNIDAD del producto.
+ *
+ * Marce carga el peso y las medidas en la fila de la CAJA (`…C`) y deja
+ * vacías las de la unidad y las del pallet — es lo razonable, porque lo que
+ * se pesa es el bulto. Hasta el 15-sep-2026 el cálculo sólo miraba la fila
+ * de la presentación elegida y, si no, la del producto base: comprando
+ * "Individual" las dos vienen vacías y el envío se quedaba sin peso. Sin
+ * peso no corre la consolidación (`consolidar` → `sinPeso`) y cada lado caía
+ * a su propio conteo crudo de bultos: el carrito contaba 1 por línea y
+ * /api/orders 1 por unidad, así que el cliente veía un precio en la página y
+ * Nave le pedía otro (pedido #380123-LYV: 10 mini botellas de 50 ml, $18.528
+ * en el sitio contra $39.891 en Nave).
+ *
+ * El orden de búsqueda es del dato más específico al más general:
+ *   1. la fila de la presentación elegida,
+ *   2. la del producto base,
+ *   3. CUALQUIER presentación que tenga medidas — la de menos unidades, que
+ *      es la caja y no el pallet: extrapolar desde la caja se acerca mucho
+ *      más y además el pallet casi nunca tiene el dato cargado.
+ *
+ * Siempre se divide por las unidades de la fila de la que salió el peso, así
+ * que el resultado es comparable venga de donde venga. null = no hay peso en
+ * ningún lado → el envío va "a cotizar" (o al fallback de quien llame).
+ */
+export function pesoUnitarioAforado(opts: {
+  /** fila de la presentación elegida; undefined al comprar por unidad */
+  pres?: DimsRow | null;
+  /** fila del producto base */
+  base?: DimsRow | null;
+  /** unidades del bulto base (product.bulto / unitsPerBulk) */
+  baseUnits?: number | null;
+  /** todas las presentaciones del producto, para el fallback a la caja */
+  presentaciones?: readonly (DimsRow | null | undefined)[] | null;
+}): number | null {
+  const fuente = fuenteDeDims(opts);
+  if (!fuente) return null;
+  const aforado = aforadoKg(fuente.row.pesoKg, {
+    largo: fuente.row.largoCm,
+    ancho: fuente.row.anchoCm,
+    alto: fuente.row.altoCm,
+  });
+  if (aforado === null) return null;
+  const units = fuente.units > 0 ? fuente.units : 1;
+  return aforado / units;
+}
+
+/** De qué fila sale el peso y a cuántas unidades corresponde. */
+function fuenteDeDims(opts: {
+  pres?: DimsRow | null;
+  base?: DimsRow | null;
+  baseUnits?: number | null;
+  presentaciones?: readonly (DimsRow | null | undefined)[] | null;
+}): { row: DimsRow; units: number } | null {
+  const { pres, base, baseUnits, presentaciones } = opts;
+  if (tieneDims(pres)) {
+    return { row: pres!, units: pres!.unitsPerBulk ?? baseUnits ?? 1 };
+  }
+  if (tieneDims(base)) {
+    return { row: base!, units: baseUnits ?? base!.unitsPerBulk ?? 1 };
+  }
+  // Fallback: la presentación con medidas que menos unidades tenga (la caja).
+  let mejor: { row: DimsRow; units: number } | null = null;
+  for (const p of presentaciones ?? []) {
+    if (!tieneDims(p)) continue;
+    const units = p!.unitsPerBulk ?? 0;
+    if (!(units > 0)) continue; // sin saber cuántas unidades trae no se prorratea
+    if (!mejor || units < mejor.units) mejor = { row: p!, units };
+  }
+  return mejor;
+}
+
 /** Tope de peso facturable por paquete (Andreani "Paquetes"). */
 export const PAQUETE_MAX_KG = 50;
 

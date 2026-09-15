@@ -6,7 +6,7 @@ import QtyInput from "./QtyInput";
 import { useCart, type ProductSnapshot } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
 import { resolveDisplayPrice, type PricingInput } from "@/lib/pricing";
-import { aforadoKg, SHIPPING_FROM } from "@/lib/shipping";
+import { pesoUnitarioAforado, SHIPPING_FROM } from "@/lib/shipping";
 import type { PresentationPricing } from "@/lib/queries";
 import { useWholesaleEntry } from "@/lib/wholesale-prices";
 import { decoMinUnits, decoQuote, type DecoOption } from "@/lib/deco";
@@ -128,28 +128,19 @@ export default function ProductBuyBox({
       : null;
   // La presentación elegida ya trae color propio (paquete por color) → no se pide.
   const needsColor = colorOptions.length > 0 && !presMatch?.variant;
-  // Peso facturable de UN bulto de la presentación elegida: primero el de la
-  // fila de la planilla (cada caja/pallet tiene el suyo), y si esa fila no lo
-  // trae, el del producto base. undefined → el envío se cotiza aparte.
-  const presHasDims = presMatch?.pesoKg != null || presMatch?.largoCm != null;
-  const dimsSel = presHasDims ? presMatch : bultoDims;
-  const aforadoDims =
-    aforadoKg(dimsSel?.pesoKg, {
-      largo: dimsSel?.largoCm,
-      ancho: dimsSel?.anchoCm,
-      alto: dimsSel?.altoCm,
-    });
-  // El peso y las medidas del producto base son las de UN BULTO de
-  // `product.bulto` unidades. Si la presentación elegida tiene otra cantidad
-  // (el caso típico es "Individual", 1 u), el peso facturable se PRORRATEA:
-  // seis botellas sueltas no pesan una caja entera. Sin esto, el pedido de 14
-  // botellas sueltas de Facundo Fuentes cotizaba 14 cajas (Marce, 10-sep-2026).
-  // Si la fila de la presentación trae sus propias medidas, no se toca nada.
-  const aforadoBaseUnits = presHasDims ? unitsPerSel : product.bulto > 0 ? product.bulto : 1;
-  const bultoAforado =
-    aforadoDims === null
-      ? undefined
-      : aforadoDims * (unitsPerSel / (aforadoBaseUnits || 1));
+  // Peso facturable de UN bulto de la presentación elegida. El peso por unidad
+  // sale de la fila más específica que lo tenga (presentación → producto base →
+  // la caja) y se multiplica por las unidades de esta presentación: seis
+  // botellas sueltas no pesan una caja entera. Ver pesoUnitarioAforado() —
+  // tiene el porqué del fallback a la caja y el caso que lo motivó.
+  // undefined → el envío se cotiza aparte.
+  const pesoUnidad = pesoUnitarioAforado({
+    pres: presMatch,
+    base: bultoDims ? { ...bultoDims, unitsPerBulk: product.bulto } : null,
+    baseUnits: product.bulto > 0 ? product.bulto : 1,
+    presentaciones: presentationPricing,
+  });
+  const bultoAforado = pesoUnidad === null ? undefined : pesoUnidad * unitsPerSel;
   const selPricing: PricingInput =
     presMatch && presMatch.pricePublic != null
       ? { ...pricing, pub: presMatch.pricePublic, may: presMatch.priceWholesale ?? pricing.may }

@@ -11,8 +11,8 @@ import {
 } from "@/lib/queries";
 import { IVA_RATE, isSaleActive, retailCartExceeded } from "@/lib/pricing";
 import {
-  aforadoKg,
   paquetesDeBultos,
+  pesoUnitarioAforado,
   shippingEstimate,
   shippingNet,
   type BatuZone,
@@ -250,22 +250,18 @@ export async function POST(req: Request) {
             : basePub;
         const stepUnits = pres?.unitsPerBulk ?? prod.unitsPerBulk;
         const step = stepUnits > 0 ? stepUnits : 1;
-        // Peso facturable de UN bulto: el de la fila de la presentación si lo
-        // trae, si no el del producto base. Sin dato → envío a cotizar.
-        const dims = pres?.pesoKg != null || pres?.largoCm != null ? pres : prod;
-        const dimsUnits = (pres?.pesoKg != null || pres?.largoCm != null
-          ? pres.unitsPerBulk
-          : prod.unitsPerBulk) || 1;
-        const aforadoBulto = aforadoKg(dims.pesoKg, {
-          largo: dims.largoCm,
-          ancho: dims.anchoCm,
-          alto: dims.altoCm,
+        // Peso facturable POR UNIDAD. El peso cargado es siempre el del BULTO
+        // ENTERO, así que se prorratea: un pedido por unidades sueltas no debe
+        // cotizar una caja por unidad (caso Facundo Fuentes: 6 + 8 botellas
+        // sueltas cotizaban 14 bultos). MISMA función que usa la ficha, para
+        // que el envío del carrito y el del pedido guardado no puedan diferir.
+        // Sin peso en ninguna fila → null → envío a cotizar.
+        const perUnitKg = pesoUnitarioAforado({
+          pres,
+          base: prod,
+          baseUnits: prod.unitsPerBulk,
+          presentaciones: prod.presentationPricing,
         });
-        // El peso cargado es el del BULTO ENTERO. Se prorratea por unidad para
-        // que un pedido por unidades sueltas no cotice una caja por unidad
-        // (caso Facundo Fuentes: 6 + 8 botellas sueltas cotizaban 14 bultos).
-        // Un bulto entero sigue pesando exactamente lo mismo que antes.
-        const perUnitKg = aforadoBulto === null ? null : aforadoBulto / dimsUnits;
         const enteros = Math.floor(it.qty / step);
         const resto = it.qty - enteros * step;
         bultos = Math.max(1, enteros + (resto > 0 ? 1 : 0));
