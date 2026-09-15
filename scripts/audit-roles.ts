@@ -3,8 +3,20 @@
  * `publicMetadata.role` del usuario en Clerk, que es lo ÚNICO que la web mira
  * para decidir si alguien ve precios mayoristas o minoristas.
  *
- *   npm run roles:audit              → solo lista, no toca nada
- *   npm run roles:audit -- --apply   → corrige Clerk para que coincida con Sanity
+ *   CLERK_SECRET_KEY=sk_live_… npm run roles:audit              → solo lista
+ *   CLERK_SECRET_KEY=sk_live_… npm run roles:audit -- --apply   → corrige Clerk
+ *
+ * OJO CON LA INSTANCIA. Clerk tiene una instancia de DESARROLLO y otra de
+ * PRODUCCIÓN, con usuarios y IDs distintos. `.env.local` tiene la de desarrollo
+ * (`sk_test_…`), donde hay un puñado de usuarios de prueba; la web real corre
+ * con la de producción (`sk_live_…`, está en Vercel). Correr esto contra
+ * desarrollo da un informe que parece válido y es basura: el 15-sep-2026 marcó
+ * 33 clientes reales como "borrados" simplemente porque no existen en la
+ * instancia de prueba. Por eso el script se planta si no es producción.
+ *
+ * La variable de entorno del shell le gana a la de `--env-file`, así que
+ * anteponer `CLERK_SECRET_KEY=sk_live_…` alcanza y no hay que dejar la clave de
+ * producción escrita en ningún archivo.
  *
  * Por qué existe: el 15-sep-2026 Marce figuraba "mayorista" en el Studio y en
  * Clerk seguía en `customer`, así que veía precios minoristas. El sync
@@ -20,11 +32,23 @@
  *
  * Requiere en .env.local: CLERK_SECRET_KEY (+ la config de Sanity de siempre).
  */
-import { clerkClient } from "@clerk/nextjs/server";
+import { createClerkClient } from "@clerk/nextjs/server";
 import { sanityClient } from "../src/lib/sanity";
 import { estadoToRole } from "../src/lib/clerk-sync";
 
 const APPLY = process.argv.includes("--apply");
+/** Escape hatch para mirar a propósito la instancia de prueba. */
+const DEV_OK = process.argv.includes("--dev");
+
+/**
+ * De qué instancia de Clerk es esta clave. El prefijo lo define Clerk:
+ * `sk_live_` = producción, `sk_test_` = desarrollo.
+ */
+function instanciaDe(key: string): "produccion" | "desarrollo" | "desconocida" {
+  if (key.startsWith("sk_live_")) return "produccion";
+  if (key.startsWith("sk_test_")) return "desarrollo";
+  return "desconocida";
+}
 
 interface CustomerDoc {
   _id: string;
@@ -50,12 +74,33 @@ const RANK: Record<string, number> = {
 };
 
 async function main() {
+  const secretKey = process.env.CLERK_SECRET_KEY ?? "";
+  const instancia = instanciaDe(secretKey);
+  if (!secretKey) {
+    console.error("Falta CLERK_SECRET_KEY.");
+    process.exit(1);
+  }
+  console.log(`Instancia de Clerk: ${instancia.toUpperCase()}\n`);
+  if (instancia !== "produccion" && !DEV_OK) {
+    console.error(
+      `Esta clave es de ${instancia}, no de producción.\n\n` +
+        "Contra la instancia de prueba el informe es engañoso: los clientes reales\n" +
+        "aparecen como inexistentes porque viven en la otra instancia.\n\n" +
+        "Sacá la clave de producción de Vercel y corré:\n" +
+        "  CLERK_SECRET_KEY=sk_live_… npm run roles:audit\n\n" +
+        "Si de verdad querés auditar la instancia de prueba, agregá --dev.",
+    );
+    process.exit(1);
+  }
+
   const docs = await sanityClient.fetch<CustomerDoc[]>(
     `*[_type=="customer"]|order(email asc){_id,clerkUserId,estado,email,nombre}`,
   );
-  console.log(`Sanity: ${docs.length} clientes\n`);
+  console.log(`Sanity: ${docs.length} clientes`);
 
-  const clerk = await clerkClient();
+  // Cliente explícito (no el ambiente de Next) para que la clave que se usa sea
+  // exactamente la que se verificó arriba y no una que aparezca por otro lado.
+  const clerk = createClerkClient({ secretKey });
 
   // Se traen TODOS los usuarios de Clerk de una y se indexan: así el script hace
   // un puñado de llamadas en vez de una por cliente, y de paso quedan a la vista
@@ -128,7 +173,11 @@ async function main() {
   if (huerfanos.length) {
     console.log(`ℹ️  ${huerfanos.length} documento(s) en Sanity sin usuario en Clerk:\n`);
     for (const d of huerfanos) console.log(`  ${d.email ?? d._id}  (${d.clerkUserId ?? "sin clerkUserId"})`);
-    console.log("  → Cuentas borradas. No afectan precios; se pueden limpiar del Studio.\n");
+    console.log(
+      "  → Puede ser una cuenta borrada, o un documento que quedó de la otra\n" +
+        "    instancia de Clerk. NO los borres del Studio sin confirmar uno por uno:\n" +
+        "    si el mail te suena a cliente real, es lo segundo.\n",
+    );
   }
 
   const sinDoc = [...byId.keys()].filter((id) => !vistos.has(id));
