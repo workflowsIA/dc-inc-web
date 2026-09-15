@@ -38,6 +38,7 @@
     "diag:presentaciones": "tsx --env-file=.env.local scripts/diag-presentaciones.ts",
     "gsa:email": "tsx --env-file=.env.local scripts/print-service-account-email.ts",
     "fichas:audit": "tsx --env-file=.env.local scripts/audit-fichas.ts",
+    "roles:audit": "tsx --env-file=.env.local scripts/audit-roles.ts",
     "producto:foto": "tsx --env-file=.env.local scripts/set-product-image.ts",
     "producto:nombre": "tsx --env-file=.env.local scripts/set-product-name.ts",
     "taxonomia:audit": "node --env-file=.env.local scripts/audit-taxonomia.mjs",
