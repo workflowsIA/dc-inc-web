@@ -7,6 +7,7 @@ import {
   DEFAULT_SHIPPING_CONFIG,
   type BatuZone,
   type ShippingConfig,
+  type ShippingQuote,
 } from "./shipping";
 
 /** Numero de WhatsApp Business de DC Inc — del Wix actual. */
@@ -38,6 +39,8 @@ interface Totals {
   finalConsumer: boolean;
   /** true = el pedido pasó el techo de bultos y el envío va "a cotizar" */
   shippingQuote: boolean;
+  /** por qué va "a cotizar" (para diferenciar "falta el CP" de "es pallet") */
+  shippingReason?: ShippingQuote["reason"];
 }
 
 /** Precio unitario según el rol del usuario. */
@@ -111,6 +114,7 @@ export function totalsFor(
   );
   const shipping = quote.total;
   const shippingQuote = quote.toQuote;
+  const shippingReason = quote.reason;
   // IVA 21% sobre productos + envío (el flete también tributa IVA). El envío se
   // pasa a neto primero: la tarifa cargada ya viene con IVA, ver shippingNet().
   // Redondeo a centavos: espeja a round2() de /api/orders para que lo que ve el
@@ -141,6 +145,7 @@ export function totalsFor(
     hasDeco: items.some((i) => i.deco),
     finalConsumer,
     shippingQuote,
+    shippingReason,
   };
 }
 

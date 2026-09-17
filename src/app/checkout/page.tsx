@@ -13,6 +13,8 @@ import { totalsFor, unitPrice, waCheckoutURL, type CheckoutInfo } from "@/lib/wh
 import {
   BATU_ZONE_OPTIONS,
   DEFAULT_SHIPPING_CONFIG,
+  isValidCp,
+  normalizeCp,
   type BatuZone,
   type ShippingConfig,
 } from "@/lib/shipping";
@@ -85,6 +87,10 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   // el motivo lo pone <RetailCapNotice/> arriba del resumen; el servidor lo
   // vuelve a chequear en /api/orders, nunca confía en esto.
   const capped = !wholesale && retailCartExceeded(t.net);
+  // Cliente final "al interior / otro" (sin zona Batu) NECESITA un CP válido:
+  // sin banda no hay tarifa que cobrar. El servidor lo vuelve a chequear en
+  // /api/orders (error "invalid_cp"), nunca confía en esto.
+  const cpMissing = !wholesale && !info.batuZone && !isValidCp(info.cp);
   const set = (k: keyof CheckoutInfo) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setInfo((s) => ({ ...s, [k]: e.target.value }));
 
@@ -129,7 +135,11 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       presentationSku: i.presentationSku,
       variant: i.variant,
     })),
-    cp: info.cp,
+    // Normalizado a 4 dígitos cuando es válido (ej. "5.515" → "5515"), para que
+    // lo que se guarda en el pedido sea siempre el mismo formato que usó el
+    // cálculo de envío. Si no es válido se manda tal cual: el server lo vuelve
+    // a validar y, para cliente final sin zona Batu, rechaza el pedido.
+    cp: normalizeCp(info.cp) ?? info.cp,
     batuZone: info.batuZone ?? undefined,
     notes: info.notas,
     origin: "web" as const,
@@ -139,7 +149,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   // simulada, que hace de stand-in de la pasarela externa (futuro Nave).
   const buyNow = async () => {
     if (requireLogin()) return;
-    const invalid = validateCheckout(info);
+    const invalid = validateCheckout(info, wholesale);
     if (invalid) {
       setBuyError(invalid);
       return;
@@ -155,6 +165,16 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       const data = await res.json().catch(() => null);
       if (res.status === 400 && data?.error === "presentation_wholesale_only") {
         setBuyError(String(data.message ?? "Esa presentación es solo para clientes mayoristas."));
+        setBuying(false);
+        return;
+      }
+      if (res.status === 400 && data?.error === "invalid_cp") {
+        setBuyError(
+          String(
+            data.message ??
+              "Ingresá un código postal válido de 4 dígitos (ej. 5515) para calcular el envío.",
+          ),
+        );
         setBuying(false);
         return;
       }
@@ -182,7 +202,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   // la página de Nave clavada — visto en producción 22-jul).
   const payWithNave = async () => {
     if (requireLogin()) return;
-    const invalid = validateCheckout(info);
+    const invalid = validateCheckout(info, wholesale);
     if (invalid) {
       setNaveError(invalid);
       return;
@@ -198,6 +218,16 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       const data = await res.json().catch(() => null);
       if (res.status === 400 && data?.error === "presentation_wholesale_only") {
         setNaveError(String(data.message ?? "Esa presentación es solo para clientes mayoristas."));
+        setPayingNave(false);
+        return;
+      }
+      if (res.status === 400 && data?.error === "invalid_cp") {
+        setNaveError(
+          String(
+            data.message ??
+              "Ingresá un código postal válido de 4 dígitos (ej. 5515) para calcular el envío.",
+          ),
+        );
         setPayingNave(false);
         return;
       }
@@ -260,7 +290,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
     customerTaxId: info.cuit,
     customerAddress: info.direccion,
       items: orderItems,
-      cp: info.cp,
+      cp: normalizeCp(info.cp) ?? info.cp,
       batuZone: info.batuZone ?? undefined,
       notes: info.notas,
       // Este pedido nace del botón "Prefiero coordinar por WhatsApp", NO del
@@ -323,7 +353,23 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
             <In label="Email" value={info.email} onChange={set("email")} required type="email" />
             <In label="Teléfono" value={info.telefono} onChange={set("telefono")} required type="tel" />
                     <In label="Dirección de entrega" value={info.direccion} onChange={set("direccion")} required />
-            <In label="Código postal (para estimar envío)" value={info.cp} onChange={set("cp")} />
+            <div style={{ display: "grid", gap: "6px" }}>
+              <In
+                label={
+                  info.batuZone
+                    ? "Código postal (para estimar envío)"
+                    : "Código postal (obligatorio para calcular el envío)"
+                }
+                value={info.cp}
+                onChange={set("cp")}
+              />
+              {cpMissing && (
+                <p style={{ margin: 0, fontSize: "12px", color: "var(--danger, #c0392b)" }}>
+                  Ingresá un código postal válido de 4 dígitos (ej. 5515) para calcular el
+                  envío.
+                </p>
+              )}
+            </div>
             <label style={{ display: "grid", gap: "6px" }}>
               <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
                 Zona de envío (si es CABA/GBA — envío propio)
@@ -398,7 +444,11 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
           </div>
           <div style={{ height: "1px", background: "var(--line)", margin: "14px 0" }} />
           <TotalsRows t={t} money={money} />
-          <OrderNotices finalConsumer={t.finalConsumer} shippingQuote={t.shippingQuote} />
+          <OrderNotices
+            finalConsumer={t.finalConsumer}
+            shippingQuote={t.shippingQuote}
+            shippingReason={t.shippingReason}
+          />
 
           {naveEnabled && (
             <>
@@ -407,13 +457,15 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
                 className="btn btn-primary btn-lg btn-block"
                 style={{ marginTop: "20px" }}
                 onClick={payWithNave}
-                disabled={payingNave || capped}
+                disabled={payingNave || capped || cpMissing}
               >
                 {capped
                   ? "Supera el máximo minorista"
-                  : payingNave
-                    ? "Redirigiendo al pago…"
-                    : "Pagar con Nave"}
+                  : cpMissing
+                    ? "Ingresá tu código postal"
+                    : payingNave
+                      ? "Redirigiendo al pago…"
+                      : "Pagar con Nave"}
               </button>
               {naveError && (
                 <p style={{ marginTop: "10px", fontSize: "13px", color: "var(--danger, #c0392b)" }}>
@@ -429,9 +481,15 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
                 className="btn btn-primary btn-lg btn-block"
                 style={{ marginTop: "20px" }}
                 onClick={buyNow}
-                disabled={buying}
+                disabled={buying || capped || cpMissing}
               >
-                {buying ? "Generando pedido…" : "Comprar ahora"}
+                {capped
+                  ? "Supera el máximo minorista"
+                  : cpMissing
+                    ? "Ingresá tu código postal"
+                    : buying
+                      ? "Generando pedido…"
+                      : "Comprar ahora"}
               </button>
               {buyError && (
                 <p style={{ marginTop: "10px", fontSize: "13px", color: "var(--danger, #c0392b)" }}>
@@ -442,13 +500,31 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
           )}
           <a
             className={`btn btn-wa ${onlinePayEnabled ? "" : "btn-lg"} btn-block`}
-            style={{ marginTop: onlinePayEnabled ? "10px" : "20px" }}
+            style={{
+              marginTop: onlinePayEnabled ? "10px" : "20px",
+              // Este link SÍ crea un pedido (persistOrder, con el envío ya
+              // calculado): sin CP válido no hay tarifa que cobrarle, así que
+              // se deshabilita igual que los botones de pago online.
+              ...(cpMissing ? { opacity: 0.5, pointerEvents: "none", cursor: "not-allowed" } : {}),
+            }}
             href={waCheckoutURL(items, wholesale, info, shipCfg)}
             target="_blank"
             rel="noopener"
-            onClick={persistOrder}
+            aria-disabled={cpMissing}
+            tabIndex={cpMissing ? -1 : undefined}
+            onClick={(e) => {
+              if (cpMissing) {
+                e.preventDefault();
+                return;
+              }
+              persistOrder();
+            }}
           >
-            {onlinePayEnabled ? "Prefiero coordinar por WhatsApp" : "Confirmar pedido por WhatsApp"}
+            {cpMissing
+              ? "Ingresá tu código postal"
+              : onlinePayEnabled
+                ? "Prefiero coordinar por WhatsApp"
+                : "Confirmar pedido por WhatsApp"}
           </a>
           <Link
             className="btn btn-ghost btn-block"
@@ -464,7 +540,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
 }
 
 /** Valida los datos obligatorios del checkout antes de crear un pedido/pago. */
-function validateCheckout(info: CheckoutInfo): string | null {
+function validateCheckout(info: CheckoutInfo, wholesale: boolean): string | null {
   if (!info.nombre?.trim()) return "Completá tu nombre para continuar.";
   const email = (info.email ?? "").trim();
   if (!email) return "Completá tu email para continuar.";
@@ -474,6 +550,13 @@ function validateCheckout(info: CheckoutInfo): string | null {
   // ni dirección para despachar, y había que perseguir al cliente por WhatsApp.
   if (!info.cuit?.trim()) return "Completá tu CUIT o DNI: lo necesitamos para facturar.";
   if (!info.direccion?.trim()) return "Completá la dirección de entrega para continuar.";
+  // Cliente final "al interior / otro" (sin zona Batu): sin CP válido no hay
+  // banda de tarifa que cobrar (caso Maipú, Mendoza: CP "5.515" mal tipeado se
+  // cobró en silencio como AMBA). Mayorista y quienes eligieron zona Batu no
+  // necesitan CP acá.
+  if (!wholesale && !info.batuZone && !isValidCp(info.cp)) {
+    return "Ingresá un código postal válido de 4 dígitos (ej. 5515) para calcular el envío.";
+  }
   return null;
 }
 

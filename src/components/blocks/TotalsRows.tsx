@@ -45,6 +45,9 @@ export interface TotalsForSummary {
   total: number;
   finalConsumer: boolean;
   shippingQuote: boolean;
+  /** por qué el envío va "a cotizar" — "cp" = falta o es inválido el código
+   *  postal, y ahí el resumen NO dice "a cotizar" sino que pide el dato. */
+  shippingReason?: "sin-peso" | "bulto-grande" | "pedido-grande" | "mayorista" | "cp";
 }
 
 export function TotalsRows({
@@ -77,7 +80,16 @@ export function TotalsRows({
       />
 
       {t.shippingQuote ? (
-        <Line label="Envío" neto="—" iva="—" total="a cotizar" muted />
+        <Line
+          label="Envío"
+          neto="—"
+          iva="—"
+          // Nunca un monto inventado: si lo que falta es el CP, se lo pedimos
+          // en vez de mostrar "a cotizar" (que suena a que ya se coordina) o,
+          // peor, $0 como si el envío saliera gratis.
+          total={t.shippingReason === "cp" ? "Ingresá tu código postal" : "a cotizar"}
+          muted
+        />
       ) : (
         <Line
           label="Envío estimado"

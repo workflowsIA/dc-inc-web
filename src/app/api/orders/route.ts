@@ -11,6 +11,7 @@ import {
 } from "@/lib/queries";
 import { IVA_RATE, isSaleActive, retailCartExceeded } from "@/lib/pricing";
 import {
+  normalizeCp,
   paquetesDeBultos,
   pesoUnitarioAforado,
   shippingEstimate,
@@ -116,6 +117,22 @@ export async function POST(req: Request) {
   // Rol y usuario desde la sesión (server-side, no del cliente).
   const wholesale = await isWholesale();
   const { userId } = await auth();
+
+  // Cliente final "al interior / otro" (sin zona Batu): sin CP válido no hay
+  // banda de tarifa que cobrar (caso Maipú, Mendoza: CP "5.515" mal tipeado se
+  // cobró en silencio como AMBA en vez de B3). Mismo patrón que retail_cart_max
+  // y wholesale_only: se corta ACÁ, antes de crear nada. Mayorista y quienes
+  // eligieron zona Batu no necesitan CP (su envío ya es "a cotizar" o Batu).
+  if (!wholesale && !body.batuZone && !normalizeCp(body.cp)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "invalid_cp",
+        message: "Ingresá un código postal válido de 4 dígitos (ej. 5515) para calcular el envío.",
+      },
+      { status: 400 },
+    );
+  }
 
   try {
     // Separamos items en combos (por slug) y productos (por sku).
@@ -349,7 +366,13 @@ export async function POST(req: Request) {
       items: lines,
       subtotal: round2(sub),
       iva,
-      cpDestino: body.cp ?? "",
+      // Desglose de IVA: productos y envío por separado, aunque `iva` ya sea la
+      // suma de los dos (ver order.ts en Sanity — cuenta de control del Studio).
+      ivaProductos,
+      ivaEnvio,
+      // Normalizado a 4 dígitos cuando es válido ("5.515" → "5515"), nunca el
+      // texto crudo que tipeó el cliente.
+      cpDestino: normalizeCp(body.cp) ?? body.cp ?? "",
       zonaBatu: body.batuZone ?? null,
       envioEstimado: round2(shipping),
       bultosDespacho: bultosDespacho ?? undefined,

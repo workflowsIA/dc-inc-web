@@ -32,11 +32,33 @@ export const SHIPPING_BAND_LABEL: Record<ShippingBand, string> = {
 /** Tarifa más barata — para el "Envío desde $X" cuando aún no se conoce el destino. */
 export const SHIPPING_FROM = SHIPPING_RATES.AMBA;
 
-/** Extrae el CP numérico de 4 dígitos de un texto ("1650", "B1650ABC", "cp 1650"). */
-function parseCp(cp: string | undefined | null): number | null {
+/**
+ * Normaliza un CP argentino escrito de cualquier forma ("5.515", "5 515",
+ * "M5515ABC", "C1425DKA") al string de 4 dígitos ("5515"). Saca todo lo que no
+ * sea dígito y exige que queden EXACTAMENTE 4, entre 1000 y 9999 — si el
+ * cliente escribió el punto de mil ("5.515") o le agregó la letra del CPA
+ * ("M5515ABC"), igual se reconoce; si el resultado tiene menos o más de 4
+ * dígitos ("551", "55155") o cae fuera de rango ("0123"), es basura y se
+ * devuelve null: MEJOR pedir el CP de nuevo que inventarle una banda.
+ */
+export function normalizeCp(cp: string | undefined | null): string | null {
   if (!cp) return null;
-  const m = String(cp).match(/\d{4}/);
-  return m ? parseInt(m[0], 10) : null;
+  const digits = String(cp).replace(/\D/g, "");
+  if (digits.length !== 4) return null;
+  const n = parseInt(digits, 10);
+  if (n < 1000 || n > 9999) return null;
+  return digits;
+}
+
+/** ¿`cp` normaliza a un código postal de 4 dígitos válido? */
+export function isValidCp(cp: string | undefined | null): boolean {
+  return normalizeCp(cp) !== null;
+}
+
+/** Extrae el CP numérico de 4 dígitos de un texto ("1650", "B1650ABC", "5.515"). */
+function parseCp(cp: string | undefined | null): number | null {
+  const norm = normalizeCp(cp);
+  return norm ? parseInt(norm, 10) : null;
 }
 
 /**
@@ -67,7 +89,11 @@ export function bandForCp(cp: string | undefined | null): ShippingBand | null {
  * Costo de envío estimado por banda de CP (interior / fallback).
  *  - Mayorista → 0 (el envío se cotiza aparte, "a cotizar").
  *  - Cliente final → tarifa de la banda del CP.
- *  - CP desconocido/vacío → AMBA (la más barata) como default provisorio.
+ *  - CP inválido/vacío → 0. Ya NO cae a AMBA como default provisorio: sin un
+ *    CP válido no hay banda que cobrar, y mostrar la más barata como si fuera
+ *    el costo real termina cobrando de menos (caso Maipú, Mendoza: CP "5.515"
+ *    mal tipeado se cobró como AMBA en vez de B3). Quien llame a esta función
+ *    debe tratar el 0 como "no se puede estimar todavía", nunca como "gratis".
  */
 export function shippingForCp(
   cp: string | undefined | null,
@@ -78,7 +104,7 @@ export function shippingForCp(
   // Modo "cotizar": el interior no muestra tarifa estimada, va "a cotizar".
   if (cfg.andreaniMode === "cotizar") return 0;
   const band = bandForCp(cp);
-  return band ? cfg.andreani[band] : cfg.andreani.AMBA;
+  return band ? cfg.andreani[band] : 0;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -423,7 +449,7 @@ export interface ShippingQuote {
   /** true → no se puede estimar, va "a cotizar" */
   toQuote: boolean;
   /** por qué hay que cotizar (para el cartel y para el pedido) */
-  reason?: "sin-peso" | "bulto-grande" | "pedido-grande" | "mayorista";
+  reason?: "sin-peso" | "bulto-grande" | "pedido-grande" | "mayorista" | "cp";
 }
 
 /** Cómo queda el pedido una vez aplicada la regla de consolidación. */
@@ -494,15 +520,20 @@ export function paquetesDeBultos(
 /**
  * Envío al interior (Andreani): se cobra POR PAQUETE, así que primero se
  * aplica la regla de consolidación y después se tarifa paquete por paquete.
- * Va "a cotizar" si algún producto no tiene peso cargado o si un bulto pasa
- * los 50 kg facturables (ahí corresponde pallet, no paquetería).
+ * Va "a cotizar" si el CP no es válido (sin banda no hay tarifa que cobrar —
+ * ver normalizeCp()), si algún producto no tiene peso cargado, o si un bulto
+ * pasa los 50 kg facturables (ahí corresponde pallet, no paquetería).
  */
 export function andreaniQuote(
   cp: string | undefined | null,
   bultos: Bulto[],
   cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
 ): ShippingQuote {
-  const band = bandForCp(cp) ?? "AMBA";
+  const band = bandForCp(cp);
+  // Sin CP válido no hay banda de tarifa: antes esto caía en silencio a AMBA
+  // (la más barata) y cobraba de menos a cualquiera cuyo CP no matcheara el
+  // regex viejo (ej. "5.515" con punto). Ahora se corta y se pide el dato.
+  if (band === null) return { total: 0, toQuote: true, reason: "cp" };
   const c = consolidar(bultos, cfg);
   if (c.sinPeso) return { total: 0, toQuote: true, reason: "sin-peso" };
   if (c.bultoGrande) return { total: 0, toQuote: true, reason: "bulto-grande" };

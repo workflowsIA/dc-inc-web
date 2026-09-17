@@ -14,16 +14,20 @@ import Link from "next/link";
  * El aviso de envío no aplica al mayorista: su envío ya figura "a cotizar".
  * Cuando el pedido no se puede estimar (un producto sin peso cargado, o un
  * bulto de más de 50 kg facturables, donde corresponde pallet y no paquetería)
- * el mensaje cambia: no hay estimado, se cotiza. Ver andreaniQuote() en
- * shipping.ts.
+ * el mensaje cambia: no hay estimado, se cotiza. Si en cambio lo que falta es
+ * un código postal válido, el mensaje es otro: no es que convenga cotizarlo,
+ * es que no se puede calcular sin ese dato. Ver andreaniQuote() en shipping.ts.
  */
 export function OrderNotices({
   finalConsumer,
   shippingQuote = false,
+  shippingReason,
 }: {
   finalConsumer: boolean;
-  /** no se pudo estimar el envío (sin peso, o bulto fuera de paquetería) */
+  /** no se pudo estimar el envío (sin peso, bulto fuera de paquetería, o CP inválido) */
   shippingQuote?: boolean;
+  /** "cp" = lo que falta es un código postal válido, no un motivo de peso/volumen */
+  shippingReason?: "sin-peso" | "bulto-grande" | "pedido-grande" | "mayorista" | "cp";
 }) {
   return (
     <div
@@ -38,16 +42,23 @@ export function OrderNotices({
     >
       {finalConsumer &&
         (shippingQuote ? (
-          <p style={{ margin: 0 }}>
-            <strong>Este pedido lleva envío a cotizar.</strong> Por el volumen conviene
-            despacharlo por transporte o pallet, que sale bastante menos que la
-            paquetería, así que lo calculamos con vos antes de despachar en lugar de
-            mostrarte un número que va a quedar mal.{" "}
-            <Link href="/logistica" style={{ textDecoration: "underline" }}>
-              Cómo trabajamos los envíos
-            </Link>
-            .
-          </p>
+          shippingReason === "cp" ? (
+            <p style={{ margin: 0 }}>
+              <strong>Nos falta tu código postal para calcular el envío.</strong> Completalo
+              arriba (4 dígitos, sin letras) para ver el costo antes de confirmar.
+            </p>
+          ) : (
+            <p style={{ margin: 0 }}>
+              <strong>Este pedido lleva envío a cotizar.</strong> Por el volumen conviene
+              despacharlo por transporte o pallet, que sale bastante menos que la
+              paquetería, así que lo calculamos con vos antes de despachar en lugar de
+              mostrarte un número que va a quedar mal.{" "}
+              <Link href="/logistica" style={{ textDecoration: "underline" }}>
+                Cómo trabajamos los envíos
+              </Link>
+              .
+            </p>
+          )
         ) : (
           <p style={{ margin: 0 }}>
             <strong>El envío es un estimado.</strong> Antes de despachar te confirmamos el

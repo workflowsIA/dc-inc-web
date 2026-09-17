@@ -9,6 +9,7 @@ import { RETAIL_CART_MAX, retailCartExceeded } from "@/lib/pricing";
 import { totalsFor, unitPrice, waOrderURL } from "@/lib/whatsapp";
 import {
   bandForCp,
+  isValidCp,
   SHIPPING_BAND_LABEL,
   BATU_ZONE_OPTIONS,
   DEFAULT_SHIPPING_CONFIG,
@@ -56,6 +57,10 @@ export default function CarritoPage() {
   // Tope minorista por carrito: pasado el monto no se puede seguir al checkout.
   // El aviso con el motivo lo pone <RetailCapNotice/> arriba del resumen.
   const capped = !wholesale && retailCartExceeded(t.net);
+  // Cliente final "al interior / otro" (sin zona Batu) NECESITA un CP válido:
+  // sin banda no hay tarifa que cobrar (ver andreaniQuote en shipping.ts), así
+  // que no se puede avanzar al checkout hasta que lo cargue bien.
+  const cpMissing = !wholesale && !batuZone && !isValidCp(cp);
 
   if (items.length === 0) {
     return (
@@ -248,7 +253,11 @@ export default function CarritoPage() {
           <div style={{ marginTop: "16px", display: "grid", gap: "8px", fontSize: "14px" }}>
             <TotalsRows t={t} money={money} />
           </div>
-          <OrderNotices finalConsumer={t.finalConsumer} shippingQuote={t.shippingQuote} />
+          <OrderNotices
+            finalConsumer={t.finalConsumer}
+            shippingQuote={t.shippingQuote}
+            shippingReason={t.shippingReason}
+          />
           {t.hasDeco && (
             <p style={{ marginTop: "16px", fontSize: "13px", color: "var(--muted)" }}>
               Incluye decorado — coordinamos arte por WhatsApp.
@@ -287,7 +296,11 @@ export default function CarritoPage() {
               <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
                 <input
                   inputMode="numeric"
-                  placeholder="…o tu código postal (interior)"
+                  placeholder={
+                    wholesale
+                      ? "…o tu código postal (interior)"
+                      : "Código postal (obligatorio para calcular el envío)"
+                  }
                   value={cp}
                   onChange={(e) => {
                     setCp(e.target.value);
@@ -315,6 +328,13 @@ export default function CarritoPage() {
                 Envío propio a <strong>Zona {batuZone}</strong> (CABA/GBA):{" "}
                 <strong>{ars(t.shipping)}</strong> (estimado, se confirma al cerrar).
               </p>
+            ) : cpMissing ? (
+              // Cliente final sin zona Batu: el CP es obligatorio. Este mensaje se
+              // ve SIEMPRE (no espera al click en "Calcular") porque bloquea avanzar.
+              <p style={{ marginTop: "8px", fontSize: "13px", color: "var(--danger, #c0392b)" }}>
+                Ingresá un código postal válido de 4 dígitos (ej. 5515) para calcular el
+                envío.
+              </p>
             ) : (
               shipMsg &&
               (bandForCp(cp) ? (
@@ -340,6 +360,16 @@ export default function CarritoPage() {
               title={`El máximo de compra minorista es ${ars(RETAIL_CART_MAX)} IVA incluido`}
             >
               Supera el máximo minorista
+            </button>
+          ) : cpMissing ? (
+            <button
+              type="button"
+              className="btn btn-primary btn-lg btn-block"
+              style={{ marginTop: "20px" }}
+              disabled
+              title="Ingresá un código postal válido de 4 dígitos para calcular el envío"
+            >
+              Ingresá tu código postal
             </button>
           ) : (
             <Link

@@ -104,9 +104,37 @@ export default defineType({
     }),
 
     // ---- Totales ----
-    defineField({ name: "subtotal", title: "Subtotal", type: "number" }),
-    defineField({ name: "iva", title: "IVA", type: "number" }),
-    defineField({ name: "total", title: "Total", type: "number" }),
+    defineField({
+      name: "subtotal",
+      title: "Subtotal",
+      type: "number",
+      description: "Neto de productos, SIN IVA y sin envío.",
+    }),
+    defineField({
+      name: "iva",
+      title: "IVA",
+      type: "number",
+      description:
+        "IVA total del pedido: el de los productos MÁS el del envío. Ojo: Subtotal + IVA NO es el precio de los productos con IVA. El desglose está en los dos campos siguientes.",
+    }),
+    defineField({
+      name: "ivaProductos",
+      title: "IVA de productos",
+      type: "number",
+      description: "Parte del IVA total que corresponde a los productos (sobre el Subtotal).",
+    }),
+    defineField({
+      name: "ivaEnvio",
+      title: "IVA del envío",
+      type: "number",
+      description: "Parte del IVA total que corresponde al envío (sobre «Envío estimado» en neto).",
+    }),
+    defineField({
+      name: "total",
+      title: "Total",
+      type: "number",
+      description: "Lo que pagó el cliente: productos con IVA + envío con IVA.",
+    }),
 
     // ---- Envío ----
     // Los escribe /api/orders al crear el pedido (estimado server-side por CP o
@@ -116,7 +144,7 @@ export default defineType({
       name: "cpDestino",
       title: "CP de destino",
       type: "string",
-      description: "Código postal que cargó el cliente en el checkout.",
+      description: "Código postal que cargó el cliente en el checkout (normalizado a 4 dígitos).",
       readOnly: true,
     }),
     defineField({
@@ -147,13 +175,14 @@ export default defineType({
       type: "boolean",
       readOnly: true,
       description:
-        "El pedido superó el techo de bultos de las tarifas cargadas, así que NO se le cobró envío: hay que cotizarlo con el cliente antes de despachar. Es lo mismo que vio en el carrito.",
+        "ACTIVADO = a este pedido NO se le cobró envío y hay que cotizarlo con el cliente antes de despachar (pasa cuando el pedido supera el peso máximo de las tarifas cargadas). APAGADO = el envío ya se cobró: el monto está en «Envío estimado». Este texto aparece en todos los pedidos; lo que vale es el interruptor.",
     }),
     defineField({
       name: "envioEstimado",
       title: "Envío estimado",
       type: "number",
-      description: "Costo de envío calculado al momento del pedido, ya incluido en el total.",
+      description:
+        "Envío que se le cobró al cliente, CON IVA incluido. Ya está sumado en el Total. Cuenta de control: Subtotal + IVA de productos + este valor = Total.",
       readOnly: true,
     }),
     defineField({
