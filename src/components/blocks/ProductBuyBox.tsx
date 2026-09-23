@@ -84,8 +84,19 @@ export default function ProductBuyBox({
   const hasPres = presList.length > 0;
   // Mayorista abre en el primer bulto (compra típica); minorista, en Individual.
   const firstBultoIdx = presList.findIndex((p) => p.units > 1);
+  // Producto SOLO MAYORISTA en la unidad, pero con alguna presentación que SÍ
+  // tiene precio minorista en la planilla (caso B500ACRF315, 23-sep-2026: la
+  // unidad solo tiene mayorista, la caja x30 tiene minorista). El cliente final
+  // abre en esa presentación en vez de en una unidad que no puede comprar.
+  const firstRetailIdx = wholesaleOnlyProduct
+    ? presList.findIndex((p) => p.units > 1 && presHasRetail(p, presentationPricing))
+    : -1;
   const [idx, setIdx] = useState(
-    (wholesale || bulkOnly) && firstBultoIdx >= 0 ? firstBultoIdx : 0,
+    (wholesale || bulkOnly) && firstBultoIdx >= 0
+      ? firstBultoIdx
+      : firstRetailIdx >= 0
+        ? firstRetailIdx
+        : 0,
   );
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
@@ -150,7 +161,11 @@ export default function ProductBuyBox({
   // Lo único que sí lo frena en la ficha es que el producto sea SOLO MAYORISTA
   // (la planilla no le puso precio minorista): ahí ve el precio neto "+ IVA",
   // el mismo al que accedería con el alta, pero no lo puede agregar.
-  const wholesaleOnly = !wholesale && wholesaleOnlyProduct;
+  // El bloqueo es POR PRESENTACIÓN: `wholesaleOnlyProduct` dice que la UNIDAD no
+  // tiene precio minorista, pero una caja con precio minorista propio en la
+  // planilla se vende igual. Mismo criterio que /api/orders y CardFoot.
+  const selHasRetail = presMatch != null && presMatch.pricePublic != null;
+  const wholesaleOnly = !wholesale && wholesaleOnlyProduct && !selHasRetail;
   const dp = resolveDisplayPrice(
     wholesaleOnly ? { ...selPricing, may: selPricing.pub } : selPricing,
     wholesale || wholesaleOnly,
@@ -555,4 +570,12 @@ export default function ProductBuyBox({
       )}
     </div>
   );
+}
+
+/** ¿La presentación tiene precio minorista propio en la planilla? */
+function presHasRetail(p: Pres, pricing: PresentationPricing[] | undefined): boolean {
+  const row =
+    (p.sku ? pricing?.find((pp) => pp.sku === p.sku) : undefined) ??
+    pricing?.find((pp) => pp.unitsPerBulk === p.units);
+  return row?.pricePublic != null;
 }

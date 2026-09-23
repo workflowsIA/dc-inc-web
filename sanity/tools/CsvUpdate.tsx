@@ -510,7 +510,6 @@ export function CsvUpdate() {
       description: "Descripción de ejemplo",
       category: "Botellas",
       deliveryTime: "24-48 hs",
-      presentations: "24un en Caja; 2025un en Pallet",
       badges: "Más vendido; Nuevo",
       decoAvailable: "Sí",
       specs: "Material: Vidrio; Color: Ámbar",

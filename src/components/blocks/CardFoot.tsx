@@ -69,20 +69,30 @@ function RetailFoot({
   // SOLO MAYORISTA: la planilla no le puso precio minorista. Se muestra el
   // precio neto "+ IVA" (el mismo que vería con el alta) pero no se puede
   // agregar. Ver wholesaleOnly en sheet-sync.ts.
-  const wholesaleOnly = product.wholesaleOnly === true;
-  const dp = resolveDisplayPrice(
-    wholesaleOnly ? { ...product, may: product.pub } : { ...product, may },
-    wholesaleOnly,
-  );
+  const unitWholesaleOnly = product.wholesaleOnly === true;
   // Presentaciones con su neto por unidad (pricePublic de la fila; si falta,
-  // el unitario base).
+  // el unitario base). `retail` = la fila tiene precio minorista propio.
   const opts = presentationOptions(product.presentationPricing).map((o) => {
     const row = product.presentationPricing?.find((pp) => pp.sku === o.sku);
-    return { ...o, net: row?.pricePublic ?? product.pub };
+    return { ...o, net: row?.pricePublic ?? product.pub, retail: row?.pricePublic != null };
   });
   // -1 = unidad. Productos por color (tapas): sin unidad, arranca en el paquete.
-  const [idx, setIdx] = useState(product.bulkOnly && opts.length ? 0 : -1);
+  // Solo mayorista en la unidad pero con una caja minorista: arranca en esa caja.
+  const firstRetail = unitWholesaleOnly ? opts.findIndex((o) => o.retail) : -1;
+  const [idx, setIdx] = useState(
+    product.bulkOnly && opts.length ? 0 : firstRetail >= 0 ? firstRetail : -1,
+  );
   const sel = idx >= 0 ? opts[idx] : undefined;
+  // El bloqueo es por presentación (mismo criterio que la ficha y /api/orders).
+  const wholesaleOnly = unitWholesaleOnly && !sel?.retail;
+  const dp = resolveDisplayPrice(
+    wholesaleOnly
+      ? { ...product, may: product.pub }
+      : unitWholesaleOnly && sel
+        ? { ...product, pub: sel.net, may }
+        : { ...product, may },
+    wholesaleOnly,
+  );
   // En la card mostramos hasta 4 presentaciones (las tapas por color tienen
   // 10); el resto se elige en la ficha.
   const CARD_MAX = 4;

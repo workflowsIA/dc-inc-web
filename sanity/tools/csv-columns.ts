@@ -115,12 +115,10 @@ export const COLUMNS: ColumnDef[] = [
     kind: "string",
     headers: ["plazo de entrega", "plazo", "entrega", "deliverytime"],
   },
-  {
-    field: "presentations",
-    label: "Presentaciones",
-    kind: "stringArray",
-    headers: ["presentaciones", "presentations"],
-  },
+  // "Presentaciones" (texto heredado de Wix) se sacó del CSV el 23-sep-2026: no
+  // se muestra en ningún lado de la web y confundía (Marce preguntó dónde se
+  // veía). Lo que se vende sale de las filas de la planilla (presentationPricing).
+  // Si un archivo viejo trae la columna, aparece como "Ignorada".
   // --- Oferta (merchandising manual, el sync no lo toca) ---
   {
     field: "isOnSale",

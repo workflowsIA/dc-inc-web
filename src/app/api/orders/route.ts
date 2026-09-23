@@ -227,7 +227,9 @@ export async function POST(req: Request) {
         // Solo mayorista: la planilla no le puso precio minorista, así que el
         // cliente final no lo puede comprar (el pricePublic que tiene cargado
         // es el neto mayorista, ver sheet-sync.ts).
-        if (!wholesale && prod.wholesaleOnly) {
+        // Es POR PRESENTACIÓN: una caja con precio minorista propio en la
+        // planilla se vende aunque la unidad sea solo mayorista (B500ACRF315).
+        if (!wholesale && prod.wholesaleOnly && pres?.pricePublic == null) {
           return NextResponse.json(
             {
               ok: false,
