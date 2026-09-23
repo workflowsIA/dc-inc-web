@@ -501,7 +501,19 @@ export async function runSheetSync(opts: { dryRun?: boolean } = {}): Promise<Syn
   // en la web hasta que alguien les complete foto/categoría y los publique.
   // Bandeja en el Studio: Catálogo → Productos → "Nuevos desde la planilla".
   // Idempotente: id determinístico + createIfNotExists (no pisa ediciones a medias).
-  const knownSkus = new Set(products.map((p) => p.sku));
+  // OJO: `products` sale con la perspectiva por defecto del client
+  // (apiVersion 2026 → solo PUBLICADOS). Un producto que se despublicó queda
+  // solo como borrador y, si se mira únicamente `products`, parece "nuevo" → el
+  // sync le creaba un segundo borrador `product-sheet-<SKU>` al lado del
+  // original (caso TR28P, 23-sep-2026: Marce lo despublicó por CSV y a la media
+  // hora apareció un gemelo en "Nuevos desde la planilla"). Para decidir qué es
+  // nuevo se cuentan también los borradores.
+  const draftSkus: { sku: string }[] = await sanityWriteClient.fetch(
+    `*[_type == "product" && defined(sku) && _id in path("drafts.**")]{ sku }`,
+    {},
+    { perspective: "raw" },
+  );
+  const knownSkus = new Set([...products.map((p) => p.sku), ...draftSkus.map((d) => d.sku)]);
   const createdDrafts: SyncSummary["createdDrafts"] = [];
   // Los drafts se acumulan en UNA transacción y se commitean de una sola vez.
   // Antes se hacía un `await createIfNotExists` por SKU (N round-trips
