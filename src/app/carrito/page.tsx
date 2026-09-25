@@ -351,16 +351,18 @@ export default function CarritoPage() {
             )}
           </div>
 
-          {capped ? (
-            <button
-              type="button"
+          {capped && !cpMissing ? (
+            // Sobre el tope no se paga online, pero el pedido se puede cerrar por
+            // WhatsApp DESDE EL CHECKOUT: ahí se cargan los datos del cliente y el
+            // pedido queda guardado en el panel (origin "whatsapp").
+            <Link
               className="btn btn-primary btn-lg btn-block"
               style={{ marginTop: "20px" }}
-              disabled
-              title={`El máximo de compra minorista es ${ars(RETAIL_CART_MAX)} IVA incluido`}
+              href="/checkout"
+              title={`El máximo de compra online minorista es ${ars(RETAIL_CART_MAX)} IVA incluido`}
             >
-              Supera el máximo minorista
-            </button>
+              Continuar para cerrar por WhatsApp →
+            </Link>
           ) : cpMissing ? (
             <button
               type="button"

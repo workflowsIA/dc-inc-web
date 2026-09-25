@@ -16,6 +16,7 @@ import {
   pesoUnitarioAforado,
   shippingEstimate,
   shippingNet,
+  effectiveBatuZone,
   type BatuZone,
   type Bulto,
 } from "@/lib/shipping";
@@ -314,7 +315,10 @@ export async function POST(req: Request) {
     // TOPE MINORISTA (server-side, espeja al carrito y al checkout): el cliente
     // final no puede confirmar un pedido cuyo subtotal de PRODUCTOS supere el
     // tope. Se mide sin envío, igual que en el front. Ver pricing.ts.
-    if (!wholesale && retailCartExceeded(net)) {
+    // Excepción: el pedido que se cierra por WhatsApp SÍ se guarda aunque supere
+    // el tope (origin "whatsapp"). No se cobra online, y si se rechazaba acá el
+    // pedido no quedaba registrado en el panel: solo llegaba el mensaje.
+    if (!wholesale && retailCartExceeded(net) && body.origin !== "whatsapp") {
       return NextResponse.json(
         {
           ok: false,
@@ -375,7 +379,8 @@ export async function POST(req: Request) {
       // Normalizado a 4 dígitos cuando es válido ("5.515" → "5515"), nunca el
       // texto crudo que tipeó el cliente.
       cpDestino: normalizeCp(body.cp) ?? body.cp ?? "",
-      zonaBatu: body.batuZone ?? null,
+      // La zona que se cobró de verdad: si el CP es del interior, el CP la pisa.
+      zonaBatu: effectiveBatuZone(body.cp, body.batuZone as BatuZone | undefined),
       envioEstimado: round2(shipping),
       bultosDespacho: bultosDespacho ?? undefined,
       // No se pudo estimar el envío (producto sin peso cargado, o un bulto de

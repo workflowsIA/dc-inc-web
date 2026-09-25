@@ -13,6 +13,7 @@ import { totalsFor, unitPrice, waCheckoutURL, type CheckoutInfo } from "@/lib/wh
 import {
   BATU_ZONE_OPTIONS,
   DEFAULT_SHIPPING_CONFIG,
+  cpAllowsBatu,
   isValidCp,
   normalizeCp,
   type BatuZone,
@@ -363,6 +364,12 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
                 value={info.cp}
                 onChange={set("cp")}
               />
+              {info.batuZone && !cpAllowsBatu(info.cp) && (
+                <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>
+                  Tu código postal no es de CABA/GBA: el envío se calcula por Andreani
+                  según el código postal, no por la zona elegida.
+                </p>
+              )}
               {cpMissing && (
                 <p style={{ margin: 0, fontSize: "12px", color: "var(--danger, #c0392b)" }}>
                   Ingresá un código postal válido de 4 dígitos (ej. 5515) para calcular el

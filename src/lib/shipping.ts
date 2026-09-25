@@ -116,6 +116,29 @@ export function shippingForCp(
 export type BatuZone = 1 | 2 | 3 | 4;
 
 /** Partidos de cada zona (para el selector del checkout). */
+/**
+ * ¿El CP admite envío propio (Batu)? Batu solo reparte en CABA + GBA, que son
+ * los CP 1000–1999. Sin CP válido no hay con qué contradecir la zona → true.
+ */
+export function cpAllowsBatu(cp: string | undefined | null): boolean {
+  const n = parseCp(cp);
+  return n === null || (n >= 1000 && n <= 1999);
+}
+
+/**
+ * Zona Batu que efectivamente se cobra: EL CP PISA A LA ZONA. Caso real
+ * #394100-OO6 (25-sep-2026): cliente de El Carmen, Jujuy (CP 4603) que dejó el
+ * selector en "Zona 1" (el default) y se le cotizó Batu en vez de Andreani.
+ * Si el CP es válido y no es de CABA/GBA, se ignora la zona y se usa el CP.
+ */
+export function effectiveBatuZone(
+  cp: string | undefined | null,
+  zone: BatuZone | null | undefined,
+): BatuZone | null {
+  if (!zone) return null;
+  return cpAllowsBatu(cp) ? zone : null;
+}
+
 export const BATU_ZONE_OPTIONS: { zone: BatuZone; label: string }[] = [
   { zone: 1, label: "Zona 1 — CABA, Vicente López, San Isidro, San Martín, Tres de Febrero, Villa Adelina" },
   { zone: 2, label: "Zona 2 — Lanús, Lomas, Avellaneda, Morón, Hurlingham, San Fernando, Ituzaingó, La Matanza (N)" },
@@ -571,11 +594,13 @@ export function shippingEstimate(
   if (wholesale) return { total: 0, toQuote: true, reason: "mayorista" };
   // CABA/GBA con envío propio: tarifa por zona × bultos (más barata que
   // Andreani y ya escala con la cantidad).
-  if (batuZone) {
+  // El CP pisa a la zona: un CP del interior nunca se cobra como Batu.
+  const zone = effectiveBatuZone(cp, batuZone);
+  if (zone) {
     // Batu cobra por cantidad de bultos: los que salen DESPUÉS de consolidar.
     // Sin el desglose de pesos caemos al conteo de líneas del carrito.
     const paq = detalle ? paquetesDeBultos(detalle, cfg) : null;
-    return { total: batuShipping(batuZone, paq ?? bultos, cfg), toQuote: false };
+    return { total: batuShipping(zone, paq ?? bultos, cfg), toQuote: false };
   }
   if (cfg.andreaniMode === "cotizar") return { total: 0, toQuote: true };
   return andreaniQuote(cp, detalle ?? [{ kg: null, cantidad: bultos }], cfg);
