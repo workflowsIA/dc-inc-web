@@ -3,6 +3,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCart } from "@/lib/cart-store";
+import { trackPixel, commerceParams } from "@/lib/meta-pixel";
 
 /**
  * /checkout/gracias — pantalla de retorno tras el pago.
@@ -48,6 +49,22 @@ function Gracias() {
         if (cancelled) return;
         if (data?.paid) {
           setNaveState("paid");
+          // Meta Pixel: Purchase, una sola vez por pedido (eventID = nro de
+          // pedido, para deduplicar si se suma la API de conversiones). Se lee
+          // el carrito ANTES de vaciarlo.
+          try {
+            const key = `dc_px_purchase_${order}`;
+            if (!sessionStorage.getItem(key)) {
+              sessionStorage.setItem(key, "1");
+              const lines = useCart
+                .getState()
+                .items.filter((i) => i.kind !== "deco")
+                .map((i) => ({ sku: i.sku, qty: i.qty, price: i.pub }));
+              trackPixel("Purchase", { ...commerceParams(lines), order_id: order }, `order-${order}`);
+            }
+          } catch {
+            /* noop */
+          }
           clear();
           // Si abrimos nosotros la pestaña de Nave (flujo nuevo del checkout),
           // la cerramos: el cliente ya tiene la confirmación en esta pestaña.

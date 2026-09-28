@@ -15,6 +15,7 @@ import ProductCard from "@/components/blocks/ProductCard";
 import { plainText } from "@/lib/format";
 import { waSimpleURL } from "@/lib/whatsapp";
 import ProductBuyBox from "@/components/blocks/ProductBuyBox";
+import TrackViewContent from "@/components/site/TrackViewContent";
 
 export const revalidate = 60;
 
@@ -122,6 +123,7 @@ export default async function ProductPage({ params }: Props) {
             </p>
           )}
 
+          <TrackViewContent sku={product.sku} name={product.name} price={product.pub} />
           <div style={{ marginTop: "24px" }}>
             <ProductBuyBox
               deli={product.deli}

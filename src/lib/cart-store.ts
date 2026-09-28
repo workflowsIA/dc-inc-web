@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { trackPixel, commerceParams } from "./meta-pixel";
 
 /** Snapshot del producto que guardamos en el carrito. Guardamos los datos
  *  necesarios para renderizar y armar el mensaje de WhatsApp, así el carrito
@@ -78,7 +79,14 @@ export const useCart = create<CartState>()(
   persist(
     (set) => ({
       items: [],
-      add: (snapshot, qty = 1, deco = false) =>
+      add: (snapshot, qty = 1, deco = false) => {
+        // Meta Pixel: AddToCart (líneas de decorado no son producto de catálogo).
+        if (snapshot.kind !== "deco") {
+          trackPixel("AddToCart", {
+            ...commerceParams([{ sku: snapshot.sku, qty, price: snapshot.pub }]),
+            content_name: snapshot.name,
+          });
+        }
         set((s) => {
           const key = lineKey(snapshot);
           const ex = s.items.find((i) => lineKey(i) === key);
@@ -92,7 +100,8 @@ export const useCart = create<CartState>()(
             };
           }
           return { items: [...s.items, { ...snapshot, qty, deco }] };
-        }),
+        });
+      },
       // Venta por bulto cerrado: la cantidad siempre es múltiplo del bulto.
       // Snappeamos al múltiplo más cercano (mínimo 1 bulto) para que nunca
       // queden unidades sueltas, sin importar de dónde venga el setQty.

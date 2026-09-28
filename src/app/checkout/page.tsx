@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { OrderNotices } from "@/components/blocks/OrderNotices";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { trackPixel, commerceParams } from "@/lib/meta-pixel";
 import { useRouter } from "next/navigation";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useCart, lineKey } from "@/lib/cart-store";
@@ -44,6 +45,19 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
   const pricePending = wholesale && !pricesReady;
   const money = (n: number) => (pricePending ? "—" : ars(n));
   const md = (user?.unsafeMetadata ?? {}) as Record<string, string>;
+
+  // Meta Pixel: InitiateCheckout una sola vez al entrar con carrito.
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (checkoutTracked.current || items.length === 0) return;
+    checkoutTracked.current = true;
+    trackPixel(
+      "InitiateCheckout",
+      commerceParams(
+        items.filter((i) => i.kind !== "deco").map((i) => ({ sku: i.sku, qty: i.qty, price: i.pub })),
+      ),
+    );
+  }, [items]);
 
   // Logueado → prefilleamos con los datos del perfil (editables). Nombre y email
   // salen de la cuenta Clerk; empresa y teléfono, de "Mi cuenta → Datos de
@@ -301,6 +315,13 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
       // cerrando por WhatsApp. Ver el schema `order` → campo `origin`.
       origin: "whatsapp" as const,
     };
+    // Meta Pixel: el pedido por WhatsApp es un Lead (la venta se cierra en el chat).
+    trackPixel(
+      "Lead",
+      commerceParams(
+        items.filter((i) => i.kind !== "deco").map((i) => ({ sku: i.sku, qty: i.qty, price: i.pub })),
+      ),
+    );
     // fire-and-forget: no await, no preventDefault. Errores solo a consola.
     fetch("/api/orders", {
       method: "POST",

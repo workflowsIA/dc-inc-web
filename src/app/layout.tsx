@@ -8,6 +8,7 @@ import ChromeWrapper from "@/components/site/ChromeWrapper";
 import { WholesalePricesProvider } from "@/lib/wholesale-prices";
 import MobileCartBar from "@/components/site/MobileCartBar";
 import WelcomeModalGate from "@/components/site/WelcomeModalGate";
+import MetaPixel from "@/components/site/MetaPixel";
 import "./globals.css";
 
 const display = Space_Grotesk({
@@ -120,6 +121,7 @@ export default function RootLayout({
               {children}
             </ChromeWrapper>
             <MobileCartBar />
+            <MetaPixel />
           </WholesalePricesProvider>
         </body>
       </html>
