@@ -8,11 +8,13 @@
  *   3. /api/nave/reconcile-pending — barredora (GitHub Action cada 30 min)
  *
  * Hace: marca el pedido pagado → descuenta stock en la planilla (gated) →
- * crea la tarjeta de VENTA WEB en el board CRM de Monday (best-effort).
+ * crea la tarjeta de VENTA WEB en el board CRM de Monday (best-effort) →
+ * avisa la compra a Meta por la API de conversiones (best-effort, gated).
  */
 import { sanityWriteClient } from "@/lib/sanity";
 import { stockSaleAfterPayment } from "@/lib/sheet-sync";
 import { notifyOrderPaid } from "@/lib/monday";
+import { sendCapiPurchase } from "@/lib/meta-capi";
 import type { SanityOrder } from "@/lib/queries";
 
 export async function finalizePaidOrder(
@@ -52,4 +54,7 @@ export async function finalizePaidOrder(
   } catch (err) {
     console.warn(`[${tag}] Monday venta falló (pedido ${order.orderNumber ?? "?"}):`, err);
   }
+
+  // Compra a Meta (API de conversiones). No-op sin META_CAPI_TOKEN; nunca tira.
+  await sendCapiPurchase(order, tag);
 }
