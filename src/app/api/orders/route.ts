@@ -14,13 +14,13 @@ import {
   normalizeCp,
   paquetesDeBultos,
   pesoUnitarioAforado,
-  shippingEstimate,
   shippingNet,
   effectiveBatuZone,
   type BatuZone,
   type Bulto,
 } from "@/lib/shipping";
 import { getDecoPricing, getShippingConfig } from "@/lib/sanity-data";
+import { shippingEstimateLive } from "@/lib/andreani-api";
 import { decoQuote } from "@/lib/deco";
 import { guard, LIMITS } from "@/lib/rate-limit";
 
@@ -331,14 +331,18 @@ export async function POST(req: Request) {
     }
     // Envío estimado server-side: Batu (zona × bultos) si el cliente eligió zona
     // CABA/GBA; si no, banda de CP (interior). Mayorista → 0.
+    // Con ANDREANI_API=on el interior se cotiza contra la API de Andreani
+    // (mismas reglas de consolidación; si la API falla, cae a la tabla).
     const shipCfg = await getShippingConfig();
-    const quote = shippingEstimate(
+    const quote = await shippingEstimateLive(
       {
         cp: body.cp,
         batuZone: body.batuZone as BatuZone | undefined,
         bultos: Math.max(1, totalBultos),
         wholesale,
         detalle: bultosDetalle,
+        // valor declarado para el seguro de Andreani = productos con IVA
+        valorProductos: Math.round(net * (1 + IVA_RATE)),
       },
       shipCfg,
     );

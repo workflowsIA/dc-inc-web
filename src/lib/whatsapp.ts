@@ -99,6 +99,9 @@ export function totalsFor(
   cp?: string,
   batuZone?: BatuZone | null,
   cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
+  /** Cotización de envío ya resuelta por el server (Andreani en vivo, ver
+   *  useLiveShipping). Si viene, pisa al estimado de tabla. */
+  liveShipping?: ShippingQuote | null,
 ): Totals {
   const sub = items.reduce((s, i) => s + unitPrice(i, wholesale) * i.qty, 0);
   const rate = volumeRate(sub);
@@ -108,10 +111,9 @@ export function totalsFor(
   // si no, banda de CP (interior). Mayorista: "a cotizar", no se suma.
   const finalConsumer = !wholesale;
   const bultos = totalBultosLegacy(items);
-  const quote = shippingEstimate(
-    { cp, batuZone, bultos, wholesale, detalle: bultosDetalle(items) },
-    cfg,
-  );
+  const quote =
+    liveShipping ??
+    shippingEstimate({ cp, batuZone, bultos, wholesale, detalle: bultosDetalle(items) }, cfg);
   const shipping = quote.total;
   const shippingQuote = quote.toQuote;
   const shippingReason = quote.reason;
@@ -160,8 +162,9 @@ function orderBody(
   cp?: string,
   batuZone?: BatuZone | null,
   cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
+  liveShipping?: ShippingQuote | null,
 ): string {
-  const t = totalsFor(items, wholesale, cp, batuZone, cfg);
+  const t = totalsFor(items, wholesale, cp, batuZone, cfg, liveShipping);
   let msg = "";
   for (const i of items) {
     // Mismo criterio que el carrito: el cliente final ve cada línea con IVA
@@ -216,10 +219,11 @@ export function waOrderURL(
   cp?: string,
   batuZone?: BatuZone | null,
   cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
+  liveShipping?: ShippingQuote | null,
 ): string {
   const msg =
     "Hola DC Inc! Quiero cotizar este pedido:\n\n" +
-    orderBody(items, wholesale, cp, batuZone, cfg) +
+    orderBody(items, wholesale, cp, batuZone, cfg, liveShipping) +
     "\n\n(Enviado desde el carrito web)";
   return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
 }
@@ -243,8 +247,11 @@ export function waCheckoutURL(
   wholesale: boolean,
   info: CheckoutInfo,
   cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
+  liveShipping?: ShippingQuote | null,
 ): string {
-  let msg = "Hola DC Inc! Quiero confirmar este pedido:\n\n" + orderBody(items, wholesale, info.cp, info.batuZone, cfg);
+  let msg =
+    "Hola DC Inc! Quiero confirmar este pedido:\n\n" +
+    orderBody(items, wholesale, info.cp, info.batuZone, cfg, liveShipping);
   const datos: string[] = [];
   if (info.nombre) datos.push(`Nombre: ${info.nombre}`);
   if (info.empresa) datos.push(`Empresa: ${info.empresa}`);

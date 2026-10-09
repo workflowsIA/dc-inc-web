@@ -7,6 +7,7 @@ import { useCart, lineKey } from "@/lib/cart-store";
 import { ars } from "@/lib/format";
 import { RETAIL_CART_MAX, retailCartExceeded } from "@/lib/pricing";
 import { totalsFor, unitPrice, waOrderURL } from "@/lib/whatsapp";
+import { useLiveShipping } from "@/lib/use-live-shipping";
 import {
   bandForCp,
   isValidCp,
@@ -53,7 +54,9 @@ export default function CarritoPage() {
     };
   }, []);
 
-  const t = totalsFor(items, wholesale, cp, batuZone, shipCfg);
+  // Andreani en vivo (si está prendido en el server); null → tabla.
+  const liveShip = useLiveShipping(items, wholesale, cp, batuZone, shipCfg);
+  const t = totalsFor(items, wholesale, cp, batuZone, shipCfg, liveShip);
   // Tope minorista por carrito: pasado el monto no se puede seguir al checkout.
   // El aviso con el motivo lo pone <RetailCapNotice/> arriba del resumen.
   const capped = !wholesale && retailCartExceeded(t.net);
@@ -385,7 +388,7 @@ export default function CarritoPage() {
           <a
             className="btn btn-wa btn-block"
             style={{ marginTop: "10px" }}
-            href={waOrderURL(items, wholesale, cp, batuZone, shipCfg)}
+            href={waOrderURL(items, wholesale, cp, batuZone, shipCfg, liveShip)}
             target="_blank"
             rel="noopener"
           >

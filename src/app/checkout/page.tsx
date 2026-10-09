@@ -11,6 +11,7 @@ type ClerkUser = NonNullable<ReturnType<typeof useUser>["user"]>;
 import { ars } from "@/lib/format";
 import { retailCartExceeded } from "@/lib/pricing";
 import { totalsFor, unitPrice, waCheckoutURL, type CheckoutInfo } from "@/lib/whatsapp";
+import { useLiveShipping } from "@/lib/use-live-shipping";
 import {
   BATU_ZONE_OPTIONS,
   DEFAULT_SHIPPING_CONFIG,
@@ -97,7 +98,9 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
     };
   }, []);
 
-  const t = totalsFor(items, wholesale, info.cp, info.batuZone, shipCfg);
+  // Andreani en vivo (si está prendido en el server); null → tabla.
+  const liveShip = useLiveShipping(items, wholesale, info.cp, info.batuZone, shipCfg);
+  const t = totalsFor(items, wholesale, info.cp, info.batuZone, shipCfg, liveShip);
   // Tope minorista por carrito: pasado el monto no se puede pagar. El aviso con
   // el motivo lo pone <RetailCapNotice/> arriba del resumen; el servidor lo
   // vuelve a chequear en /api/orders, nunca confía en esto.
@@ -535,7 +538,7 @@ function CheckoutForm({ user }: { user: ClerkUser | null }) {
               // se deshabilita igual que los botones de pago online.
               ...(cpMissing ? { opacity: 0.5, pointerEvents: "none", cursor: "not-allowed" } : {}),
             }}
-            href={waCheckoutURL(items, wholesale, info, shipCfg)}
+            href={waCheckoutURL(items, wholesale, info, shipCfg, liveShip)}
             target="_blank"
             rel="noopener"
             aria-disabled={cpMissing}

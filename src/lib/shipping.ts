@@ -407,6 +407,10 @@ export interface ShippingConfig {
   /** Hasta cuántos kg facturables un bulto se junta con otros en el despacho.
    *  Ver BULTO_CONSOLIDA_MAX_KG. */
   bultoConsolidaMaxKg?: number;
+  /** La API de Andreani está prendida en el server (ANDREANI_API=on). NO viene
+   *  de Sanity: lo agrega /api/shipping-config, y le avisa al carrito y al
+   *  checkout que pidan la cotización real a /api/shipping-quote. */
+  andreaniLive?: boolean;
 }
 
 /** Config por defecto = las tarifas hardcodeadas actuales. Es el fallback si
@@ -473,6 +477,9 @@ export interface ShippingQuote {
   toQuote: boolean;
   /** por qué hay que cotizar (para el cartel y para el pedido) */
   reason?: "sin-peso" | "bulto-grande" | "pedido-grande" | "mayorista" | "cp";
+  /** De dónde salió el monto de Andreani: la tabla por banda o la API en
+   *  vivo (src/lib/andreani-api.ts). Solo informativo. */
+  source?: "tabla" | "api";
 }
 
 /** Cómo queda el pedido una vez aplicada la regla de consolidación. */
@@ -540,37 +547,59 @@ export function paquetesDeBultos(
   return c.paquetes.length || null;
 }
 
+export type AndreaniPlan =
+  | { quote: ShippingQuote }
+  | { band: ShippingBand; paquetes: number[]; tableTotal: number };
+
 /**
- * Envío al interior (Andreani): se cobra POR PAQUETE, así que primero se
- * aplica la regla de consolidación y después se tarifa paquete por paquete.
- * Va "a cotizar" si el CP no es válido (sin banda no hay tarifa que cobrar —
- * ver normalizeCp()), si algún producto no tiene peso cargado, o si un bulto
- * pasa los 50 kg facturables (ahí corresponde pallet, no paquetería).
+ * Todo lo que decide el envío al interior ANTES de ponerle precio: banda del
+ * CP, consolidación, topes. Devuelve o bien la respuesta final ("a cotizar",
+ * vacío) o los paquetes a tarifar con su total de tabla. Lo comparten la tabla
+ * (andreaniQuote) y la API en vivo (andreani-api.ts), así las dos aplican
+ * exactamente las mismas reglas y solo difieren en el precio de cada paquete.
+ */
+export function andreaniPlan(
+  cp: string | undefined | null,
+  bultos: Bulto[],
+  cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
+): AndreaniPlan {
+  const band = bandForCp(cp);
+  // Sin CP válido no hay banda de tarifa: antes esto caía en silencio a AMBA
+  // (la más barata) y cobraba de menos a cualquiera cuyo CP no matcheara el
+  // regex viejo (ej. "5.515" con punto). Ahora se corta y se pide el dato.
+  if (band === null) return { quote: { total: 0, toQuote: true, reason: "cp" } };
+  const c = consolidar(bultos, cfg);
+  if (c.sinPeso) return { quote: { total: 0, toQuote: true, reason: "sin-peso" } };
+  if (c.bultoGrande) return { quote: { total: 0, toQuote: true, reason: "bulto-grande" } };
+  if (c.paquetes.length === 0) return { quote: { total: 0, toQuote: false } };
+  const kgTotal = c.paquetes.reduce((a, b) => a + b, 0);
+  // Pedido grande: ya no es paquetería (ver PEDIDO_MAX_KG).
+  if (kgTotal > PEDIDO_MAX_KG) return { quote: { total: 0, toQuote: true, reason: "pedido-grande" } };
+  let total = 0;
+  for (const kg of c.paquetes) {
+    const rate = rateForBulto(band, kg, cfg);
+    if (rate === null) return { quote: { total: 0, toQuote: true, reason: "bulto-grande" } };
+    total += rate;
+  }
+  return { band, paquetes: c.paquetes, tableTotal: total };
+}
+
+/**
+ * Envío al interior (Andreani) con la TABLA por banda: se cobra POR PAQUETE,
+ * así que primero se aplica la regla de consolidación y después se tarifa
+ * paquete por paquete. Va "a cotizar" si el CP no es válido (sin banda no hay
+ * tarifa que cobrar — ver normalizeCp()), si algún producto no tiene peso
+ * cargado, o si un bulto pasa los 50 kg facturables (ahí corresponde pallet,
+ * no paquetería). La versión con la API en vivo es andreaniQuoteLive().
  */
 export function andreaniQuote(
   cp: string | undefined | null,
   bultos: Bulto[],
   cfg: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
 ): ShippingQuote {
-  const band = bandForCp(cp);
-  // Sin CP válido no hay banda de tarifa: antes esto caía en silencio a AMBA
-  // (la más barata) y cobraba de menos a cualquiera cuyo CP no matcheara el
-  // regex viejo (ej. "5.515" con punto). Ahora se corta y se pide el dato.
-  if (band === null) return { total: 0, toQuote: true, reason: "cp" };
-  const c = consolidar(bultos, cfg);
-  if (c.sinPeso) return { total: 0, toQuote: true, reason: "sin-peso" };
-  if (c.bultoGrande) return { total: 0, toQuote: true, reason: "bulto-grande" };
-  if (c.paquetes.length === 0) return { total: 0, toQuote: false };
-  const kgTotal = c.paquetes.reduce((a, b) => a + b, 0);
-  // Pedido grande: ya no es paquetería (ver PEDIDO_MAX_KG).
-  if (kgTotal > PEDIDO_MAX_KG) return { total: 0, toQuote: true, reason: "pedido-grande" };
-  let total = 0;
-  for (const kg of c.paquetes) {
-    const rate = rateForBulto(band, kg, cfg);
-    if (rate === null) return { total: 0, toQuote: true, reason: "bulto-grande" };
-    total += rate;
-  }
-  return { total, toQuote: false };
+  const plan = andreaniPlan(cp, bultos, cfg);
+  if ("quote" in plan) return plan.quote;
+  return { total: plan.tableTotal, toQuote: false, source: "tabla" };
 }
 
 /**
