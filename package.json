@@ -18,6 +18,7 @@
     "export:meta:sheet": "tsx --env-file=.env.local scripts/export-meta-catalog-sheet.ts",
     "sync:sheet": "tsx --env-file=.env.local scripts/sync-sheet-to-sanity.ts",
     "andreani:probe": "tsx --env-file=.env.local scripts/andreani-probe.ts",
+    "andreani:tabla": "tsx --env-file=.env.local scripts/andreani-tabla.ts",
     "backfill:customers": "tsx --env-file=.env.local scripts/backfill-customers.ts",
     "migrate:customers": "tsx --env-file=.env.local scripts/migrate-customers-to-prod.ts",
     "seed:testimonials": "tsx --env-file=.env.local scripts/seed-testimonials.ts",

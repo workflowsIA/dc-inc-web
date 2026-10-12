@@ -33,6 +33,10 @@ export default defineType({
     defineField({
       name: "andreaniBands",
       title: "Tarifas Andreani por banda (interior, ≤10 kg)",
+      // Campo VIEJO (oct-2026): la tarifa de Andreani ahora sale de la API en
+      // vivo y, de respaldo, de src/lib/andreani-tarifas.ts (npm run
+      // andreani:tabla). Se oculta para que no se edite algo que no se usa.
+      hidden: true,
       type: "array",
       of: [
         {

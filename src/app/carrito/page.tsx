@@ -342,7 +342,7 @@ export default function CarritoPage() {
               shipMsg &&
               (bandForCp(cp) ? (
                 <p style={{ marginTop: "8px", fontSize: "13px", color: "var(--muted)" }}>
-                  Envío a domicilio a <strong>{SHIPPING_BAND_LABEL[bandForCp(cp)!]}</strong>:{" "}
+                  Envío a domicilio (zona <strong>{SHIPPING_BAND_LABEL[bandForCp(cp)!]}</strong>):{" "}
                   <strong>{ars(t.shipping)}</strong> (estimado, se confirma al cerrar).
                 </p>
               ) : (

@@ -1,32 +1,37 @@
 /**
- * Costo de envío estimado — Andreani (a domicilio, ≤10 kg, origen Villa Maipú).
+ * Costo de envío — Andreani (a domicilio) para el interior, Batu propio en
+ * CABA/GBA.
  *
- * Relevado del panel Andreani Pymes (cuenta DC Inc) el 13-jul-2026.
- * La tarifa negociada tiene 4 BANDAS de precio (no 8 zonas) y es PLANA hasta
- * ~10 kg → el costo NO depende del peso (mientras sea ≤10 kg), sólo del destino.
- * Online vende sólo minorista ≤10 kg; envíos más pesados / pallets cierran por
- * WhatsApp. Se muestra como ESTIMADO y se confirma al cerrar el pedido.
+ * Andreani: contrato de paquetería en cuenta corriente (oct-2026, cliente
+ * 0000126886, contrato WS 400043741). La tarifa es por ZONA (4) × TRAMO de
+ * peso aforado (9 tramos hasta 50 kg). Con ANDREANI_API=on el precio sale de
+ * la API en vivo (andreani-api.ts); la tabla de andreani-tarifas.ts es el
+ * respaldo. Se muestra como estimado y se confirma al cerrar.
  *
- * La banda se infiere del CP con rangos aproximados (los CP argentinos se pisan
- * en algunos bordes, pero al ser un estimado confirmado al cierre, alcanza).
+ * La zona se infiere del CP con rangos por provincia (relevados contra la API
+ * el 12-oct-2026 en 29 ciudades).
  */
+
+import { ANDREANI_TABLA } from "./andreani-tarifas";
 
 export type ShippingBand = "AMBA" | "B2" | "B3" | "B4";
 
-/** Tarifa "a domicilio" (≤10 kg) por banda, en ARS. */
+/** Tarifa del PRIMER tramo (≤1 kg) por zona, en ARS con IVA. Legado: lo
+ *  usan el "Envío desde $X" y el campo viejo del Studio; el cálculo real usa
+ *  SHIPPING_RATES_BY_TIER. */
 export const SHIPPING_RATES: Record<ShippingBand, number> = {
-  AMBA: 23074, // CABA + GBA (conurbano)
-  B2: 43979, // Buenos Aires interior + Centro (Córdoba, Santa Fe, Entre Ríos, La Pampa)
-  B3: 54222, // Cuyo (Mendoza, San Juan, San Luis) + Patagonia + NEA (Chaco, Corrientes, Misiones, Formosa)
-  B4: 66082, // NOA (Salta, Jujuy, Tucumán, Catamarca, Sgo. del Estero, La Rioja)
+  AMBA: Math.round(ANDREANI_TABLA.zonas.AMBA[0]), // CABA + GBA (incluye La Plata)
+  B2: Math.round(ANDREANI_TABLA.zonas.B2[0]), // resto del país continental, menos Patagonia
+  B3: Math.round(ANDREANI_TABLA.zonas.B3[0]), // Patagonia (Bahía Blanca hacia el sur)
+  B4: Math.round(ANDREANI_TABLA.zonas.B4[0]), // Tierra del Fuego
 };
 
 /** Etiqueta legible de cada banda (para UI / debug). */
 export const SHIPPING_BAND_LABEL: Record<ShippingBand, string> = {
   AMBA: "CABA y GBA",
-  B2: "Buenos Aires interior y Centro",
-  B3: "Cuyo, Patagonia y NEA",
-  B4: "NOA",
+  B2: "Interior",
+  B3: "Patagonia",
+  B4: "Tierra del Fuego",
 };
 
 /** Tarifa más barata — para el "Envío desde $X" cuando aún no se conoce el destino. */
@@ -62,27 +67,23 @@ function parseCp(cp: string | undefined | null): number | null {
 }
 
 /**
- * Infiere la banda de tarifa a partir del CP. Rangos aproximados por provincia;
- * los verificados en el relevamiento (CABA 1000, Lanús 1824, Mar del Plata 7600,
- * Córdoba 5000, Mendoza 5500, Neuquén 8300, Resistencia 3500, Salta 4400) caen
- * en la banda correcta. Devuelve null si el CP no es válido.
+ * Infiere la zona de tarifa de Andreani a partir del CP. Relevado contra la
+ * API el 12-oct-2026 (29 ciudades, contrato 400043741):
+ *  - AMBA: CABA y GBA, incluida La Plata (1900).
+ *  - B2 "Interior": todo el resto del país continental — Bs As interior,
+ *    Centro, Cuyo, NEA y NOA cotizan igual (Rosario = Mendoza = Salta).
+ *  - B3 "Patagonia": de Bahía Blanca (8000) hacia el sur.
+ *  - B4 "Tierra del Fuego": Ushuaia / Río Grande (94xx salvo Río Gallegos).
+ * Devuelve null si el CP no es válido.
  */
 export function bandForCp(cp: string | undefined | null): ShippingBand | null {
   const n = parseCp(cp);
   if (n === null) return null;
   if (n >= 1000 && n <= 1499) return "AMBA"; // CABA
-  if (n >= 1600 && n <= 1900) return "AMBA"; // GBA (conurbano)
-  if (n >= 3300 && n <= 3799) return "B3"; // NEA
-  if (n >= 4000 && n <= 4999) return "B4"; // NOA
-  if (n >= 5000 && n <= 5299) return "B2"; // Córdoba
-  if (n >= 5300 && n <= 5399) return "B4"; // La Rioja
-  if (n >= 5400 && n <= 5999) return "B3"; // Cuyo
-  if (n >= 8200 && n <= 9999) return "B3"; // Patagonia
-  // Buenos Aires interior + Santa Fe/Entre Ríos + Bs As sur + La Pampa
-  if ((n >= 1500 && n <= 3299) || (n >= 3800 && n <= 3999) || (n >= 6000 && n <= 8199)) {
-    return "B2";
-  }
-  return null;
+  if (n >= 1600 && n <= 1900) return "AMBA"; // GBA (conurbano + La Plata)
+  if (n >= 9410 && n <= 9439) return "B4"; // Tierra del Fuego
+  if (n >= 8000 && n <= 9999) return "B3"; // Patagonia (Bahía Blanca al sur)
+  return "B2"; // resto del país
 }
 
 /**
@@ -164,8 +165,9 @@ export const BATU_RATES: Record<BatuZone, { maxBultos: number; price: number }[]
 /* ─────────────────────────────────────────────────────────────
  * PESO AFORADO Y TARIFA POR TRAMO (Andreani "Paquetes")
  *
- * Relevado del panel Andreani Pymes el 10-sep-2026. Dos cosas que la tabla
- * vieja (plana ≤10 kg) no contemplaba y que cambian el número:
+ * Relevado del panel Andreani Pymes el 10-sep-2026 (cuenta VIEJA; los montos
+ * de los ejemplos de abajo son de esa cuenta, el contrato de oct-2026 es otro
+ * y está en andreani-tarifas.ts). Los dos principios siguen valiendo:
  *
  *  1. ANDREANI COBRA POR PESO AFORADO = max(peso real, volumen / AFORO_DIVISOR (hoy 350 kg/m³)).
  *     Verificado: una caja de 60×60×60 cm sale lo MISMO con 1 kg que con
@@ -375,17 +377,12 @@ export const BULTO_CONSOLIDA_MAX_KG = 10;
  */
 export const PEDIDO_MAX_KG = 50;
 
-/** Tramos de peso facturable de la tarifa. El último tramo es el tope. */
-export const WEIGHT_TIERS = [20, 35, 50] as const;
+/** Tramos de peso facturable de la tarifa (kg). El último tramo es el tope. */
+export const WEIGHT_TIERS: readonly number[] = ANDREANI_TABLA.tramosKg;
 
-/** Tarifa A DOMICILIO por banda × tramo (ARS con IVA, panel Andreani 10-sep-2026).
- *  Índice = tramo de WEIGHT_TIERS. El primero coincide con SHIPPING_RATES. */
-export const SHIPPING_RATES_BY_TIER: Record<ShippingBand, [number, number, number]> = {
-  AMBA: [23074, 33895, 38534],
-  B2: [43979, 70793, 91654],
-  B3: [54222, 88387, 116788],
-  B4: [66082, 108757, 145904],
-};
+/** Tarifa A DOMICILIO por zona × tramo (ARS con IVA). Índice = tramo de
+ *  WEIGHT_TIERS. Sale de andreani-tarifas.ts (generado contra la API). */
+export const SHIPPING_RATES_BY_TIER: Record<ShippingBand, readonly number[]> = ANDREANI_TABLA.zonas;
 
 /* ─────────────────────────────────────────────────────────────
  * CONFIG DE ENVÍOS EDITABLE (Sanity, singleton `shippingConfig`).
@@ -402,8 +399,8 @@ export interface ShippingConfig {
   /** Tarifa de Andreani por banda (interior), tramo ≤20 kg. Legado: se
    *  conserva para no romper el Studio; el cálculo usa `andreaniByTier`. */
   andreani: Record<ShippingBand, number>;
-  /** Tarifa de Andreani por banda × tramo de peso facturable (≤20 / ≤35 / ≤50 kg). */
-  andreaniByTier?: Record<ShippingBand, [number, number, number]>;
+  /** Tarifa de Andreani por zona × tramo de peso facturable (ver WEIGHT_TIERS). */
+  andreaniByTier?: Record<ShippingBand, readonly number[]>;
   /** "estimado" = el interior muestra la tarifa de banda; "cotizar" = el
    *  interior va "a cotizar" (no se suma monto, se coordina por WhatsApp). */
   andreaniMode: "estimado" | "cotizar";
@@ -448,11 +445,9 @@ export function batuShipping(
 /**
  * Costo de UN bulto de `kg` facturables a esa banda. null = fuera de tabla.
  *
- * Precisión: exacto en los puntos medidos. En el extremo superior del rango
- * (cerca de 50 kg por volumen) Andreani deja de usar tramos y pasa a cobrar
- * lineal por volumen, así que ahí el tramo queda ~3-4% por debajo del precio
- * real (medido: $120.913 vs $116.788 de tabla). Como el envío se muestra
- * SIEMPRE como estimado y se confirma al cerrar, se acepta.
+ * Es el respaldo de la API en vivo: exacto en los 899 puntos relevados el
+ * 12-oct-2026 (valor declarado $30.000; con más valor declarado la API suma
+ * 2% de seguro que la tabla no tiene).
  */
 export function rateForBulto(
   band: ShippingBand,
