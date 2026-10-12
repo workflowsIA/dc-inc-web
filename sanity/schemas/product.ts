@@ -304,7 +304,7 @@ export default defineType({
       group: "presentacion",
       readOnly: true,
       description:
-        "Lo carga la sincronización desde la planilla de inventario (columna Peso). Junto con las medidas define el peso facturable del envío: Andreani cobra el mayor entre el peso real y el volumen ÷ 3000. Si falta, el envío de ese producto va «a cotizar» — se completa en la planilla, no acá.",
+        "Lo carga la sincronización desde la planilla de inventario (columna Peso). Junto con las medidas define el peso facturable del envío: Andreani cobra el mayor entre el peso real y el peso volumétrico (350 kg por m³). Si falta, el envío de ese producto va «a cotizar» — se completa en la planilla, no acá.",
     }),
     defineField({
       name: "largoCm",

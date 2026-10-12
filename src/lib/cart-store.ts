@@ -14,7 +14,7 @@ export interface CartItem {
   may: number; // precio mayorista unitario
   bulto: number;
   /** Peso FACTURABLE de UN bulto de esta línea (kg): el mayor entre el peso
-   *  real y el volumen ÷ 3000. Lo calcula la ficha al agregar, desde el peso y
+   *  real y el volumen ÷ AFORO_DIVISOR (350 kg/m³). Lo calcula la ficha al agregar, desde el peso y
    *  las medidas de la planilla de inventario. undefined = ese producto no
    *  tiene peso cargado → el envío va "a cotizar". Ver src/lib/shipping.ts. */
   aforadoKg?: number;

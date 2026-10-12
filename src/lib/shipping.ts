@@ -167,7 +167,7 @@ export const BATU_RATES: Record<BatuZone, { maxBultos: number; price: number }[]
  * Relevado del panel Andreani Pymes el 10-sep-2026. Dos cosas que la tabla
  * vieja (plana ≤10 kg) no contemplaba y que cambian el número:
  *
- *  1. ANDREANI COBRA POR PESO AFORADO = max(peso real, volumen / 3000).
+ *  1. ANDREANI COBRA POR PESO AFORADO = max(peso real, volumen / AFORO_DIVISOR (hoy 350 kg/m³)).
  *     Verificado: una caja de 60×60×60 cm sale lo MISMO con 1 kg que con
  *     20 kg ($164.476 a Neuquén). O sea: el aire se paga.
  *
@@ -227,8 +227,11 @@ export function shippingNet(total: number, ivaRate = 0.21): number {
   return SHIPPING_RATES_INCLUDE_IVA ? total / (1 + ivaRate) : total;
 }
 
-/** Divisor de aforo de Andreani: cm³ por kg facturable. */
-export const AFORO_DIVISOR = 3000;
+/** Divisor de aforo de Andreani: cm³ por kg facturable.
+ *  Contrato de paquetería (oct-2026): 350 kg/m³ → 1.000.000 / 350 ≈ 2857.
+ *  Medido en la API: caja 60×60×60 (216.000 cm³) = 75,6 kg aforados.
+ *  (Antes 3000, relevado del panel Pymes de la cuenta vieja.) */
+export const AFORO_DIVISOR = 1_000_000 / 350;
 
 /** Peso facturable de un bulto: el mayor entre el real y el volumétrico. */
 export function aforadoKg(

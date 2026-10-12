@@ -26,8 +26,17 @@
  * API (developers.andreani.com):
  *   GET {base}/login  con Basic auth → header `x-authorization-token` (24 h)
  *   GET {base}/v1/tarifas?cpDestino&contrato&cliente[&sucursalOrigen]
- *       &bultos[0][pesoAforado]&bultos[0][valorDeclarado]
- *   → { tarifaConIva: { total }, tarifaSinIva: { total }, pesoAforado }
+ *       &bultos[0][kilos]&bultos[0][valorDeclarado]
+ *   → { tarifaConIva: { total, distribucion, seguroDistribucion },
+ *       tarifaSinIva: { … }, pesoAforado (EN GRAMOS) }
+ *
+ * Medido contra la API real el 12-oct-2026 (contrato 400043741, a Salta):
+ *  - `bultos[0][pesoAforado]` se IGNORA para el precio (siempre da el
+ *    mínimo). El peso va en `kilos`.
+ *  - Aforo del contrato = 350 kg/m³ (60×60×60 → 75,6 kg), ver AFORO_DIVISOR.
+ *  - Seguro = 2% del valor declarado + IVA (declarado $30.000 → $726).
+ *  - Precio: mínimo plano y después ~lineal por kg (1 kg $17.368,
+ *    20 kg $40.269, 49 kg $78.164 con IVA).
  */
 
 import {
@@ -168,10 +177,11 @@ export async function cotizarPaquete(
     cliente: env.cliente,
   });
   if (env.sucursalOrigen) params.set("sucursalOrigen", env.sucursalOrigen);
-  // Mandamos el peso YA AFORADO (max(real, volumen/3000)): es el mismo número
-  // con el que consolidar() armó los paquetes, así Andreani cotiza exactamente
-  // el paquete que va a salir del depósito.
-  params.set("bultos[0][pesoAforado]", String(Math.round(kgAforado * 100) / 100));
+  // Mandamos el peso YA AFORADO como `kilos` (sin medidas, así Andreani no
+  // vuelve a aforar): es el mismo número con el que consolidar() armó los
+  // paquetes, así Andreani cotiza exactamente el paquete que sale del
+  // depósito. OJO: el campo `pesoAforado` existe pero la API lo ignora.
+  params.set("bultos[0][kilos]", String(Math.round(kgAforado * 100) / 100));
   params.set("bultos[0][valorDeclarado]", String(Math.round(valorDeclarado)));
   const url = `${env.base}/v1/tarifas?${params.toString()}`;
 
@@ -187,7 +197,8 @@ export async function cotizarPaquete(
   const conIva = Number((json.tarifaConIva as { total?: unknown } | undefined)?.total);
   const sinIvaRaw = Number((json.tarifaSinIva as { total?: unknown } | undefined)?.total);
   if (!(conIva > 0)) throw new Error(`andreani tarifas sin total: ${JSON.stringify(json).slice(0, 300)}`);
-  const af = Number(json.pesoAforado);
+  // La API devuelve el aforado en GRAMOS.
+  const af = Number(json.pesoAforado) / 1000;
   return {
     conIva,
     sinIva: sinIvaRaw > 0 ? sinIvaRaw : null,
